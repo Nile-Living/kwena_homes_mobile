@@ -9,7 +9,7 @@ interface PropertyCardProps {
     price: number;
     location: string;
     bedrooms: number;
-    bathrooms: number;
+    bathrooms?: number;
     images: string[];
     liked?: boolean;
   };

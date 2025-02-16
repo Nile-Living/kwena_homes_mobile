@@ -17,27 +17,28 @@ export default function FilterChips({
   selectedFilters,
   onSelectFilter,
 }: FilterChipsProps) {
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={styles.container}
-  >
-    {options.map((option) => {
-      const isSelected = selectedFilters.includes(option.id);
-      return (
-        <TouchableOpacity
-          key={option.id}
-          style={[styles.chip, isSelected && styles.selectedChip]}
-        >
-          <Text
-            style={[styles.chipText, isSelected && styles.selectedChipText]}
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.container}
+    >
+      {options.map((option) => {
+        const isSelected = selectedFilters.includes(option.id);
+        return (
+          <TouchableOpacity
+            key={option.id}
+            style={[styles.chip, isSelected && styles.selectedChip]}
+            onPress={() => onSelectFilter(option.id)}
           >
-            {option.label}
-          </Text>
-        </TouchableOpacity>
-      );
-    })}
-  </ScrollView>;
+            <Text style={[styles.chipText, isSelected && styles.selectedChipText]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -56,12 +57,10 @@ const styles = StyleSheet.create({
   selectedChip: {
     backgroundColor: "#244835",
   },
-
   chipText: {
     fontSize: 14,
     color: "#666",
   },
-
   selectedChipText: {
     color: "#FFF",
   },
