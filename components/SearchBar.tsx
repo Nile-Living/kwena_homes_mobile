@@ -36,7 +36,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     padding: 16,
-    gap: 12
+    gap: 12,
+    marginBottom: 8
   },
 
   searchContainer: {

@@ -41,10 +41,12 @@ export default function HomeScreen() {
           location: "New Kasama",
           bedrooms: 2,
           bathrooms: 2,
-          images: [
-            "https://images.unsplash.com/photo-1507089947368-19c1da9775ae",
-          ],
+          images: ["https://images.unsplash.com/photo-1507089947368-19c1da9775ae"],
           liked: false,
+          coordinates: {
+            latitude: -15.3950,
+            longitude: 28.3228,
+          },
         },
         {
           id: "2",
@@ -53,10 +55,12 @@ export default function HomeScreen() {
           location: "Leopards Hill",
           bedrooms: 4,
           bathrooms: 3,
-          images: [
-            "https://plus.unsplash.com/premium_photo-1724701624517-22953482ce56?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8a2VueWElMjBob3VzZXxlbnwwfHwwfHx8MA%3D%3D",
-          ],
+          images: ["https://plus.unsplash.com/premium_photo-1724701624517-22953482ce56"],
           liked: false,
+          coordinates: {
+            latitude: -15.4255,
+            longitude: 28.3554,
+          },
         },
         {
           id: "3",
@@ -65,10 +69,12 @@ export default function HomeScreen() {
           location: "Chongwe",
           bedrooms: 3,
           bathrooms: 2,
-          images: [
-            "https://images.unsplash.com/photo-1505691938895-1758d7feb511",
-          ],
+          images: ["https://images.unsplash.com/photo-1505691938895-1758d7feb511"],
           liked: false,
+          coordinates: {
+            latitude: -15.3280,
+            longitude: 28.7016,
+          },
         },
         {
           id: "4",
@@ -77,10 +83,12 @@ export default function HomeScreen() {
           location: "Rhodes Park",
           bedrooms: 2,
           bathrooms: 2,
-          images: [
-            "https://images.unsplash.com/photo-1519710164239-da123dc03ef4",
-          ],
+          images: ["https://images.unsplash.com/photo-1519710164239-da123dc03ef4"],
           liked: false,
+          coordinates: {
+            latitude: -15.4085,
+            longitude: 28.2907,
+          },
         },
         {
           id: "5",
@@ -89,10 +97,12 @@ export default function HomeScreen() {
           location: "Siavonga",
           bedrooms: 3,
           bathrooms: 2,
-          images: [
-            "https://images.unsplash.com/photo-1501594907352-04cda38ebc29",
-          ],
+          images: ["https://images.unsplash.com/photo-1501594907352-04cda38ebc29"],
           liked: false,
+          coordinates: {
+            latitude: -16.5382,
+            longitude: 28.7208,
+          },
         },
         {
           id: "6",
@@ -101,10 +111,12 @@ export default function HomeScreen() {
           location: "Lusaka CBD",
           bedrooms: 1,
           bathrooms: 1,
-          images: [
-            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267",
-          ],
+          images: ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"],
           liked: false,
+          coordinates: {
+            latitude: -15.4167,
+            longitude: 28.2833,
+          },
         },
         {
           id: "7",
@@ -113,10 +125,12 @@ export default function HomeScreen() {
           location: "Kafue",
           bedrooms: 4,
           bathrooms: 3,
-          images: [
-            "https://images.unsplash.com/photo-1585803432702-10cb6c23638b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzF8fGtlbnlhJTIwaG91c2V8ZW58MHx8MHx8fDA%3D",
-          ],
+          images: ["https://images.unsplash.com/photo-1585803432702-10cb6c23638b"],
           liked: false,
+          coordinates: {
+            latitude: -15.7691,
+            longitude: 28.1824,
+          },
         },
         {
           id: "8",
@@ -125,10 +139,12 @@ export default function HomeScreen() {
           location: "Mwinilunga",
           bedrooms: 2,
           bathrooms: 1,
-          images: [
-            "https://images.unsplash.com/photo-1673262790281-ffa252979094?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fGtlbnlhJTIwaG91c2V8ZW58MHx8MHx8fDA%3D",
-          ],
+          images: ["https://images.unsplash.com/photo-1673262790281-ffa252979094"],
           liked: false,
+          coordinates: {
+            latitude: -11.7373,
+            longitude: 24.4285,
+          },
         },
         {
           id: "9",
@@ -137,10 +153,12 @@ export default function HomeScreen() {
           location: "Mass Media",
           bedrooms: 3,
           bathrooms: 3,
-          images: [
-            "https://images.unsplash.com/photo-1502672023488-70e25813eb80",
-          ],
+          images: ["https://images.unsplash.com/photo-1502672023488-70e25813eb80"],
           liked: false,
+          coordinates: {
+            latitude: -15.3990,
+            longitude: 28.3134,
+          },
         },
         {
           id: "10",
@@ -149,10 +167,12 @@ export default function HomeScreen() {
           location: "Kabulonga",
           bedrooms: 3,
           bathrooms: 2,
-          images: [
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750",
-          ],
+          images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750"],
           liked: false,
+          coordinates: {
+            latitude: -15.4017,
+            longitude: 28.3098,
+          },
         },
       ];
       setProperties(mockProperties);
