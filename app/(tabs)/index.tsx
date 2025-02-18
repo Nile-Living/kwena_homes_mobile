@@ -47,6 +47,12 @@ export default function HomeScreen() {
             latitude: -15.3950,
             longitude: 28.3228,
           },
+          description: "A beautiful modern apartment in the heart of New Kasama. Features include an open floor plan, modern kitchen with stainless steel appliances, and a private balcony with city views.",
+          agent: {
+            name: "Jane Mutale",
+            phone: "+260977123456",
+            email: "jane.mutale@zamaproperties.com"
+          }
         },
         {
           id: "2",
@@ -61,7 +67,14 @@ export default function HomeScreen() {
             latitude: -15.4255,
             longitude: 28.3554,
           },
+          description: "Exquisite luxury villa in the prestigious Leopards Hill area. This property features a grand entryway, spacious living areas, gourmet kitchen, and resort-style pool with panoramic views.",
+          agent: {
+            name: "John Mwanza",
+            phone: "+260966789012",
+            email: "john.mwanza@zamaproperties.com"
+          }
         },
+        // Continue adding agent information to all properties...
         {
           id: "3",
           title: "Cozy Cottage",
@@ -75,6 +88,12 @@ export default function HomeScreen() {
             latitude: -15.3280,
             longitude: 28.7016,
           },
+          description: "Charming cottage nestled in a quiet Chongwe neighborhood. Perfect for those seeking a peaceful retreat with easy access to the city.",
+          agent: {
+            name: "Mary Banda",
+            phone: "+260955678901",
+            email: "mary.banda@zamaproperties.com"
+          }
         },
         {
           id: "4",
@@ -89,6 +108,12 @@ export default function HomeScreen() {
             latitude: -15.4085,
             longitude: 28.2907,
           },
+          description: "Modern loft-style apartment in Rhodes Park with high ceilings, exposed brick walls, and industrial design elements. Includes a dedicated workspace and rooftop access.",
+          agent: {
+            name: "David Phiri",
+            phone: "+260977345678",
+            email: "david.phiri@zamaproperties.com"
+          }
         },
         {
           id: "5",
@@ -103,6 +128,12 @@ export default function HomeScreen() {
             latitude: -16.5382,
             longitude: 28.7208,
           },
+          description: "Stunning beachfront property in Siavonga with direct lake access. Perfect for weekend getaways or investment opportunities in Zambia's growing tourism sector.",
+          agent: {
+            name: "Sarah Tembo",
+            phone: "+260966234567",
+            email: "sarah.tembo@zamaproperties.com"
+          }
         },
         {
           id: "6",
@@ -117,6 +148,12 @@ export default function HomeScreen() {
             latitude: -15.4167,
             longitude: 28.2833,
           },
+          description: "Compact and stylish studio apartment in downtown Lusaka. Perfect for young professionals or as an investment property in the growing CBD area.",
+          agent: {
+            name: "Michael Zulu",
+            phone: "+260977123789",
+            email: "michael.zulu@zamaproperties.com"
+          }
         },
         {
           id: "7",
@@ -131,6 +168,12 @@ export default function HomeScreen() {
             latitude: -15.7691,
             longitude: 28.1824,
           },
+          description: "Rustic country house on a large plot in Kafue. Features include fruit trees, garden area, and views of the surrounding countryside.",
+          agent: {
+            name: "Rebecca Mulenga",
+            phone: "+260966567890",
+            email: "rebecca.mulenga@zamaproperties.com"
+          }
         },
         {
           id: "8",
@@ -145,6 +188,12 @@ export default function HomeScreen() {
             latitude: -11.7373,
             longitude: 24.4285,
           },
+          description: "Peaceful mountain cabin in Mwinilunga with stunning views. Ideal for those seeking a tranquil retreat away from city life.",
+          agent: {
+            name: "Joseph Mwape",
+            phone: "+260977890123",
+            email: "joseph.mwape@zamaproperties.com"
+          }
         },
         {
           id: "9",
@@ -159,6 +208,12 @@ export default function HomeScreen() {
             latitude: -15.3990,
             longitude: 28.3134,
           },
+          description: "Luxurious penthouse in the heart of Mass Media with panoramic city views. Features include floor-to-ceiling windows, designer finishes, and a private rooftop terrace.",
+          agent: {
+            name: "Linda Chanda",
+            phone: "+260966456789",
+            email: "linda.chanda@zamaproperties.com"
+          }
         },
         {
           id: "10",
@@ -167,12 +222,18 @@ export default function HomeScreen() {
           location: "Kabulonga",
           bedrooms: 3,
           bathrooms: 2,
-          images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750"],
+          images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750", "https://images.unsplash.com/photo-1502672023488-70e25813eb80"],
           liked: false,
           coordinates: {
             latitude: -15.4017,
             longitude: 28.3098,
           },
+          description: "Character-filled townhouse in the established Kabulonga neighborhood. Features original architectural details blended with modern updates.",
+          agent: {
+            name: "Thomas Mumba",
+            phone: "+260977234567",
+            email: "thomas.mumba@zamaproperties.com"
+          }
         },
       ];
       setProperties(mockProperties);

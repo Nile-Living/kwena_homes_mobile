@@ -7,14 +7,17 @@ import { Ionicons } from '@expo/vector-icons'
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
+  const headerBackgroundColor = Colors[colorScheme ?? 'light'].background;
+  const headerTintColor = Colors[colorScheme ?? 'light'].text;
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerStyle: {
-          backgroundColor: Colors[colorScheme ?? 'light'].background,
+          backgroundColor: headerBackgroundColor,
         },
-        headerTintColor: Colors[colorScheme ?? 'dark'].text,
+        headerTintColor: headerTintColor,
       }}
     >
       <Tabs.Screen

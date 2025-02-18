@@ -14,6 +14,11 @@ interface Property {
     longitude: number;
   };
   description?: string;
+  agent?: {
+    name: string;
+    phone: string;
+    email?: string;
+  }
 }
 
 interface PropertyState {

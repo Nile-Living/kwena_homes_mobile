@@ -38,7 +38,7 @@ export default function PropertyCard({
       </TouchableOpacity>
 
       <View style={styles.content}>
-      <Text style={styles.price}>${property.price.toLocaleString()}</Text>
+      <Text style={styles.price}>K{property.price.toLocaleString()}</Text>
         <Text style={styles.title}>{property.title}</Text>
         <Text style={styles.location}>{property.location}</Text>
         <View style={styles.features}>
