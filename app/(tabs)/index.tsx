@@ -61,7 +61,7 @@ export default function HomeScreen() {
           location: "Leopards Hill",
           bedrooms: 4,
           bathrooms: 3,
-          images: ["https://plus.unsplash.com/premium_photo-1724701624517-22953482ce56"],
+          images: ["https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bHV4dXJ5JTIwdmlsbGF8ZW58MHx8MHx8fDA%3D"],
           liked: false,
           coordinates: {
             latitude: -15.4255,

@@ -21,7 +21,7 @@ export default function FilterChips({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
+      className="h-16 pb-2"
     >
       {options.map((option) => {
         const isSelected = selectedFilters.includes(option.id);
