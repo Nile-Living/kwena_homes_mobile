@@ -31,7 +31,7 @@ export default function SignUpScreen() {
         Sign Up
       </Text>
 
-      <View className="space-y-4">
+      <View className="space-y-4 flex flex-col gap-6">
         <TextInput
           placeholder="Email"
           value={email}
@@ -65,7 +65,7 @@ export default function SignUpScreen() {
         <TouchableOpacity 
           onPress={handleSignUp} 
           disabled={loading}
-          className="w-full h-12 bg-blue-600 rounded-lg items-center justify-center"
+          className="w-full h-12 bg-green-600 rounded-lg items-center justify-center"
         >
           <Text className="text-white text-base font-semibold">
             {loading ? "Creating account..." : "Sign Up"}

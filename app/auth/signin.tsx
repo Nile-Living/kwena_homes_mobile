@@ -28,12 +28,12 @@ export default function SignInScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white px-6 py-12">
+    <View className="flex-1 flex flex-col gap- bg-white px-6 py-12">
       <Text className="text-3xl font-bold text-center text-gray-800 mb-8">
         Sign In
       </Text>
 
-      <View className="space-y-4">
+      <View className="space-y-4 flex flex-col gap-6">
         <TextInput
           placeholder="Email"
           value={email}
@@ -46,7 +46,7 @@ export default function SignInScreen() {
 
         <TextInput
           placeholder="Password"
-          value={email}
+          value={password}
           onChangeText={setPassword}
           secureTextEntry
           className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
@@ -54,11 +54,11 @@ export default function SignInScreen() {
         />
       </View>
 
-      <View className="space-y-4 mt-8">
+      <View className="space-y-4 mt-8 flex flex-col gap-6">
         <TouchableOpacity 
           onPress={handleSignIn} 
           disabled={loading}
-          className="w-full h-12 bg-blue-600 rounded-lg items-center justify-center"
+          className="w-full h-12 bg-green-600 rounded-lg items-center justify-center"
         >
           <Text className="text-white text-base font-semibold">
             {loading ? "Signing in..." : "Sign In"}
@@ -80,7 +80,7 @@ export default function SignInScreen() {
         onPress={() => router.push("/auth/signup")}
         className="mt-6"
       >
-        <Text className="text-blue-600 text-center text-base">
+        <Text className="text-green-600 text-center text-base">
           Don't have an account? Sign Up
         </Text>
       </TouchableOpacity>
