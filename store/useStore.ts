@@ -64,7 +64,13 @@ export const useStore = create<PropertyState>((set, get) => ({
       if (error) throw error;
       
       const savedIds = data.map(item => item.property_id);
-      set({ savedProperties: savedIds });
+      set(state => ({
+        savedProperties: savedIds,
+        properties: state.properties.map(property => ({
+          ...property,
+          liked: savedIds.includes(property.id)
+        }))
+      }));
     } catch (error) {
       console.error('Error fetching saved properties:', error);
     }

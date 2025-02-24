@@ -34,7 +34,7 @@ const PropertyPreview = ({ property, onPress }: { property: Property; onPress: (
             {property.location}
           </Text>
           <Text className="text-base font-semibold text-green-600">
-            ${property.price.toLocaleString()}
+            K{property.price.toLocaleString()}
           </Text>
         </View>
       </View>
@@ -107,7 +107,7 @@ export default function ExploreScreen() {
                   key={property.id}
                   coordinate={property.coordinates}
                   title={property.title}
-                  description={`$${property.price.toLocaleString()} - ${property.location}`}
+                  description={`K${property.price.toLocaleString()} - ${property.location}`}
                   onPress={() => handleMarkerPress(property)}
                 />
               )

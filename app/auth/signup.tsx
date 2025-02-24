@@ -65,7 +65,7 @@ export default function SignUpScreen() {
         <TouchableOpacity 
           onPress={handleSignUp} 
           disabled={loading}
-          className="w-full h-12 bg-green-600 rounded-lg items-center justify-center"
+          className="w-full h-12 bg-green-800 rounded-lg items-center justify-center"
         >
           <Text className="text-white text-base font-semibold">
             {loading ? "Creating account..." : "Sign Up"}
@@ -77,7 +77,7 @@ export default function SignUpScreen() {
         onPress={() => router.push("/auth/signin")}
         className="mt-6"
       >
-        <Text className="text-blue-600 text-center text-base">
+        <Text className="text-green-800 text-center text-base">
           Already have an account? Sign In
         </Text>
       </TouchableOpacity>
