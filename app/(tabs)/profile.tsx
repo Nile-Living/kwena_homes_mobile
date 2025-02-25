@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";	
 import * as ImagePicker from 'expo-image-picker';
 import Config from "react-native-config";
+import * as FileSystem from 'expo-file-system';
 
 interface Profile {
     id: string,
@@ -55,25 +56,47 @@ export default function ProfileScreen() {
             });
 
             if (!result.canceled) {
-                const file = {
-                    uri: result.assets[0].uri,
-                    type: 'image/jpeg',
-                };
-
-                const { data, error} = await supabase.storage
+                // Get the URI of the selected image
+                const uri = result.assets[0].uri;
+                
+                // Read the file as base64
+                const fileBase64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                
+                // Convert base64 to blob data
+                const base64Data = fileBase64;
+                const arrayBuffer = _base64ToArrayBuffer(base64Data);
+                const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+                
+                // Upload to Supabase
+                const fileName = `${user?.id}/avatar.jpg`;
+                const { data, error } = await supabase.storage
                     .from('avatars')
-                    .upload(`${user?.id}/avatar.jpg`, file, {
-                        upsert: true
+                    .upload(fileName, blob, {
+                        upsert: true,
+                        contentType: 'image/jpeg'
                     });
 
-                    if (error) throw error;
+                if (error) throw error;
 
-                    const avatar_url = `${supabaseUrl}/storage/v1/object/public/avatart/${data.path}`;
-                    await updateProfile({ avatar_url: avatar_url});
+                // Fix for avatar URL - note the typo correction (avatart -> avatars)
+                const avatar_url = `${supabaseUrl}/storage/v1/object/public/avatars/${data.path}`;
+                await updateProfile({ avatar_url });
             }
         } catch (error) {
             console.error('Error uploading image:', error);
         }
+    };
+
+    // Helper function to convert base64 to ArrayBuffer
+    const _base64ToArrayBuffer = (base64: string) => {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
     };
 
     const updateProfile = async (updates: Partial<Profile>) => {
@@ -88,17 +111,17 @@ export default function ProfileScreen() {
         } catch (error) {
           console.error('Error updating profile:', error);
         }
-      };
+    };
     
-      if (loading) {
+    if (loading) {
         return (
           <View className="flex-1 items-center justify-center">
             <Text>Loading...</Text>
           </View>
         );
-      }
+    }
 
-      return (
+    return (
         <ScrollView className="flex-1 bg-white">
           <View className="items-center p-6">
             <TouchableOpacity
@@ -143,7 +166,7 @@ export default function ProfileScreen() {
     
             {/* Add Property Button */}
             <TouchableOpacity
-            //   onPress={() => router.push('/properties/new')}
+              onPress={() => router.push('/properties/new')}
               className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
             >
               <Ionicons name="add-circle" size={24} color="#0f172a" />
@@ -181,5 +204,5 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      ); 
+    ); 
 }
