@@ -112,7 +112,7 @@ export default function AddPropertyScreen() {
       Alert.alert(
         'Success',
         'Property listed successfully!',
-        [{ text: 'OK', onPress: () => router.push('/properties') }]
+        [{ text: 'OK', onPress: () => router.push('/') }]
       );
     } catch (error) {
       console.error('Error creating property:', error);

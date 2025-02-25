@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, Image, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
-import { Ionicons } from "@expo/vector-icons";	
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
 import Config from "react-native-config";
 import * as FileSystem from 'expo-file-system';
@@ -18,18 +18,21 @@ interface Profile {
 
 export default function ProfileScreen() {
     const router = useRouter();
-    const { user, signOut } = useAuthStore();
+    const { user, signOut, signInWithGoogle } = useAuthStore();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
     const supabaseUrl = Config.SUPABASE_URL;
 
     useEffect(() => {
         fetchProfile()
-    }, []);
+    }, [user]);
 
     const fetchProfile = async () => {
         try {
-            if (!user) return;
+            if (!user) {
+                setLoading(false);
+                return;
+            }
 
             const { data, error } = await supabase
                 .from('profiles')
@@ -47,56 +50,54 @@ export default function ProfileScreen() {
     };
 
     const handleImagePick = async () => {
+        if (!user) {
+            Alert.alert("Sign in required", "Please sign in to update your profile image");
+            router.push('/auth/signin');
+            return;
+        }
+        
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ImagePicker.MediaType.Images,
                 allowsEditing: true,
                 aspect: [1, 1],
-                quality: 1,
+                quality: 0.8,
             });
 
             if (!result.canceled) {
-                // Get the URI of the selected image
                 const uri = result.assets[0].uri;
+                const fileExtension = uri.split('.').pop();
+                const fileName = `${user.id}/avatar.${fileExtension}`;
                 
-                // Read the file as base64
-                const fileBase64 = await FileSystem.readAsStringAsync(uri, {
-                    encoding: FileSystem.EncodingType.Base64,
-                });
+                // Use FileSystem for direct upload
+                const fileInfo = await FileSystem.getInfoAsync(uri);
                 
-                // Convert base64 to blob data
-                const base64Data = fileBase64;
-                const arrayBuffer = _base64ToArrayBuffer(base64Data);
-                const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+                if (!fileInfo.exists) {
+                    throw new Error("File doesn't exist");
+                }
                 
-                // Upload to Supabase
-                const fileName = `${user?.id}/avatar.jpg`;
+                // Upload directly using FileSystem
                 const { data, error } = await supabase.storage
                     .from('avatars')
-                    .upload(fileName, blob, {
+                    .upload(fileName, {
+                        uri,
+                        type: `image/${fileExtension}`,
+                        name: `avatar.${fileExtension}`,
+                    }, {
                         upsert: true,
-                        contentType: 'image/jpeg'
+                        contentType: `image/${fileExtension}`
                     });
 
                 if (error) throw error;
 
-                // Fix for avatar URL - note the typo correction (avatart -> avatars)
-                const avatar_url = `${supabaseUrl}/storage/v1/object/public/avatars/${data.path}`;
+                // Get public URL
+                const avatar_url = `${supabaseUrl}/storage/v1/object/public/avatars/${fileName}`;
                 await updateProfile({ avatar_url });
             }
         } catch (error) {
             console.error('Error uploading image:', error);
+            Alert.alert("Upload failed", "There was a problem uploading your image");
         }
-    };
-
-    // Helper function to convert base64 to ArrayBuffer
-    const _base64ToArrayBuffer = (base64: string) => {
-        const binaryString = atob(base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        return bytes.buffer;
     };
 
     const updateProfile = async (updates: Partial<Profile>) => {
@@ -121,6 +122,43 @@ export default function ProfileScreen() {
         );
     }
 
+    // Navigation handlers with auth checks
+    const handleNavigateToProperties = () => {
+        if (!user) {
+            Alert.alert("Sign in required", "Please sign in to view your properties");
+            router.push('/auth/signin');
+        } else {
+            router.push('/properties/index');
+        }
+    };
+
+    const handleNavigateToAddProperty = () => {
+        if (!user) {
+            Alert.alert("Sign in required", "Please sign in to add a property");
+            router.push('/auth/signin');
+        } else {
+            router.push('/property/new');
+        }
+    };
+
+    const handleNavigateToSettings = () => {
+        if (!user) {
+            Alert.alert("Sign in required", "Please sign in to access settings");
+            router.push('/auth/signin');
+        } else {
+            router.push('/settings/index');
+        }
+    };
+
+    // Handle auth action based on current state
+    const handleAuthAction = () => {
+        if (user) {
+            signOut();
+        } else {
+            router.push('/auth/signin');
+        }
+    };
+
     return (
         <ScrollView className="flex-1 bg-white">
           <View className="items-center p-6">
@@ -144,14 +182,14 @@ export default function ProfileScreen() {
             </TouchableOpacity>
     
             <Text className="text-xl font-bold mb-4">
-              {profile?.full_name || 'Add your name'}
+              {profile?.full_name || (user ? 'Add your name' : 'Welcome Guest')}
             </Text>
           </View>
     
           <View className="p-6">
             {/* My Properties Button */}
             <TouchableOpacity
-            //   onPress={() => router.push('/properties')}
+              onPress={handleNavigateToProperties}
               className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
             >
               <Ionicons name="home" size={24} color="#0f172a" />
@@ -166,7 +204,7 @@ export default function ProfileScreen() {
     
             {/* Add Property Button */}
             <TouchableOpacity
-              onPress={() => router.push('/properties/new')}
+              onPress={handleNavigateToAddProperty}
               className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
             >
               <Ionicons name="add-circle" size={24} color="#0f172a" />
@@ -181,7 +219,7 @@ export default function ProfileScreen() {
     
             {/* Settings Button */}
             <TouchableOpacity
-            //   onPress={() => router.push('/settings')}
+              onPress={handleNavigateToSettings}
               className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
             >
               <Ionicons name="settings-outline" size={24} color="#0f172a" />
@@ -194,13 +232,21 @@ export default function ProfileScreen() {
               />
             </TouchableOpacity>
     
-            {/* Sign Out Button */}
+            {/* Sign In/Out Button - dynamic based on auth state */}
             <TouchableOpacity
-              onPress={signOut}
-              className="flex-row items-center p-4 bg-red-50 rounded-lg"
+              onPress={handleAuthAction}
+              className={`flex-row items-center p-4 rounded-lg ${user ? 'bg-red-50' : 'bg-blue-50'}`}
             >
-              <Ionicons name="log-out" size={24} color="#ef4444" />
-              <Text className="ml-4 text-lg text-red-500">Sign Out</Text>
+              <Ionicons 
+                name={user ? "log-out" : "log-in"} 
+                size={24} 
+                color={user ? "#ef4444" : "#3b82f6"} 
+              />
+              <Text 
+                className={`ml-4 text-lg ${user ? 'text-red-500' : 'text-blue-500'}`}
+              >
+                {user ? 'Sign Out' : 'Sign In'}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
