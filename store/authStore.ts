@@ -67,7 +67,27 @@ export const useAuthStore = create<AuthState>((set) => ({
         email,
         password,
       });
+      
       if (error) throw error;
+      
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            { 
+              id: user.id, 
+              email: user.email,
+              full_name: null,
+              avatar_url: null,
+              phone: null
+            }
+          ]);
+        
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+      }
+      
       set({ user, session, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });

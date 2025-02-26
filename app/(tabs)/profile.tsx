@@ -28,77 +28,117 @@ export default function ProfileScreen() {
     }, [user]);
 
     const fetchProfile = async () => {
-        try {
-            if (!user) {
-                setLoading(false);
+      try {
+          if (!user) {
+              setLoading(false);
+              return;
+          }
+  
+          const { data, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single();
+  
+          if (error) {
+              // If profile doesn't exist, create one
+              if (error.code === 'PGRST116') {
+                  const { data: newProfile, error: createError } = await supabase
+                      .from('profiles')
+                      .insert([
+                          { 
+                              id: user.id, 
+                              email: user.email,
+                              full_name: null,
+                              avatar_url: null,
+                              phone: null
+                          }
+                      ])
+                      .select('*')
+                      .single();
+                  
+                  if (createError) throw createError;
+                  setProfile(newProfile);
+              } else {
+                  throw error;
+              }
+          } else {
+              setProfile(data);
+          }
+      } catch (error) {
+          console.error('Error fetching profile:', error);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handleImagePick = async () => {
+    if (!user) {
+        Alert.alert("Sign in required", "Please sign in to update your profile image");
+        router.push('/auth/signin');
+        return;
+    }
+    
+    try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets.length > 0) {
+            // First, ensure the bucket exists
+            try {
+                // Check if the bucket exists by trying to get its details
+                const { error: getBucketError } = await supabase.storage.getBucket('avatars');
+                
+                // If bucket doesn't exist, create it
+                if (getBucketError && getBucketError.message.includes('not found')) {
+                  const { error: createError } = await supabase.storage.createBucket('avatars', {
+                    public: true,  // Make sure this is set to true
+                    fileSizeLimit: 1024 * 1024 * 2, // 2MB
+                });
+                    
+                    if (createError) throw createError;
+                }
+            } catch (bucketError) {
+                console.error('Error with bucket:', bucketError);
+                Alert.alert("Storage setup error", "There was a problem with the storage configuration");
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
-            if (error) throw error;
-            setProfile(data);
-        } catch (error) {
-            console.error('Error fetching profile:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleImagePick = async () => {
-        if (!user) {
-            Alert.alert("Sign in required", "Please sign in to update your profile image");
-            router.push('/auth/signin');
-            return;
-        }
-        
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaType.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
+            const uri = result.assets[0].uri;
+            const fileExtension = uri.split('.').pop();
+            const fileName = `${user.id}/avatar.${fileExtension}`;
+            
+            // Read the file as a base64 string
+            const base64 = await FileSystem.readAsStringAsync(uri, {
+                encoding: FileSystem.EncodingType.Base64,
             });
 
-            if (!result.canceled) {
-                const uri = result.assets[0].uri;
-                const fileExtension = uri.split('.').pop();
-                const fileName = `${user.id}/avatar.${fileExtension}`;
-                
-                // Use FileSystem for direct upload
-                const fileInfo = await FileSystem.getInfoAsync(uri);
-                
-                if (!fileInfo.exists) {
-                    throw new Error("File doesn't exist");
-                }
-                
-                // Upload directly using FileSystem
-                const { data, error } = await supabase.storage
-                    .from('avatars')
-                    .upload(fileName, {
-                        uri,
-                        type: `image/${fileExtension}`,
-                        name: `avatar.${fileExtension}`,
-                    }, {
-                        upsert: true,
-                        contentType: `image/${fileExtension}`
-                    });
+            // Convert base64 to ArrayBuffer
+            const buffer = Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
 
-                if (error) throw error;
+            // Upload the ArrayBuffer to Supabase Storage
+            const { data, error } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, buffer, {
+                    contentType: `image/${fileExtension}`,
+                    upsert: true,
+                });
 
-                // Get public URL
-                const avatar_url = `${supabaseUrl}/storage/v1/object/public/avatars/${fileName}`;
-                await updateProfile({ avatar_url });
-            }
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            Alert.alert("Upload failed", "There was a problem uploading your image");
+            if (error) throw error;
+
+            // Get public URL
+            const avatar_url = `${supabaseUrl}/storage/v1/object/public/avatars/${fileName}`;
+            await updateProfile({ avatar_url });
         }
-    };
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        Alert.alert("Upload failed", "There was a problem uploading your image");
+    }
+};
 
     const updateProfile = async (updates: Partial<Profile>) => {
         try {
@@ -128,7 +168,7 @@ export default function ProfileScreen() {
             Alert.alert("Sign in required", "Please sign in to view your properties");
             router.push('/auth/signin');
         } else {
-            router.push('/properties/index');
+            router.push('/properties');
         }
     };
 
@@ -146,7 +186,7 @@ export default function ProfileScreen() {
             Alert.alert("Sign in required", "Please sign in to access settings");
             router.push('/auth/signin');
         } else {
-            router.push('/settings/index');
+            router.push('/settings');
         }
     };
 
