@@ -21,7 +21,9 @@ export default function FilterChips({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      className="h-16 max-h-fit pb-2"
+      style={{ maxHeight: 48 }}
+      contentContainerStyle={{ alignItems: 'center' }}
+      className="pb-4 h-24"
     >
       {options.map((option) => {
         const isSelected = selectedFilters.includes(option.id);
@@ -31,7 +33,9 @@ export default function FilterChips({
             style={[styles.chip, isSelected && styles.selectedChip]}
             onPress={() => onSelectFilter(option.id)}
           >
-            <Text style={[styles.chipText, isSelected && styles.selectedChipText]}>
+            <Text
+              style={[styles.chipText, isSelected && styles.selectedChipText]}
+            >
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -53,6 +57,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#F5F5F5",
     marginRight: 8,
+    // height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectedChip: {
     backgroundColor: "#244835",
@@ -60,6 +67,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     color: "#666",
+    lineHeight: 14,
   },
   selectedChipText: {
     color: "#FFF",

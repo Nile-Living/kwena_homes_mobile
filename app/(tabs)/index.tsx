@@ -1,4 +1,4 @@
-import { StyleSheet, FlatList, View } from "react-native";
+import { StyleSheet, FlatList, View, RefreshControl } from "react-native";
 import { useEffect, useMemo } from "react";
 import { useStore } from "@/store/useStore";
 import { useRouter } from "expo-router";
@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     properties,
@@ -36,6 +37,7 @@ export default function HomeScreen() {
     setActiveFilters,
     toggleSavedProperty,
     setProperties,
+    setLoading
   } = useStore();
 
   const filteredProperties = useMemo(() => {
@@ -81,12 +83,11 @@ export default function HomeScreen() {
     return filtered;
   }, [properties, searchQuery, activeFilters]);
 
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("properties")
-          .select("*, agents(*)");
+  const fetchPropertiesData = async () => {
+    try {
+      const { data, error} = await supabase
+        .from("properties")
+        .select("*, agents(*)");
 
         if (error) throw error;
 
@@ -97,14 +98,43 @@ export default function HomeScreen() {
           liked: useStore.getState().savedProperties.includes(prop.id),
         }));
         setProperties(formattedProperties);
-      } catch (error) {
-        console.error("Error fetching properties:", error);
-        setError("Failed to load properties");
-      }
-    };
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      setError("Failed to laod properties");
+    }
+  };
 
-    fetchProperties();
-  }, []);
+  // In HomeScreen's useEffect
+useEffect(() => {
+  const fetchProperties = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*, agents(*)");
+
+      if (error) throw error;
+
+      const formattedProperties = data.map((prop) => ({
+        ...prop,
+        agent: prop.agents,
+        coordinates: prop.coordinates,
+        // REMOVE THIS LINE: liked: useStore.getState().savedProperties.includes(prop.id),
+      }));
+      
+      setProperties(formattedProperties);
+      setLoading(false);
+      
+      // Fetch saved properties AFTER setting initial properties
+      useStore.getState().fetchSavedProperties();
+      
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      setError("Failed to load properties");
+    }
+  };
+
+  fetchProperties();
+}, []);
 
   const handlePropertyPress = (propertyId: string) => {
     router.push(`../property/${propertyId}`);
@@ -137,6 +167,7 @@ export default function HomeScreen() {
               }
               toggleSavedProperty(item.id);
             }}
+            key={item.id}
           />
         )}
         keyExtractor={(item) => item.id}

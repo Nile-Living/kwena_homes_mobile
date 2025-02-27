@@ -88,7 +88,7 @@ export default function AddPropertyScreen() {
             .from('property-images')
             .upload(filePath, blob);
           if (error) throw error;
-          return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/property-images/${filePath}`;
+          return `${process.env.SUPABASE_URL}/storage/v1/object/public/property-images/${filePath}`;
         })
       );
       // Create property in database

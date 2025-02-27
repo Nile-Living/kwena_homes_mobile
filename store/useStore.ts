@@ -47,7 +47,7 @@ export const useStore = create<PropertyState>((set, get) => ({
   savedProperties: [],
   searchQuery: '',
   activeFilters: [],
-  loading: false,
+  loading: true,
   error: null,
 
   setProperties: (properties) => set({ properties }),
@@ -78,28 +78,38 @@ export const useStore = create<PropertyState>((set, get) => ({
   toggleSavedProperty: async (propertyId) => {
     const user = useAuthStore.getState().user;
     if (!user) return;
-
+  
     try {
       const isLiked = get().savedProperties.includes(propertyId);
-      
+  
+      // Update the local state immediately for a responsive UI
+      set((state) => ({
+        properties: state.properties.map((property) =>
+          property.id === propertyId
+            ? { ...property, liked: !isLiked } // Toggle the liked state
+            : property
+        ),
+        savedProperties: isLiked
+          ? state.savedProperties.filter((id) => id !== propertyId) // Remove if already liked
+          : [...state.savedProperties, propertyId], // Add if not liked
+      }));
+  
+      // Sync with Supabase
       if (isLiked) {
+        // Remove from saved properties in Supabase
         await supabase
-          .from('saved_properties')
+          .from("saved_properties")
           .delete()
           .match({ user_id: user.id, property_id: propertyId });
       } else {
+        // Add to saved properties in Supabase
         await supabase
-          .from('saved_properties')
+          .from("saved_properties")
           .insert({ user_id: user.id, property_id: propertyId });
       }
-      
-      set(state => ({
-        savedProperties: isLiked
-          ? state.savedProperties.filter(id => id !== propertyId)
-          : [...state.savedProperties, propertyId]
-      }));
     } catch (error) {
-      console.error('Error toggling saved property:', error);
+      console.error("Error toggling saved property:", error);
+  
     }
   },
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -107,3 +117,4 @@ export const useStore = create<PropertyState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error })
 }));
+
