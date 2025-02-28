@@ -35,7 +35,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     fetchProfile();
-    console.log("this is the supabase url", supabaseUrl);
+    // console.log("this is the supabase url", supabaseUrl);
   }, [user]);
 
   const fetchProfile = async () => {
@@ -75,7 +75,7 @@ export default function ProfileScreen() {
         }
       } else {
         setProfile(data);
-        console.log(data);
+        // console.log(data);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);

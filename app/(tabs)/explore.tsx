@@ -1,10 +1,10 @@
-import { Platform, View, Text, StyleSheet, Dimensions, Image, TouchableOpacity, Pressable } from "react-native";
+import { Platform, View, Text, StyleSheet, Dimensions, Image, Pressable } from "react-native";
 import { useState, useEffect } from "react";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useRouter } from "expo-router";
 import { useStore, Property } from "@/store/useStore";
 import SearchBar from "@/components/SearchBar";
-import { Colors } from "@/constants/Colors";
+import PriceMarker from "@/components/PriceMarker"; // Import with correct name
 import * as Location from "expo-location";
 
 const LUSAKA_COORDS = {
@@ -109,7 +109,9 @@ export default function ExploreScreen() {
                   title={property.title}
                   description={`K${property.price.toLocaleString()} - ${property.location}`}
                   onPress={() => handleMarkerPress(property)}
-                />
+                >
+                  <PriceMarker price={property.price} />
+                </Marker>
               )
           )}
         </MapView>

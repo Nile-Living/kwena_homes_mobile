@@ -1,4 +1,4 @@
-// useStore.ts
+// useStore.ts - Updated Property Interface
 
 import { create } from "zustand";
 import { useAuthStore } from "./authStore";
@@ -12,6 +12,7 @@ export interface Property {
   bedrooms: number;
   bathrooms: number;
   images: string[];
+  property_type: 'rent' | 'sale'; // Added property type
   liked?: boolean;
   coordinates?: {
     latitude: number;
@@ -30,6 +31,7 @@ interface PropertyState {
   savedProperties: string[];
   searchQuery: string;
   activeFilters: string[];
+  propertyTypeFilter: 'all' | 'rent' | 'sale'; // Added filter for property type
   loading: boolean;
   error: string | null;
 
@@ -37,6 +39,7 @@ interface PropertyState {
   toggleSavedProperty: (propertyId: string) => void;
   setSearchQuery: (query: string) => void;
   setActiveFilters: (filters: string[]) => void;
+  setPropertyTypeFilter: (filter: 'all' | 'rent' | 'sale') => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   fetchSavedProperties: () => Promise<void>;
@@ -47,6 +50,7 @@ export const useStore = create<PropertyState>((set, get) => ({
   savedProperties: [],
   searchQuery: '',
   activeFilters: [],
+  propertyTypeFilter: 'all',
   loading: true,
   error: null,
 
@@ -109,12 +113,11 @@ export const useStore = create<PropertyState>((set, get) => ({
       }
     } catch (error) {
       console.error("Error toggling saved property:", error);
-  
     }
   },
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilters: (filters) => set({ activeFilters: filters }),
+  setPropertyTypeFilter: (filter) => set({ propertyTypeFilter: filter }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error })
 }));
-

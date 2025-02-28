@@ -1,70 +1,28 @@
-import { View, Text, Platform } from 'react-native';
+import { View, Text } from "react-native";
+import { memo } from "react";
 
-interface PriceMarkerProps {
-  price: number;
-  isSelected: boolean;
-}
+const PriceMarker = memo(({ price }: { price: number }) => {
 
-export const PriceMarker = ({ price, isSelected }: PriceMarkerProps) => {
   const formatPrice = (price: number) => {
-    if (price >= 1000000) return `${(price/1000000).toFixed(1)}M`;
-    if (price >= 1000) return `${Math.round(price/1000)}K`;
-    return price.toLocaleString();
+    if (price >= 1_000_000_000) return (price / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+    if (price >= 1_000_000) return (price / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (price >= 1_000) return (price / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+    return price.toString();
   };
-
+  
   return (
-    <View className='' style={{ position: 'relative', height: 40, width: 60 }}>
-      {/* Price Bubble */}
-      <View
-        style={[
-          {
-            backgroundColor: isSelected ? '#16a34a' : 'white',
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: '#e5e7eb',
-          },
-          Platform.select({
-            ios: {
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-            },
-            android: {
-              elevation: 3,
-            },
-          }),
-        ]}
-      >
-        <Text
-          style={{
-            color: isSelected ? 'white' : '#1f2937',
-            fontWeight: '600',
-            fontSize: 14,
-            textAlign: 'center',
-          }}
-        >
-          ${formatPrice(price)}
+    <View className="items-center">
+      <View className="bg-[#ED9B6B] rounded-lg px-3 py-1 shadow-md">
+        <Text className="text-xs font-bold text-gray-50">
+          {formatPrice(price)}
         </Text>
       </View>
-
-      {/* Triangle Pointer */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: -6,
-          alignSelf: 'center',
-          width: 12,
-          height: 12,
-          backgroundColor: isSelected ? '#16a34a' : 'white',
-          borderBottomWidth: 1,
-          borderRightWidth: 1,
-          borderColor: '#e5e7eb',
-          transform: [{ rotate: '45deg' }],
-        }}
-      />
+      {/* Pin triangle pointer */}
+      <View className="w-0 h-0 border-l-4 border-r-4 border-t-8 border-l-transparent border-r-transparent border-t-white -mt-1"></View>
+      {/* Pin stem */}
+      <View className="h-3 w-1 bg-gray-700 rounded-b-full"></View>
     </View>
   );
-};
+});
+
+export default PriceMarker
