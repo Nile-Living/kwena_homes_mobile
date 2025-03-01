@@ -14,7 +14,11 @@ import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, UrlTile } from "react-native-maps";
+import {
+  prepareImageForUpload,
+  uploadImageToSupabase,
+} from "@/hooks/imageHelpers";
 import * as Location from "expo-location";
 
 // Define type for form data
@@ -38,6 +42,7 @@ export default function AddPropertyScreen() {
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const mapRef = useRef<MapView>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formData, setFormData] = useState<FormData>({
     title: "",
@@ -58,18 +63,37 @@ export default function AddPropertyScreen() {
       Alert.alert("Limit Reached", "Maximum 5 images allowed");
       return;
     }
+
     try {
+      // Request permissions first
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Please grant permission to access your photos"
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
       });
-      if (!result.canceled) {
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Add the selected image to the array
         setImages([...images, result.assets[0].uri]);
       }
     } catch (error) {
       console.error("Error picking image:", error);
+      Alert.alert(
+        "Image Selection Error",
+        "There was a problem selecting your image. Please try again."
+      );
     }
   };
 
@@ -90,13 +114,10 @@ export default function AddPropertyScreen() {
 
   const handleSubmit = async () => {
     if (!user) {
-      Alert.alert(
-        "Authentication Error",
-        "You must be logged in to list a property"
-      );
+      Alert.alert("Authentication Error", "You must be logged in to list a property");
       return;
     }
-
+  
     // Form validation
     if (
       !formData.title ||
@@ -109,34 +130,82 @@ export default function AddPropertyScreen() {
       Alert.alert("Missing Information", "Please fill in all required fields");
       return;
     }
-
+  
     if (images.length === 0) {
       Alert.alert("Missing Images", "Please add at least one image");
       return;
     }
-
+  
     try {
       setLoading(true);
-
-      // Upload images to Supabase Storage
-      const imageUrls = await Promise.all(
-        images.map(async (uri: string, index: number) => {
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          const fileExt = uri.split(".").pop() || "jpg";
-          const fileName = `${Date.now()}-${index}.${fileExt}`;
-          const filePath = `${user.id}/${fileName}`;
-
-          const { data, error } = await supabase.storage
-            .from("property-images")
-            .upload(filePath, blob);
-
-          if (error) throw error;
-
-          return `https://jdscpwxbrlbvnfsivwmp.supabase.co/storage/v1/object/public/property-images/${filePath}`;
-        })
+      setUploadProgress(0);
+  
+      // Show progress indicator
+      Alert.alert(
+        "Upload Started",
+        "Your images are being uploaded. This may take a few minutes depending on your connection speed.",
+        [{ text: "OK" }]
       );
-
+  
+      // Upload images one by one with progress tracking
+      const imageUrls = [];
+      const failedUploads = [];
+      
+      for (let i = 0; i < images.length; i++) {
+        try {
+          // Update progress indicator
+          setUploadProgress(Math.floor((i / images.length) * 100));
+          
+          console.log(`Starting upload for image ${i+1} of ${images.length}`);
+          
+          // Use the enhanced helper function to upload the image with ArrayBuffer
+          const imageUrl = await uploadImageToSupabase(
+            supabase,
+            images[i],
+            user.id,
+            i,
+            'property-images',
+            3 // Max retries
+          );
+          
+          imageUrls.push(imageUrl);
+          console.log(`Successfully uploaded image ${i+1}: ${imageUrl.substring(0, 30)}...`);
+        } catch (uploadError) {
+          console.error(`Error uploading image ${i}:`, uploadError);
+          failedUploads.push(i + 1); // Store failed upload index (1-based for user display)
+        }
+      }
+  
+      // Check if we have any successful uploads
+      if (imageUrls.length === 0) {
+        throw new Error("Failed to upload any images. Please check your internet connection and try again.");
+      }
+      
+      // Notify user of partial uploads if any failed
+      if (failedUploads.length > 0) {
+        console.log(`${failedUploads.length} images failed to upload: ${failedUploads.join(', ')}`);
+        
+        const shouldContinue = await new Promise((resolve) => {
+          Alert.alert(
+            "Partial Upload",
+            `Successfully uploaded ${imageUrls.length} out of ${images.length} images. Would you like to continue with the listing?`,
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+              { text: "Continue", onPress: () => resolve(true) }
+            ],
+            { cancelable: false }
+          );
+        });
+        
+        if (!shouldContinue) {
+          setLoading(false);
+          setUploadProgress(0);
+          return;
+        }
+      }
+  
+      setUploadProgress(100);
+  
       // Create property in database
       const { data, error } = await supabase
         .from("properties")
@@ -150,13 +219,13 @@ export default function AddPropertyScreen() {
           description: formData.description,
           coordinates: formData.coordinates,
           images: imageUrls,
-          property_type: formData.propertyType, // Add property type field
+          property_type: formData.propertyType,
         })
         .select()
         .single();
-
+  
       if (error) throw error;
-
+  
       Alert.alert("Success", "Property listed successfully!", [
         { text: "OK", onPress: () => router.push("/") },
       ]);
@@ -164,10 +233,11 @@ export default function AddPropertyScreen() {
       console.error("Error creating property:", error);
       Alert.alert(
         "Error",
-        `Error creating property: ${error.message || "Please try again"}`
+        `Error creating property: ${error.message || "Unknown error"}\n\nCheck your internet connection and try again.`
       );
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
