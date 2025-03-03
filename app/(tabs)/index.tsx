@@ -7,7 +7,6 @@ import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
 import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
 import FilterChips from "@/components/FilterChips";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import { Colors } from "@/constants/Colors";
 import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
@@ -18,6 +17,12 @@ const filterOptions = [
   { id: "villa", label: "Villa" },
   { id: "price-asc", label: "Price: Low to High" },
   { id: "price-desc", label: "Price: High to Low" },
+];
+
+const propertyTypeOptions = [
+  { id: "all", label: "All Properties" },
+  { id: "rent", label: "For Rent" },
+  { id: "sale", label: "For Sale" },
 ];
 
 const SKELETON_COUNT = 6;
@@ -32,9 +37,11 @@ export default function HomeScreen() {
     properties,
     searchQuery,
     activeFilters,
+    propertyTypeFilter,
     loading,
     setSearchQuery,
     setActiveFilters,
+    setPropertyTypeFilter,
     toggleSavedProperty,
     setProperties,
     setLoading
@@ -42,6 +49,13 @@ export default function HomeScreen() {
 
   const filteredProperties = useMemo(() => {
     let filtered = [...properties];
+
+    // Apply property type filter
+    if (propertyTypeFilter !== 'all') {
+      filtered = filtered.filter(
+        (property) => property.property_type === propertyTypeFilter
+      );
+    }
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -81,13 +95,15 @@ export default function HomeScreen() {
     }
 
     return filtered;
-  }, [properties, searchQuery, activeFilters]);
+  }, [properties, searchQuery, activeFilters, propertyTypeFilter]);
 
-  const fetchPropertiesData = async () => {
-    try {
-      const { data, error} = await supabase
-        .from("properties")
-        .select("*, agents(*)");
+  // In HomeScreen's useEffect
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("properties")
+          .select("*, agents(*)");
 
         if (error) throw error;
 
@@ -95,49 +111,36 @@ export default function HomeScreen() {
           ...prop,
           agent: prop.agents,
           coordinates: prop.coordinates,
-          liked: useStore.getState().savedProperties.includes(prop.id),
         }));
+        
         setProperties(formattedProperties);
-    } catch (error) {
-      console.error("Error fetching properties:", error);
-      setError("Failed to laod properties");
-    }
-  };
+        setLoading(false);
+        
+        // Fetch saved properties AFTER setting initial properties
+        useStore.getState().fetchSavedProperties();
+        
+      } catch (error) {
+        console.error("Error fetching properties:", error);
+        setError("Failed to load properties");
+      }
+    };
 
-  // In HomeScreen's useEffect
-useEffect(() => {
-  const fetchProperties = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*, agents(*)");
-
-      if (error) throw error;
-
-      const formattedProperties = data.map((prop) => ({
-        ...prop,
-        agent: prop.agents,
-        coordinates: prop.coordinates,
-        // REMOVE THIS LINE: liked: useStore.getState().savedProperties.includes(prop.id),
-      }));
-      
-      setProperties(formattedProperties);
-      setLoading(false);
-      
-      // Fetch saved properties AFTER setting initial properties
-      useStore.getState().fetchSavedProperties();
-      
-    } catch (error) {
-      console.error("Error fetching properties:", error);
-      setError("Failed to load properties");
-    }
-  };
-
-  fetchProperties();
-}, []);
+    fetchProperties();
+  }, []);
 
   const handlePropertyPress = (propertyId: string) => {
     router.push(`../property/${propertyId}`);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await useStore.getState().fetchSavedProperties();
+      setRefreshing(false);
+    } catch (error) {
+      console.error("Error refreshing:", error);
+      setRefreshing(false);
+    }
   };
 
   const renderContent = () => {
@@ -172,6 +175,13 @@ useEffect(() => {
         )}
         keyExtractor={(item) => item.id}
         className="p-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.light.background]}
+          />
+        }
       />
     );
   };
@@ -183,6 +193,20 @@ useEffect(() => {
         onChangeText={setSearchQuery}
         placeholder="Search properties..."
       />
+      
+      {/* Property Type Filter */}
+      <FilterChips
+        options={propertyTypeOptions}
+        selectedFilters={[propertyTypeFilter]}
+        onSelectFilter={(filterId) => {
+          if (filterId === 'all' || filterId === 'rent' || filterId === 'sale') {
+            setPropertyTypeFilter(filterId);
+          }
+        }}
+        singleSelect={true}
+      />
+      
+      {/* Regular Filters */}
       <FilterChips
         options={filterOptions}
         selectedFilters={activeFilters}
@@ -194,6 +218,7 @@ useEffect(() => {
           );
         }}
       />
+      
       {renderContent()}
     </View>
   );

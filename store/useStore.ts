@@ -12,7 +12,8 @@ export interface Property {
   bedrooms: number;
   bathrooms: number;
   images: string[];
-  property_type: 'rent' | 'sale'; // Added property type
+  property_type: 'rent' | 'sale';
+  user_id: string;
   liked?: boolean;
   coordinates?: {
     latitude: number;

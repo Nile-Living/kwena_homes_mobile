@@ -10,7 +10,7 @@ interface AuthState {
   error: string | null;
 
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, phone: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   checkAuth: () => Promise<void>;
@@ -57,7 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  signUp: async (email: string, password: string) => {
+  signUp: async (email: string, password: string, phone: string) => {
     try {
       set({ loading: true, error: null });
       const {
@@ -79,18 +79,21 @@ export const useAuthStore = create<AuthState>((set) => ({
               email: user.email,
               full_name: null,
               avatar_url: null,
-              phone: null
+              phone: phone // Save the phone number to the profiles table
             }
           ]);
         
         if (profileError) {
           console.error('Error creating profile:', profileError);
+          throw profileError;
         }
       }
       
       set({ user, session, loading: false });
+      return true; // Return success
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
+      return false;
     }
   },
 

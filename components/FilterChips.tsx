@@ -1,4 +1,4 @@
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { ScrollView, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Colors } from "@/constants/Colors";
 
 interface FilterOption {
@@ -10,31 +10,37 @@ interface FilterChipsProps {
   options: FilterOption[];
   selectedFilters: string[];
   onSelectFilter: (filterId: string) => void;
+  singleSelect?: boolean;
 }
 
 export default function FilterChips({
   options,
   selectedFilters,
   onSelectFilter,
+  singleSelect = false,
 }: FilterChipsProps) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ maxHeight: 48 }}
-      contentContainerStyle={{ alignItems: 'center' }}
-      className="pb-4 h-24"
+      contentContainerStyle={styles.container}
     >
       {options.map((option) => {
         const isSelected = selectedFilters.includes(option.id);
         return (
           <TouchableOpacity
             key={option.id}
-            style={[styles.chip, isSelected && styles.selectedChip]}
+            style={[
+              styles.chip,
+              isSelected ? styles.selectedChip : styles.unselectedChip,
+            ]}
             onPress={() => onSelectFilter(option.id)}
           >
             <Text
-              style={[styles.chipText, isSelected && styles.selectedChipText]}
+              style={[
+                styles.chipText,
+                isSelected ? styles.selectedChipText : styles.unselectedChipText,
+              ]}
             >
               {option.label}
             </Text>
@@ -63,13 +69,20 @@ const styles = StyleSheet.create({
   },
   selectedChip: {
     backgroundColor: "#244835",
+    borderColor: "#244835",
+  },
+  unselectedChip: {
+    backgroundColor: "transparent",
+    borderColor: "#E0E0E0",
   },
   chipText: {
     fontSize: 14,
-    color: "#666",
-    lineHeight: 14,
+    fontWeight: "500",
   },
   selectedChipText: {
-    color: "#FFF",
+    color: "#FFFFFF",
+  },
+  unselectedChipText: {
+    color: "#666666",
   },
 });

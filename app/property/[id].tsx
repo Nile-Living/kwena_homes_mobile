@@ -49,19 +49,38 @@ export default function PropertyDetails() {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+
+        // First fetch the property details
+        const { data: propertyData, error: propertyError } = await supabase
           .from("properties")
-          .select("*, agents(*)")
+          .select("*")
           .eq("id", id)
           .single();
 
-        if (error) throw error;
+        if (propertyError) throw propertyError;
 
+        // Then fetch the user/profile data separately
+        const { data: userData, error: userError } = await supabase
+          .from("profiles")
+          .select("full_name, phone, email")
+          .eq("id", propertyData.user_id)
+          .single();
+
+        if (userError) {
+          console.warn("Error fetching user data:", userError);
+          // Continue with property data even if user data fails
+        }
+
+        // Structure the property data with user information
         setProperty({
-          ...data,
-          agent: data.agents,
-          coordinates: data.coordinates,
-          liked: useStore.getState().savedProperties.includes(data.id),
+          ...propertyData,
+          agent: {
+            name: userData?.full_name || "Unknown",
+            phone: userData?.phone || "No phone provided",
+            email: userData?.email,
+          },
+          liked: useStore.getState().savedProperties.includes(propertyData.id),
         });
       } catch (error) {
         console.error("Error fetching property:", error);
@@ -101,7 +120,7 @@ export default function PropertyDetails() {
             console.log("WhatsApp is not installed");
             const webWhatsappUrl = `https://wa.me/${phoneNumber}?text=Hello, I'm interested in the ${encodeURIComponent(
               property.title
-            )} property listed on your app.`;
+            )} property listed on Kwena Homes.`;
             return Linking.openURL(webWhatsappUrl);
           }
         })
@@ -243,7 +262,7 @@ export default function PropertyDetails() {
 
             {property.agent && (
               <View style={styles.agentSection}>
-                <Text style={styles.sectionTitle}>Listing Agent</Text>
+                <Text style={styles.sectionTitle}>Contact Person</Text>
                 <View style={styles.agentInfo}>
                   <Ionicons
                     name="person-circle-outline"
@@ -270,7 +289,7 @@ export default function PropertyDetails() {
                     onPress={handleCallAgent}
                   >
                     <Ionicons name="call-outline" size={20} color="#fff" />
-                    <Text style={styles.contactButtonText}>Call Agent</Text>
+                    <Text style={styles.contactButtonText}>Call</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity

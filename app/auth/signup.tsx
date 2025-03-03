@@ -7,6 +7,7 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const { signUp, loading, error } = useAuthStore();
   const router = useRouter();
 
@@ -19,8 +20,15 @@ export default function SignUpScreen() {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
-    await signUp(email, password);
-    if (!error) {
+  
+    if (!/^\+?[0-9]{10,15}$/.test(phone)) {
+      Alert.alert("Error", "Please enter a valid phone number");
+      return;
+    }
+  
+    const success = await signUp(email, password, phone);
+    
+    if (success) {
       router.push("/");
     }
   };
@@ -59,11 +67,20 @@ export default function SignUpScreen() {
           className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
           placeholderTextColor="#9CA3AF"
         />
+
+        <TextInput
+          placeholder="Phone number"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="number-pad"
+          className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
+          placeholderTextColor="#9CA3AF"
+        />
       </View>
 
       <View className="mt-8">
-        <TouchableOpacity 
-          onPress={handleSignUp} 
+        <TouchableOpacity
+          onPress={handleSignUp}
           disabled={loading}
           className="w-full h-12 bg-green-800 rounded-lg items-center justify-center"
         >
@@ -73,7 +90,7 @@ export default function SignUpScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={() => router.push("/auth/signin")}
         className="mt-6"
       >
@@ -82,11 +99,7 @@ export default function SignUpScreen() {
         </Text>
       </TouchableOpacity>
 
-      {error && (
-        <Text className="mt-4 text-red-500 text-center">
-          {error}
-        </Text>
-      )}
+      {error && <Text className="mt-4 text-red-500 text-center">{error}</Text>}
     </View>
   );
 }

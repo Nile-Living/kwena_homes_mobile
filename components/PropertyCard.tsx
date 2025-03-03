@@ -12,6 +12,7 @@ interface PropertyCardProps {
     bathrooms?: number;
     images: string[];
     liked?: boolean;
+    property_type: 'rent' | 'sale';
   };
   onPress: () => void;
   onLike?: () => void;
@@ -29,6 +30,16 @@ export default function PropertyCard({
         style={styles.image}
         resizeMode="cover"
       />
+      <View style={styles.tagContainer}>
+        <View style={[
+          styles.typeTag, 
+          { backgroundColor: property.property_type === 'sale' ? '#244835' : '#ED9B6B' }
+        ]}>
+          <Text style={styles.typeTagText}>
+            {property.property_type === 'sale' ? 'For Sale' : 'For Rent'}
+          </Text>
+        </View>
+      </View>
       <TouchableOpacity style={styles.likeButton} onPress={onLike}>
         <Ionicons
           name={property.liked ? "heart" : "heart-outline"}
@@ -38,7 +49,10 @@ export default function PropertyCard({
       </TouchableOpacity>
 
       <View style={styles.content}>
-      <Text style={styles.price}>K{property.price.toLocaleString()}</Text>
+        <Text style={styles.price}>
+          K{property.price.toLocaleString()}
+          {property.property_type === 'rent' && <Text style={styles.rentPeriod}>/mo</Text>}
+        </Text>
         <Text style={styles.title}>{property.title}</Text>
         <Text style={styles.location}>{property.location}</Text>
         <View style={styles.features}>
@@ -73,6 +87,21 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  tagContainer: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+  },
+  typeTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  typeTagText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "500",
+  },
   likeButton: {
     position: "absolute",
     top: 16,
@@ -93,6 +122,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#244835",
     marginBottom: 8,
+  },
+  rentPeriod: {
+    fontSize: 14,
+    fontWeight: "400",
   },
   title: {
     fontSize: 16,
