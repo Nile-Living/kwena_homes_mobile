@@ -128,7 +128,11 @@ export default function HomeScreen() {
   };
 
   const handleApplyFilters = () => {
-    // Implement any additional filter logic here
+    // Implement filter application logic here
+    // For example:
+    // setSelectedType(...)
+    // setPriceRange(...)
+    // setBedrooms(...)
   };
 
   const handleClearFilters = () => {
@@ -182,20 +186,24 @@ export default function HomeScreen() {
   };
 
   return (
-    <View className="flex-1">
-      <View className="flex-row p-4 gap-2">
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search properties..."
-        />
-        <FilterModal
-          onApply={handleApplyFilters}
-          onClear={handleClearFilters}
-        />
-      </View>
+    <GestureHandlerRootView className="flex-1">
+      <BottomSheetModalProvider>
+        <View className="flex-1">
+          <View className="flex-row p-4 gap-2">
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search properties..."
+            />
+            <FilterModal
+              onApply={handleApplyFilters}
+              onClear={handleClearFilters}
+            />
+          </View>
 
-      {renderContent()}
-    </View>
+          {renderContent()}
+        </View>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }
