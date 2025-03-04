@@ -1,37 +1,27 @@
 import { StyleSheet, FlatList, View, RefreshControl } from "react-native";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/store/useStore";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
 import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
-import FilterChips from "@/components/FilterChips";
+import FilterModal from "@/components/FilterModal";
 import { Colors } from "@/constants/Colors";
 import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
-
-const filterOptions = [
-  { id: "apartment", label: "Apartment" },
-  { id: "house", label: "House" },
-  { id: "villa", label: "Villa" },
-  { id: "price-asc", label: "Price: Low to High" },
-  { id: "price-desc", label: "Price: High to Low" },
-];
-
-const propertyTypeOptions = [
-  { id: "all", label: "All Properties" },
-  { id: "rent", label: "For Rent" },
-  { id: "sale", label: "For Sale" },
-];
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const SKELETON_COUNT = 6;
 
 export default function HomeScreen() {
   const router = useRouter();
-
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
+  const [bedrooms, setBedrooms] = useState(0);
+  const [bathrooms, setBathrooms] = useState(0);
+  const [selectedType, setSelectedType] = useState("");
 
   const {
     properties,
@@ -44,20 +34,19 @@ export default function HomeScreen() {
     setPropertyTypeFilter,
     toggleSavedProperty,
     setProperties,
-    setLoading
+    setLoading,
   } = useStore();
 
   const filteredProperties = useMemo(() => {
     let filtered = [...properties];
 
-    // Apply property type filter
-    if (propertyTypeFilter !== 'all') {
+    // Existing filters
+    if (propertyTypeFilter !== "all") {
       filtered = filtered.filter(
         (property) => property.property_type === propertyTypeFilter
       );
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -68,36 +57,34 @@ export default function HomeScreen() {
       );
     }
 
-    // Apply type filters
-    if (activeFilters.length > 0) {
-      if (
-        activeFilters.includes("apartment") ||
-        activeFilters.includes("house") ||
-        activeFilters.includes("villa")
-      ) {
-        filtered = filtered.filter((property) => {
-          const title = property.title.toLowerCase();
-          return (
-            (activeFilters.includes("apartment") &&
-              title.includes("apartment")) ||
-            (activeFilters.includes("house") && title.includes("house")) ||
-            (activeFilters.includes("villa") && title.includes("villa"))
-          );
-        });
-      }
+    // New filters
+    if (selectedType) {
+      filtered = filtered.filter((p) => p.category === selectedType);
+    }
 
-      // Apply price sorting
-      if (activeFilters.includes("price-asc")) {
-        filtered.sort((a, b) => a.price - b.price);
-      } else if (activeFilters.includes("price-desc")) {
-        filtered.sort((a, b) => b.price - a.price);
-      }
+    if (bedrooms > 0) {
+      filtered = filtered.filter((p) => p.bedrooms >= bedrooms);
+    }
+
+    if (priceRange.min > 0 || priceRange.max > 0) {
+      filtered = filtered.filter((p) => {
+        const min = priceRange.min || 0;
+        const max = priceRange.max || Infinity;
+        return p.price >= min && p.price <= max;
+      });
     }
 
     return filtered;
-  }, [properties, searchQuery, activeFilters, propertyTypeFilter]);
+  }, [
+    properties,
+    searchQuery,
+    activeFilters,
+    propertyTypeFilter,
+    selectedType,
+    bedrooms,
+    priceRange,
+  ]);
 
-  // In HomeScreen's useEffect
   useEffect(() => {
     const fetchProperties = async () => {
       try {
@@ -112,13 +99,10 @@ export default function HomeScreen() {
           agent: prop.agents,
           coordinates: prop.coordinates,
         }));
-        
+
         setProperties(formattedProperties);
         setLoading(false);
-        
-        // Fetch saved properties AFTER setting initial properties
         useStore.getState().fetchSavedProperties();
-        
       } catch (error) {
         console.error("Error fetching properties:", error);
         setError("Failed to load properties");
@@ -143,6 +127,17 @@ export default function HomeScreen() {
     }
   };
 
+  const handleApplyFilters = () => {
+    // Implement any additional filter logic here
+  };
+
+  const handleClearFilters = () => {
+    setPriceRange({ min: 0, max: 0 });
+    setBedrooms(0);
+    setBathrooms(0);
+    setSelectedType("");
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -150,7 +145,7 @@ export default function HomeScreen() {
           data={Array(SKELETON_COUNT).fill(null)}
           renderItem={() => <PropertyCardSkeleton />}
           keyExtractor={(_, index) => `skeleton-${index}`}
-          className="p-4"
+          contentContainerClassName="p-4"
         />
       );
     }
@@ -174,7 +169,7 @@ export default function HomeScreen() {
           />
         )}
         keyExtractor={(item) => item.id}
-        className="p-4"
+        contentContainerClassName="p-4"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -187,49 +182,20 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search properties..."
-      />
-      
-      {/* Property Type Filter */}
-      <FilterChips
-        options={propertyTypeOptions}
-        selectedFilters={[propertyTypeFilter]}
-        onSelectFilter={(filterId) => {
-          if (filterId === 'all' || filterId === 'rent' || filterId === 'sale') {
-            setPropertyTypeFilter(filterId);
-          }
-        }}
-        singleSelect={true}
-      />
-      
-      {/* Regular Filters */}
-      <FilterChips
-        options={filterOptions}
-        selectedFilters={activeFilters}
-        onSelectFilter={(filterId) => {
-          setActiveFilters(
-            activeFilters.includes(filterId)
-              ? activeFilters.filter((id) => id !== filterId)
-              : [...activeFilters, filterId]
-          );
-        }}
-      />
-      
+    <View className="flex-1">
+      <View className="flex-row p-4 gap-2">
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search properties..."
+        />
+        <FilterModal
+          onApply={handleApplyFilters}
+          onClear={handleClearFilters}
+        />
+      </View>
+
       {renderContent()}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  listContent: {
-    padding: 8,
-  },
-});

@@ -1,5 +1,3 @@
-// useStore.ts - Updated Property Interface
-
 import { create } from "zustand";
 import { useAuthStore } from "./authStore";
 import { supabase } from "@/supabaseClient";
@@ -24,7 +22,12 @@ export interface Property {
     name: string;
     phone: string;
     email?: string;
-  }
+  };
+  category: string;
+  garages: number;
+  parkings: number;
+  amenities: string[];
+  security_features: string[];
 }
 
 interface PropertyState {
@@ -32,7 +35,7 @@ interface PropertyState {
   savedProperties: string[];
   searchQuery: string;
   activeFilters: string[];
-  propertyTypeFilter: 'all' | 'rent' | 'sale'; // Added filter for property type
+  propertyTypeFilter: 'all' | 'rent' | 'sale';
   loading: boolean;
   error: string | null;
 
@@ -87,27 +90,23 @@ export const useStore = create<PropertyState>((set, get) => ({
     try {
       const isLiked = get().savedProperties.includes(propertyId);
   
-      // Update the local state immediately for a responsive UI
       set((state) => ({
         properties: state.properties.map((property) =>
           property.id === propertyId
-            ? { ...property, liked: !isLiked } // Toggle the liked state
+            ? { ...property, liked: !isLiked }
             : property
         ),
         savedProperties: isLiked
-          ? state.savedProperties.filter((id) => id !== propertyId) // Remove if already liked
-          : [...state.savedProperties, propertyId], // Add if not liked
+          ? state.savedProperties.filter((id) => id !== propertyId)
+          : [...state.savedProperties, propertyId],
       }));
   
-      // Sync with Supabase
       if (isLiked) {
-        // Remove from saved properties in Supabase
         await supabase
           .from("saved_properties")
           .delete()
           .match({ user_id: user.id, property_id: propertyId });
       } else {
-        // Add to saved properties in Supabase
         await supabase
           .from("saved_properties")
           .insert({ user_id: user.id, property_id: propertyId });

@@ -17,7 +17,7 @@ export default function SearchBar({
   onFilter
 }: SearchBarProps) {
   return (
-    <View style={styles.container}>
+    <View className="flex-1" style={styles.container}>
       <View style={styles.searchContainer}>
         <Ionicons name='search' size={20} color="#666"/>
         <TextInput 
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 44
+    
   },
 
   input: {
