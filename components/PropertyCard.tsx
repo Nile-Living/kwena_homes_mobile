@@ -24,7 +24,7 @@ export default function PropertyCard({
   onLike,
 }: PropertyCardProps) {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity style={styles.card} onPress={onPress} delayPressIn={150} activeOpacity={0.7}>
       <Image
         source={{ uri: property.images[0] }}
         style={styles.image}

@@ -81,7 +81,7 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} className="mt-6">
       <View style={styles.searchContainer}>
         <SearchBar
           value={searchQuery}

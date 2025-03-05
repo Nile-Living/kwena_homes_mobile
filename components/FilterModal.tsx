@@ -1,12 +1,14 @@
 import React from "react";
 import {
   BottomSheetModal,
-  BottomSheetModalProvider,
+  BottomSheetScrollView,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import { useCallback, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
+import { useColorScheme } from "react-native";
 
 interface FilterModalProps {
   onApply: () => void;
@@ -16,24 +18,45 @@ interface FilterModalProps {
 const propertyTypes = [
   "All properties",
   "House",
-  "Townhouse/Cluster",
-  "Apartment/Flat",
-  "Vacant land/Plot",
-  "Farm/Smallholding",
+  "Flat",
+  "Vacant Land",
+  "Gated Estate",
+  "Lodge",
+  "Freestanding",
+  "Commercial",
+  "Industrial"
 ];
 
-const amenitiesList = ["Pets allowed", "Flatlet", "Pool", "Staff quarters", "Garden", "Sea view"];
-const securityFeatures = ["Alarm", "Intercom", "Access gate", "Security post", "Electric fencing"];
+const pickerOptions = ["Any", "1 +", "2 +", "3 +", "4 +", "5 +"];
+
+const amenitiesList = [
+  "Pets allowed",
+  "Pool",
+  "Staff quarters",
+  "Garden",
+  "Security system",
+  "Borehole",
+  "Solar System/Generator",
+  "Parking"
+];
+
+const features = [
+  "Self-contained",
+  "Furnished",
+  "Unfurnished",
+  "Modern Fittings",
+];
 
 export default function FilterModal({ onApply, onClear }: FilterModalProps) {
+  const colorScheme = useColorScheme();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const [selectedType, setSelectedType] = useState<string>("All properties");
   const [selectedBedrooms, setSelectedBedrooms] = useState<string>("Any");
   const [selectedBathrooms, setSelectedBathrooms] = useState<string>("Any");
   const [selectedGarages, setSelectedGarages] = useState<string>("Any");
   const [selectedParkings, setSelectedParkings] = useState<string>("Any");
+  const [selectedFeatures, setSelectedFeatures] = useState<string>("Any");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [selectedSecurity, setSelectedSecurity] = useState<string[]>([]);
 
   const openModal = useCallback(() => {
     bottomSheetModalRef.current?.present();
@@ -44,18 +67,10 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
   }, []);
 
   const toggleAmenity = (amenity: string) => {
-    setSelectedAmenities(prev => 
-      prev.includes(amenity) 
-        ? prev.filter(a => a !== amenity) 
+    setSelectedAmenities((prev) =>
+      prev.includes(amenity)
+        ? prev.filter((a) => a !== amenity)
         : [...prev, amenity]
-    );
-  };
-
-  const toggleSecurity = (feature: string) => {
-    setSelectedSecurity(prev => 
-      prev.includes(feature) 
-        ? prev.filter(f => f !== feature) 
-        : [...prev, feature]
     );
   };
 
@@ -65,139 +80,180 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
     setSelectedBathrooms("Any");
     setSelectedGarages("Any");
     setSelectedParkings("Any");
+    setSelectedFeatures("Any");
     setSelectedAmenities([]);
-    setSelectedSecurity([]);
     onClear();
     closeModal();
   };
 
-  const renderOptionGroup = (
-    title: string,
-    options: string[],
-    selected: string,
-    setSelected: (value: string) => void
-  ) => (
-    <View className="mb-6">
-      <Text className="text-base font-semibold mb-3">{title}</Text>
-      <View className="flex flex-row flex-wrap">
-        {options.map(option => (
-          <TouchableOpacity
-            key={option}
-            className={`px-4 py-2 mr-2 mb-2 rounded-full ${
-              selected === option ? 'bg-light-tint' : 'bg-gray-200'
-            }`}
-            onPress={() => setSelected(option)}
-          >
-            <Text className={selected === option ? 'text-green-900 border rounded-full px-4 py-2' : ''}>
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderCheckboxGroup = (
-    title: string,
-    items: string[],
-    selected: string[],
-    toggleFn: (item: string) => void
-  ) => (
-    <View className="mb-6">
-      <Text className="text-base font-semibold mb-3">{title}</Text>
-      <View className="flex flex-row flex-wrap">
-        {items.map(item => (
-          <TouchableOpacity
-            key={item}
-            className="flex-row items-center mr-4 mb-3"
-            onPress={() => toggleFn(item)}
-          >
-            <Ionicons
-              name={selected.includes(item) ? "checkbox" : "square-outline"}
-              size={20}
-              color={selected.includes(item) ? "#3B82F6" : "#666"}
-              className="mr-1"
-            />
-            <Text>{item}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
   return (
     <>
       <TouchableOpacity
-        className="bg-light-tint border border-gray-50 p-3 rounded-full ml-2"
+        className="bg-light-tint border border-dark-ting dark:border-light-tint p-3 rounded-full ml-2"
         onPress={openModal}
       >
-        <Ionicons name="options" size={24} color="white" />
+        <Ionicons name="options" size={24} color="gray" />
       </TouchableOpacity>
-      
+
       <BottomSheetModal
         ref={bottomSheetModalRef}
         index={0}
-        snapPoints={["90%"]}
+        snapPoints={["60%"]}
         backgroundStyle={{ backgroundColor: "#F5F5F5" }}
         containerStyle={{ zIndex: 1000 }}
       >
-        <BottomSheetView>
-          <ScrollView className="p-4">
-            <Text className="text-xl font-bold mb-6">Filter your results</Text>
+        <BottomSheetView className="flex-1">
+          <BottomSheetScrollView
+            className="p-4"
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 50 }}
+          >
+            <Text className="text-xl font-bold mb-4">Filter your results</Text>
 
-            {/* Property Type */}
-            {renderOptionGroup("Property type", propertyTypes, selectedType, setSelectedType)}
+            {/* Dropdown for Property Type */}
+            <View className="mb-4">
+              <Text className="text-base font-semibold mb-2">
+                Property Type
+              </Text>
+              <View className="border border-gray-200 rounded">
+                <Picker
+                  selectedValue={selectedType}
+                  onValueChange={(itemValue) => setSelectedType(itemValue)}
+                  style={{ height: 55, color: "#000" }} // sets the overall text color
+                  itemStyle={{ color: "#000" }}
+                >
+                  {propertyTypes.map((option) => (
+                    <Picker.Item key={option} label={option} value={option} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
 
-            {/* Price Range */}
-            <View className="mb-6">
-              <Text className="text-base font-semibold mb-3">Min price    Max price</Text>
-              <View className="flex flex-row justify-between">
-                <View className="bg-gray-200 px-4 py-2 rounded-full w-[48%]">
-                  <Text>Any</Text>
+            {/* Two-column layout for numeric dropdowns */}
+            <View className="flex-row space-x-4 mb-4">
+              <View className="flex-1">
+                <Text className="text-base font-semibold mb-2">Bedrooms</Text>
+                <View className="border border-gray-200 rounded">
+                  <Picker
+                    selectedValue={selectedBedrooms}
+                    onValueChange={(value) => setSelectedBedrooms(value)}
+                    style={{ height: 55 }}
+                  >
+                    {pickerOptions.map((option) => (
+                      <Picker.Item key={option} label={option} value={option} />
+                    ))}
+                  </Picker>
                 </View>
-                <View className="bg-gray-200 px-4 py-2 rounded-full w-[48%]">
-                  <Text>Any</Text>
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-semibold mb-2">Bathrooms</Text>
+                <View className="border border-gray-200 rounded">
+                  <Picker
+                    selectedValue={selectedBathrooms}
+                    onValueChange={(value) => setSelectedBathrooms(value)}
+                    style={{ height: 55 }}
+                  >
+                    {pickerOptions.map((option) => (
+                      <Picker.Item key={option} label={option} value={option} />
+                    ))}
+                  </Picker>
                 </View>
               </View>
             </View>
 
-            {/* Bedrooms */}
-            {renderOptionGroup("Bedrooms", ["Any", "1 +", "2 +", "3 +", "4 +", "5 +"], selectedBedrooms, setSelectedBedrooms)}
+            <View className="flex-row space-x-4 mb-4">
+              <View className="flex-1">
+                <Text className="text-base font-semibold mb-2">Garages</Text>
+                <View className="border border-gray-200 rounded">
+                  <Picker
+                    selectedValue={selectedGarages}
+                    onValueChange={(value) => setSelectedGarages(value)}
+                    style={{ height: 55 }}
+                  >
+                    {pickerOptions.map((option) => (
+                      <Picker.Item key={option} label={option} value={option} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-semibold mb-2">Parkings</Text>
+                <View className="border border-gray-200 rounded">
+                  <Picker
+                    selectedValue={selectedParkings}
+                    onValueChange={(value) => setSelectedParkings(value)}
+                    style={{ height: 55 }}
+                  >
+                    {pickerOptions.map((option) => (
+                      <Picker.Item key={option} label={option} value={option} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            </View>
 
-            {/* Bathrooms */}
-            {renderOptionGroup("Bathrooms", ["Any", "1 +", "2 +", "3 +", "4 +", "5 +"], selectedBathrooms, setSelectedBathrooms)}
+            {/* Dropdown for Features Features */}
+            <View className="mb-4">
+              <Text className="text-base font-semibold mb-2">Features</Text>
+              <View className="border border-gray-200 rounded">
+                <Picker
+                  selectedValue={selectedFeatures}
+                  onValueChange={(value) => setSelectedFeatures(value)}
+                  style={{ height: 55 }}
+                >
+                  {["Any", ...features].map((option) => (
+                    <Picker.Item key={option} label={option} value={option} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
 
-            {/* Garages */}
-            {renderOptionGroup("Garages", ["Any", "1 +", "2 +", "3 +", "4 +", "5 +"], selectedGarages, setSelectedGarages)}
+            {/* Amenities checkboxes remain unchanged */}
+            <View className="mb-4">
+              <Text className="text-base font-semibold mb-2">Amenities</Text>
+              <View className="flex-row flex-wrap">
+                {amenitiesList.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    className="flex-row items-center mr-4 mb-3"
+                    onPress={() => toggleAmenity(item)}
+                  >
+                    <Ionicons
+                      name={
+                        selectedAmenities.includes(item)
+                          ? "checkbox"
+                          : "square-outline"
+                      }
+                      size={20}
+                      color={
+                        selectedAmenities.includes(item) ? "#3B82F6" : "#666"
+                      }
+                      className="mr-1"
+                    />
+                    <Text>{item}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-            {/* Parkings */}
-            {renderOptionGroup("Parkings", ["Any", "1 +", "2 +", "3 +", "4 +", "5 +"], selectedParkings, setSelectedParkings)}
-
-            {/* Amenities */}
-            {renderCheckboxGroup("Amenities", amenitiesList, selectedAmenities, toggleAmenity)}
-
-            {/* Security */}
-            {renderCheckboxGroup("Security", securityFeatures, selectedSecurity, toggleSecurity)}
-
-            {/* Buttons */}
-            <View className="flex-row justify-between mb-4">
+            {/* Footer buttons */}
+            <View className="flex-row justify-between">
               <TouchableOpacity
-                className="px-6 py-3 bg-gray-200 rounded-full"
+                className="flex-1 px-6 py-3 bg-gray-200 rounded-full mr-2"
                 onPress={handleClear}
               >
-                <Text>Clear all</Text>
+                <Text className="text-center">Clear all</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="px-6 py-3 bg-light-tint rounded-full"
+                className="flex-1 px-6 py-3 bg-gray-200 rounded-full ml-2"
                 onPress={() => {
                   onApply();
                   closeModal();
                 }}
               >
-                <Text className="text-white">Update</Text>
+                <Text className="text-center">Update</Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </BottomSheetScrollView>
         </BottomSheetView>
       </BottomSheetModal>
     </>

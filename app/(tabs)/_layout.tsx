@@ -37,6 +37,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="map-outline" size={24} color={color} />
           ),
+          headerShown: false
         }}
       />
       <Tabs.Screen
@@ -55,6 +56,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="person-outline" size={24} color={color} />
           ),
+          
         }}
       />
     </Tabs>

@@ -17,8 +17,8 @@ export default function SearchBar({
   onFilter
 }: SearchBarProps) {
   return (
-    <View className="flex-1" style={styles.container}>
-      <View style={styles.searchContainer}>
+    <View className="flex-1 flex flex-row p-1" style={styles.container}>
+      <View style={styles.searchContainer} className='border border-gray-500'>
         <Ionicons name='search' size={20} color="#666"/>
         <TextInput 
           style={styles.input}
@@ -34,8 +34,6 @@ export default function SearchBar({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    padding: 16,
     gap: 12,
   },
 

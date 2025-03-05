@@ -189,7 +189,7 @@ export default function HomeScreen() {
     <GestureHandlerRootView className="flex-1">
       <BottomSheetModalProvider>
         <View className="flex-1">
-          <View className="flex-row p-4 gap-2">
+          <View className="flex-row p-4 pb-3 gap-2 mt-4">
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
