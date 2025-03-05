@@ -1,6 +1,6 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 interface PropertyCardProps {
   property: {
@@ -13,10 +13,26 @@ interface PropertyCardProps {
     images: string[];
     liked?: boolean;
     property_type: 'rent' | 'sale';
+    created_at: string;
   };
   onPress: () => void;
   onLike?: () => void;
 }
+
+const getTimeAgo = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days !== 1 ? 's' : ''} ago`;
+};
 
 export default function PropertyCard({
   property,
@@ -48,21 +64,46 @@ export default function PropertyCard({
         />
       </TouchableOpacity>
 
-      <View style={styles.content}>
-        <Text style={styles.price}>
-          K{property.price.toLocaleString()}
-          {property.property_type === 'rent' && <Text style={styles.rentPeriod}>/mo</Text>}
+      <View className="p-4">
+        {/* Price Row */}
+        <View className="flex-row justify-between items-start mb-2">
+          <Text className="text-2xl font-bold text-primary-800">
+            K{property.price.toLocaleString()}
+            {property.property_type === 'rent' && 
+              <Text className="text-base font-medium text-neutral-600">/mo</Text>}
+          </Text>
+        </View>
+
+        {/* Title & Location */}
+        <Text className="text-lg font-semibold text-neutral-900 mb-1">
+          {property.title}
         </Text>
-        <Text style={styles.title}>{property.title}</Text>
-        <Text style={styles.location}>{property.location}</Text>
-        <View style={styles.features}>
-          <View style={styles.feature}>
-            <Ionicons name="bed-outline" size={16} color="#666" />
-            <Text style={styles.featureText}>{property.bedrooms}</Text>
-          </View>
-          <View style={styles.feature}>
-            <Ionicons name="water-outline" size={16} color="#666" />
-            <Text style={styles.featureText}>{property.bathrooms}</Text>
+        <Text className="text-sm text-neutral-600 mb-3">
+          {property.location}
+        </Text>
+
+        {/* Metadata Row */}
+        <View className="flex-row justify-between items-center">
+          {/* Time Ago */}
+          <Text className="text-xs text-neutral-500">
+            {getTimeAgo(property.created_at)}
+          </Text>
+          
+          {/* Features */}
+          <View className="flex-row gap-4">
+            <View className="flex-row items-center gap-1">
+              <Ionicons name="bed-outline" size={16} color="#4b5563" />
+              <Text className="text-sm text-neutral-600">
+                {property.bedrooms}
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              {/* <Ionicons name="water-outline" size={16} color="#4b5563" /> */}
+              <FontAwesome name="bathtub" size={16} color="#4b5563" />
+              <Text className="text-sm text-neutral-600">
+                {property.bathrooms || 0}
+              </Text>
+            </View>
           </View>
         </View>
       </View>
@@ -150,5 +191,10 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 14,
     color: "#666",
+  },
+  timeAgo: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
   },
 });

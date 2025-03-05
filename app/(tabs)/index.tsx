@@ -22,6 +22,9 @@ export default function HomeScreen() {
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
   const [selectedType, setSelectedType] = useState("");
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   const {
     properties,
@@ -85,42 +88,62 @@ export default function HomeScreen() {
     priceRange,
   ]);
 
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("properties")
-          .select("*, agents(*)");
-
-        if (error) throw error;
-
-        const formattedProperties = data.map((prop) => ({
-          ...prop,
-          agent: prop.agents,
-          coordinates: prop.coordinates,
-        }));
-
+  const fetchProperties = async (pageNumber: number) => {
+    try {
+      setIsFetchingMore(true);
+      const { data, error, count } = await supabase
+        .from("properties")
+        .select("*, agents(*)", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(pageNumber * 5, (pageNumber + 1) * 5 - 1);
+  
+      if (error) throw error;
+  
+      // Check if there's more data
+      setHasMore(data.length === 5);
+  
+      const formattedProperties = data.map((prop) => ({
+        ...prop,
+        agent: prop.agents,
+        coordinates: prop.coordinates,
+      }));
+  
+      // Update store with new properties
+      if (pageNumber === 0) {
         setProperties(formattedProperties);
-        setLoading(false);
-        useStore.getState().fetchSavedProperties();
-      } catch (error) {
-        console.error("Error fetching properties:", error);
-        setError("Failed to load properties");
+      } else {
+        setProperties([...properties, ...formattedProperties]);
       }
-    };
+  
+      setPage(pageNumber + 1);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      setError("Failed to load properties");
+    } finally {
+      setLoading(false);
+      setIsFetchingMore(false);
+    }
+  };
 
-    fetchProperties();
+  useEffect(() => {
+    fetchProperties(0);
   }, []);
+
+  const handleLoadMore = () => {
+    if (!isFetchingMore && hasMore) {
+      fetchProperties(page);
+    }
+  };
 
   const handlePropertyPress = (propertyId: string) => {
     router.push(`../property/${propertyId}`);
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
+    setLoading(true);
     try {
       await useStore.getState().fetchSavedProperties();
-      setRefreshing(false);
+      setLoading(false);
     } catch (error) {
       console.error("Error refreshing:", error);
       setRefreshing(false);
@@ -172,6 +195,11 @@ export default function HomeScreen() {
             key={item.id}
           />
         )}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={
+          isFetchingMore ? <PropertyCardSkeleton /> : null
+        } 
         keyExtractor={(item) => item.id}
         contentContainerClassName="p-4"
         refreshControl={

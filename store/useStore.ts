@@ -28,6 +28,7 @@ export interface Property {
   parkings: number;
   amenities: string[];
   security_features: string[];
+  created_at: string;
 }
 
 interface PropertyState {
