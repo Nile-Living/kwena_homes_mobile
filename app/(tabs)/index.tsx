@@ -25,6 +25,10 @@ export default function HomeScreen() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [garages, setGarages] = useState(0);
+  const [parkings, setParkings] = useState(0);
+  const [selectedFeatures, setSelectedFeatures] = useState("Any");
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
 
   const {
     properties,
@@ -40,84 +44,59 @@ export default function HomeScreen() {
     setLoading,
   } = useStore();
 
-  const filteredProperties = useMemo(() => {
-    let filtered = [...properties];
-
-    // Existing filters
-    if (propertyTypeFilter !== "all") {
-      filtered = filtered.filter(
-        (property) => property.property_type === propertyTypeFilter
-      );
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (property) =>
-          property.title.toLowerCase().includes(query) ||
-          property.location.toLowerCase().includes(query) ||
-          property.description?.toLowerCase().includes(query)
-      );
-    }
-
-    // New filters
-    if (selectedType) {
-      filtered = filtered.filter((p) => p.category === selectedType);
-    }
-
-    if (bedrooms > 0) {
-      filtered = filtered.filter((p) => p.bedrooms >= bedrooms);
-    }
-
-    if (priceRange.min > 0 || priceRange.max > 0) {
-      filtered = filtered.filter((p) => {
-        const min = priceRange.min || 0;
-        const max = priceRange.max || Infinity;
-        return p.price >= min && p.price <= max;
-      });
-    }
-
-    return filtered;
-  }, [
-    properties,
-    searchQuery,
-    activeFilters,
-    propertyTypeFilter,
-    selectedType,
-    bedrooms,
-    priceRange,
-  ]);
+  const filteredProperties = properties;
 
   const fetchProperties = async (pageNumber: number) => {
     try {
       setIsFetchingMore(true);
-      const { data, error, count } = await supabase
+      let query = supabase
         .from("properties")
         .select("*, agents(*)", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(pageNumber * 5, (pageNumber + 1) * 5 - 1);
-  
+        .order("created_at", { ascending: false });
+
+      // Search
+      if (searchQuery.trim()) {
+        query = query.or(
+          `title.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+        );
+      }
+
+      // Filters
+      if (propertyTypeFilter !== "all") {
+        query = query.eq("property_type", propertyTypeFilter);
+      }
+      if (selectedType) query = query.eq("category", selectedType);
+      if (bedrooms > 0) query = query.gte("bedrooms", bedrooms);
+      if (bathrooms > 0) query = query.gte("bathrooms", bathrooms);
+      if (garages > 0) query = query.gte("garages", garages);
+      if (parkings > 0) query = query.gte("parkings", parkings);
+      if (selectedFeatures !== "Any")
+        query = query.eq("features", selectedFeatures);
+      if (selectedAmenities.length > 0)
+        query = query.contains("amenities", selectedAmenities);
+
+      // Pagination
+      const { data, error } = await query.range(
+        pageNumber * 5,
+        (pageNumber + 1) * 5 - 1
+      );
+
       if (error) throw error;
-  
-      // Check if there's more data
-      setHasMore(data.length === 5);
-  
+
       const formattedProperties = data.map((prop) => ({
         ...prop,
         agent: prop.agents,
         coordinates: prop.coordinates,
       }));
-  
-      // Update store with new properties
-      if (pageNumber === 0) {
-        setProperties(formattedProperties);
-      } else {
-        setProperties([...properties, ...formattedProperties]);
-      }
-  
-      setPage(pageNumber + 1);
+
+      setProperties(
+        pageNumber === 0
+          ? formattedProperties
+          : [...properties, ...formattedProperties]
+      );
+      setHasMore(data.length === 5);
+      setPage((p) => p + 1);
     } catch (error) {
-      console.error("Error fetching properties:", error);
       setError("Failed to load properties");
     } finally {
       setLoading(false);
@@ -126,8 +105,13 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    fetchProperties(0);
-  }, []);
+    const debounceTimer = setTimeout(() => {
+      setPage(0);
+      fetchProperties(0);
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
 
   const handleLoadMore = () => {
     if (!isFetchingMore && hasMore) {
@@ -150,12 +134,31 @@ export default function HomeScreen() {
     }
   };
 
-  const handleApplyFilters = () => {
-    // Implement filter application logic here
-    // For example:
-    // setSelectedType(...)
-    // setPriceRange(...)
-    // setBedrooms(...)
+  const handleApplyFilters = (filters: {
+    selectedType: string;
+    selectedBedrooms: string;
+    selectedBathrooms: string;
+    selectedGarages: string;
+    selectedParkings: string;
+    selectedFeatures: string;
+    selectedAmenities: string[];
+  }) => {
+    const parseFilterValue = (value: string) =>
+      value === "Any" ? 0 : parseInt(value.split("+")[0].trim());
+
+    setBedrooms(parseFilterValue(filters.selectedBedrooms));
+    setBathrooms(parseFilterValue(filters.selectedBathrooms));
+    setGarages(parseFilterValue(filters.selectedGarages));
+    setParkings(parseFilterValue(filters.selectedParkings));
+    setSelectedType(
+      filters.selectedType === "All properties" ? "" : filters.selectedType
+    );
+    setSelectedFeatures(filters.selectedFeatures);
+    setSelectedAmenities(filters.selectedAmenities);
+
+    setPage(0);
+    setLoading(true);
+    fetchProperties(0);
   };
 
   const handleClearFilters = () => {
@@ -197,9 +200,7 @@ export default function HomeScreen() {
         )}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.1}
-        ListFooterComponent={
-          isFetchingMore ? <PropertyCardSkeleton /> : null
-        } 
+        ListFooterComponent={isFetchingMore ? <PropertyCardSkeleton /> : null}
         keyExtractor={(item) => item.id}
         contentContainerClassName="p-4"
         refreshControl={

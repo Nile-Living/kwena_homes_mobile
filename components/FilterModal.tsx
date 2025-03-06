@@ -11,7 +11,15 @@ import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
 
 interface FilterModalProps {
-  onApply: () => void;
+  onApply: (filters: {
+    selectedType: string;
+    selectedBedrooms: string;
+    selectedBathrooms: string;
+    selectedGarages: string;
+    selectedParkings: string;
+    selectedFeatures: string;
+    selectedAmenities: string[];
+  }) => void;
   onClear: () => void;
 }
 
@@ -246,7 +254,15 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
               <TouchableOpacity
                 className="flex-1 px-6 py-3 bg-gray-200 rounded-full ml-2"
                 onPress={() => {
-                  onApply();
+                  onApply({
+                    selectedAmenities,
+                    selectedBathrooms,
+                    selectedBedrooms,
+                    selectedFeatures,
+                    selectedGarages,
+                    selectedParkings,
+                    selectedType
+                  });
                   closeModal();
                 }}
               >
