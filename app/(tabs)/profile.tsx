@@ -288,7 +288,7 @@ export default function ProfileScreen() {
         <TouchableOpacity
           onPress={handleAuthAction}
           className={`flex-row items-center p-4 rounded-lg ${
-            user ? "bg-red-50" : "bg-blue-50"
+            user ? "bg-red-50" : "bg-green-50"
           }`}
         >
           <Ionicons
@@ -298,7 +298,7 @@ export default function ProfileScreen() {
           />
           <Text
             className={`ml-4 text-lg ${
-              user ? "text-red-500" : "text-blue-500"
+              user ? "text-red-500" : "text-green-700"
             }`}
           >
             {user ? "Sign Out" : "Sign In"}

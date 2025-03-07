@@ -39,6 +39,13 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="property/new/index"
+            options={{ title: "Add New Property" }}
+          />
+          <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+
+          <Stack.Screen name="properties/index" options={{ title: "Manage Properties" }} />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />
