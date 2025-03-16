@@ -11,6 +11,8 @@ import { Colors } from "@/constants/Colors";
 import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Picker } from "@react-native-picker/picker";
+import { useColorScheme } from "react-native";
 
 const SKELETON_COUNT = 6;
 
@@ -18,6 +20,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'price_asc' | 'price_desc'>('newest');
+  const colorScheme = useColorScheme();
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
@@ -50,9 +54,23 @@ export default function HomeScreen() {
     try {
       setIsFetchingMore(true);
       let query = supabase
-        .from("properties")
-        .select("*, agents(*)", { count: "exact" })
-        .order("created_at", { ascending: false });
+      .from("properties")
+      .select("*, agents(*)", { count: "exact" });
+    
+    switch(sortOption) {
+      case 'newest':
+        query = query.order("created_at", { ascending: false });
+        break;
+      case 'oldest':
+        query = query.order("created_at", { ascending: true });
+        break;
+      case 'price_asc':
+        query = query.order("price", { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order("price", { ascending: false });
+        break;
+    }
 
       // Search
       if (searchQuery.trim()) {
@@ -224,10 +242,32 @@ export default function HomeScreen() {
               onChangeText={setSearchQuery}
               placeholder="Search properties..."
             />
+            
             <FilterModal
               onApply={handleApplyFilters}
               onClear={handleClearFilters}
             />
+          </View>
+
+          <View className="px-4 pb-2">
+            <Picker
+              selectedValue={sortOption}
+              onValueChange={(value) => {
+                setSortOption(value);
+                setPage(0);
+                fetchProperties(0);
+              }}
+              mode="dropdown"
+              dropdownIconColor={colorScheme === 'dark' ? 'white' : 'black'}
+              style={{
+                backgroundColor: colorScheme === 'dark' ? '#333' : '#fff',
+                color: colorScheme === 'dark' ? 'white' : 'black',
+              }}>
+              <Picker.Item label="Newest" value="newest" />
+              <Picker.Item label="Oldest" value="oldest" />
+              <Picker.Item label="Price: Low to High" value="price_asc" />
+              <Picker.Item label="Price: High to Low" value="price_desc" />
+            </Picker>
           </View>
 
           {renderContent()}

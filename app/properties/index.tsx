@@ -278,7 +278,7 @@ const MyPropertiesPage: React.FC = () => {
           </View>
           
           <View className="flex-row items-center mb-3">
-            <Text className="text-xl font-bold text-indigo-600">${item.price}/mo</Text>
+            <Text className="text-xl font-bold text-indigo-600">K{item.price}/mo</Text>
             <Text className="text-gray-500 text-xs ml-2">
               Last updated: {item.lastUpdated.toLocaleDateString()}
             </Text>

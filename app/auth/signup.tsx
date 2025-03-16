@@ -21,8 +21,8 @@ export default function SignUpScreen() {
       return;
     }
   
-    if (!/^\+?[0-9]{10,15}$/.test(phone)) {
-      Alert.alert("Error", "Please enter a valid phone number");
+    if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
+      Alert.alert("Error", "Please enter a valid phone number with the country code (e.g. +260...)");
       return;
     }
   

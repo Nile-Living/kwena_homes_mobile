@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from "@/store/authStore";
+import { useRouter } from "expo-router";
+
 
 const SettingsPage = () => {
-  // Example state for toggles
+  const { user, signOut, signInWithGoogle } = useAuthStore();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+
+  const router = useRouter();
 
   // Setting sections with items
   const settingsSections = [
@@ -98,6 +103,16 @@ const SettingsPage = () => {
     },
   ];
 
+  const handleAuthAction = () => {
+    if (user) {
+      signOut();
+      router.push("/")
+    } else {
+      router.push("/auth/signin");
+    }
+  };
+
+
   // Setting item component
   const SettingItem = ({ item }: { item: any}) => {
     return (
@@ -147,9 +162,9 @@ const SettingsPage = () => {
 
       <TouchableOpacity
         className="mx-4 mb-8 p-3 rounded-lg bg-red-500 items-center"
-        onPress={() => console.log('Log out pressed')}
+        onPress={handleAuthAction}
       >
-        <Text className="text-white font-semibold">Log Out</Text>
+        <Text className="text-white font-semibold">Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
   );

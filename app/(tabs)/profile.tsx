@@ -146,7 +146,10 @@ export default function ProfileScreen() {
   const handleUpdateName = () => {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to update your profile");
-      router.push('/auth/signin');
+      router.push({
+        pathname: "/auth/signin",
+        params: { redirectTo: "/profile"}
+      });
       return;
     }
     
@@ -180,7 +183,10 @@ export default function ProfileScreen() {
   const handleNavigateToProperties = () => {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to view your properties");
-      router.push("/auth/signin");
+      router.push({
+        pathname: "/auth/signin",
+        params: { redirectTo: "/properties"}
+      });
     } else {
       router.push("/properties");
     }
@@ -189,7 +195,10 @@ export default function ProfileScreen() {
   const handleNavigateToAddProperty = () => {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to add a property");
-      router.push("/auth/signin");
+      router.push({
+        pathname: "/auth/signin",
+        params: { redirectTo: "/property/new"}
+      });
     } else {
       router.push("/property/new");
     }
@@ -198,8 +207,10 @@ export default function ProfileScreen() {
   const handleNavigateToSettings = () => {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to access settings");
-      router.push("/auth/signin");
-    } else {
+      router.push({
+        pathname: "/auth/signin",
+        params: { redirectTo: "/settings"}
+      });    } else {
       router.push("/settings");
     }
   };

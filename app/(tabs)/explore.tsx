@@ -1,11 +1,20 @@
-import { Platform, View, Text, StyleSheet, Dimensions, Image, Pressable } from "react-native";
+import {
+  Platform,
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  Image,
+  Pressable,
+} from "react-native";
 import { useState, useEffect } from "react";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useRouter } from "expo-router";
 import { useStore, Property } from "@/store/useStore";
 import SearchBar from "@/components/SearchBar";
-import PriceMarker from "@/components/PriceMarker"; // Import with correct name
+import PriceMarker from "@/components/PriceMarker";
 import * as Location from "expo-location";
+import { supabase } from "@/supabaseClient";
 
 const LUSAKA_COORDS = {
   latitude: -15.4167,
@@ -14,20 +23,35 @@ const LUSAKA_COORDS = {
   longitudeDelta: 0.0421,
 };
 
-const PropertyPreview = ({ property, onPress }: { property: Property; onPress: () => void }) => {
+const PropertyPreview = ({
+  property,
+  onPress,
+}: {
+  property: Property;
+  onPress: () => void;
+}) => {
   return (
-    <Pressable 
+    <Pressable
       onPress={onPress}
       className="absolute bottom-6 left-4 right-4 bg-white rounded-lg shadow-lg overflow-hidden"
-      style={[Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 }})]}
+      style={[
+        Platform.select({
+          ios: {
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+          },
+        }),
+      ]}
     >
       <View className="flex-row h-24">
-        <Image
-          source={{ uri: property.images[0] }}
-          className="w-24 h-24"
-        />
+        <Image source={{ uri: property.images[0] }} className="w-24 h-24" />
         <View className="flex-1 p-3">
-          <Text className="text-lg font-semibold text-gray-800" numberOfLines={1}>
+          <Text
+            className="text-lg font-semibold text-gray-800"
+            numberOfLines={1}
+          >
             {property.title}
           </Text>
           <Text className="text-base text-gray-600" numberOfLines={1}>
@@ -46,7 +70,37 @@ export default function ExploreScreen() {
   const router = useRouter();
   const { properties, searchQuery, setSearchQuery } = useStore();
   const [region, setRegion] = useState<Region>(LUSAKA_COORDS);
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null
+  );
+  const [exploreProperties, setExploreProperties] = useState<Property[]>([]);
+  const [tracksViewChanges, setTrackViewChanges] = useState(true);
+
+  useEffect(() => {
+    const fetchExploreProperties = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("properties")
+          .select("*, agents(*)")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const formattedProperties = data.map((prop) => ({
+          ...prop,
+          agent: prop.agents,
+          coordinates: prop.coordinates,
+        }));
+        setExploreProperties(formattedProperties);
+        const timeout = setTimeout(() => setTrackViewChanges(false), 1000);
+        return () => clearTimeout(timeout);
+      } catch (error) {
+        console.error("Error fetching explore properteis:", error);
+      }
+    };
+
+    fetchExploreProperties();
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -81,15 +135,15 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View style={styles.container} className="mt-6">
-      <View style={styles.searchContainer}>
+    <View style={styles.container} className="mt-10">
+      <View style={styles.searchContainer} className="mt-6">
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search location..."
         />
       </View>
-      
+
       {Platform.OS === "web" ? (
         <View style={styles.mapPlaceholder}>
           <Text>Map view is not supported on web.</Text>
@@ -100,14 +154,17 @@ export default function ExploreScreen() {
           region={region}
           onRegionChangeComplete={setRegion}
         >
-          {properties.map(
+          {exploreProperties.map(
             (property) =>
               property.coordinates && (
                 <Marker
                   key={property.id}
                   coordinate={property.coordinates}
+                  tracksViewChanges={tracksViewChanges}
                   title={property.title}
-                  description={`K${property.price.toLocaleString()} - ${property.location}`}
+                  description={`K${property.price.toLocaleString()} - ${
+                    property.location
+                  }`}
                   onPress={() => handleMarkerPress(property)}
                 >
                   <PriceMarker price={property.price} />

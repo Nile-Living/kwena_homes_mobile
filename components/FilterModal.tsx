@@ -106,7 +106,7 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
       <BottomSheetModal
         ref={bottomSheetModalRef}
         index={0}
-        snapPoints={["60%"]}
+        snapPoints={["95%"]}
         backgroundStyle={{ backgroundColor: "#F5F5F5" }}
         containerStyle={{ zIndex: 1000 }}
       >

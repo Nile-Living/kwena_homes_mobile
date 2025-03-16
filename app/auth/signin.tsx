@@ -1,13 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, TextInput, TouchableOpacity, Text, Alert } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { signIn, signInWithGoogle, loading, error } = useAuthStore();
   const router = useRouter();
+  const { redirectTo } = useLocalSearchParams();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -16,14 +17,22 @@ export default function SignInScreen() {
     }
     await signIn(email, password);
     if (!error) {
-      router.push("/");
+      if (redirectTo) {
+        router.push(redirectTo as any);
+      } else {
+        router.push("/");
+      }
     }
   };
 
   const handleGoogleSignIn = async () => {
     await signInWithGoogle();
     if (!error) {
-      router.push("/");
+      if (redirectTo) {
+        router.push(redirectTo as any);
+      } else {
+        router.push("/");
+      }
     }
   };
 
