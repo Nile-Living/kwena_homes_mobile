@@ -9,11 +9,10 @@ import {
   FlatList,
   Modal,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, Stack, useNavigation } from "expo-router";
 import { Colors } from "@/constants/Colors";
 import { useStore, Property } from "@/store/useStore";
 import { useEffect, useState, useRef } from "react";
-import { useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   GestureHandlerRootView,
@@ -185,6 +184,12 @@ export default function PropertyDetails() {
   // Single return statement with conditional rendering
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack.Screen
+        options={{
+          title: property?.title || "Property Details",
+          headerTitle: property?.title || "Property Details",
+        }}
+      />
       {loading ? (
         <LoadingSpinner />
       ) : !property ? (

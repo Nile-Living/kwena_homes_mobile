@@ -135,14 +135,14 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View style={styles.container} className="mt-10">
-      <View style={styles.searchContainer} className="mt-6">
+    <View style={styles.container} className="">
+      {/* <View style={styles.searchContainer} className="mt-6">
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search location..."
         />
-      </View>
+      </View> */}
 
       {Platform.OS === "web" ? (
         <View style={styles.mapPlaceholder}>

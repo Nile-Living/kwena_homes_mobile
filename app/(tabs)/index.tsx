@@ -249,7 +249,7 @@ export default function HomeScreen() {
             />
           </View>
 
-          <View className="px-4 pb-2">
+          <View className="px-2 pb-1">
             <Picker
               selectedValue={sortOption}
               onValueChange={(value) => {
