@@ -32,6 +32,10 @@ interface PropertyAction {
   action: (property: Property) => void;
 }
 
+type NavigationProps = {
+  navigate: (screen: string, params?: { propertyId: string}) => void;
+};
+
 interface StatusOption {
   value: PropertyStatus;
   label: string;
@@ -41,7 +45,7 @@ interface StatusOption {
 
 // Component for My Properties Page
 const MyPropertiesPage: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { user } = useAuthStore();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,8 +196,7 @@ const MyPropertiesPage: React.FC = () => {
 
   // Navigate to edit property screen
   const handleEditProperty = (property: Property) => {
-    // @ts-ignore - Navigation type might need to be properly defined
-    navigation.navigate('EditProperty', { propertyId: property.id });
+    navigation.navigate("property/edit/[id]", { propertyId: property.id });
   };
 
   // Update property status
