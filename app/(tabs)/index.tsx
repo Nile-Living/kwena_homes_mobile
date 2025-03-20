@@ -1,5 +1,5 @@
 import { StyleSheet, FlatList, View, RefreshControl } from "react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/store/useStore";
 import { useRouter } from "expo-router";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -16,11 +16,24 @@ import { useColorScheme } from "react-native";
 
 const SKELETON_COUNT = 6;
 
+type PropertyStatus =
+  | "available"
+  | "occupied"
+  | "rented"
+  | "off-market"
+  | "under-maintenance"
+  | "pending-approval";
+
 export default function HomeScreen() {
   const router = useRouter();
+
+  const flatListRef = useRef<FlatList>(null)
+
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'price_asc' | 'price_desc'>('newest');
+  const [sortOption, setSortOption] = useState<
+    "newest" | "oldest" | "price_asc" | "price_desc"
+  >("newest");
   const colorScheme = useColorScheme();
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const [bedrooms, setBedrooms] = useState(0);
@@ -33,6 +46,9 @@ export default function HomeScreen() {
   const [parkings, setParkings] = useState(0);
   const [selectedFeatures, setSelectedFeatures] = useState("Any");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"all" | PropertyStatus>(
+    "all"
+  );
 
   const {
     properties,
@@ -48,38 +64,112 @@ export default function HomeScreen() {
     setLoading,
   } = useStore();
 
+  const statusOptions = [
+    { value: "all", label: "All Properties", color: "#4B5563", icon: "list" },
+    {
+      value: "available",
+      label: "Available",
+      color: "#4CAF50",
+      icon: "checkmark-circle",
+    },
+    { value: "occupied", label: "Occupied", color: "#FF9800", icon: "home" },
+    { value: "rented", label: "Rented Out", color: "#2196F3", icon: "cash" },
+    {
+      value: "off-market",
+      label: "Off Market",
+      color: "#9E9E9E",
+      icon: "eye-off",
+    },
+    {
+      value: "under-maintenance",
+      label: "Under Maintenance",
+      color: "#FFC107",
+      icon: "construct",
+    },
+    {
+      value: "pending-approval",
+      label: "Pending Approval",
+      color: "#673AB7",
+      icon: "time",
+    },
+  ];
+
   const filteredProperties = properties;
+
+  const getFilteredProperties = () => {
+    let filtered = [...properties];
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (property) =>
+          property.title.toLowerCase().includes(query) ||
+          property.location.toLowerCase().includes(query)
+      );
+    }
+
+    if (propertyTypeFilter !== "all") {
+      filtered = filtered.filter(
+        (property) => property.property_type === propertyTypeFilter
+      );
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(
+        (property) => property.status === statusFilter
+      );
+    }
+
+    filtered.sort((a, b) => {
+      switch (sortOption) {
+        case "newest":
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        case "oldest":
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        case "price_asc":
+          return a.price - b.price;
+        case "price_desc":
+          return b.price - a.price;
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  };
 
   const fetchProperties = async (pageNumber: number) => {
     try {
       setIsFetchingMore(true);
       let query = supabase
-      .from("properties")
-      .select("*, agents(*)", { count: "exact" });
-    
-    switch(sortOption) {
-      case 'newest':
-        query = query.order("created_at", { ascending: false });
-        break;
-      case 'oldest':
-        query = query.order("created_at", { ascending: true });
-        break;
-      case 'price_asc':
-        query = query.order("price", { ascending: true });
-        break;
-      case 'price_desc':
-        query = query.order("price", { ascending: false });
-        break;
-    }
+        .from("properties")
+        .select("*, agents(*)", { count: "exact" });
 
-      // Search
+      switch (sortOption) {
+        case "newest":
+          query = query.order("created_at", { ascending: false });
+          break;
+        case "oldest":
+          query = query.order("created_at", { ascending: true });
+          break;
+        case "price_asc":
+          query = query.order("price", { ascending: true });
+          break;
+        case "price_desc":
+          query = query.order("price", { ascending: false });
+          break;
+      }
+
       if (searchQuery.trim()) {
         query = query.or(
           `title.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
         );
       }
 
-      // Filters
       if (propertyTypeFilter !== "all") {
         query = query.eq("property_type", propertyTypeFilter);
       }
@@ -93,7 +183,6 @@ export default function HomeScreen() {
       if (selectedAmenities.length > 0)
         query = query.contains("amenities", selectedAmenities);
 
-      // Pagination
       const { data, error } = await query.range(
         pageNumber * 5,
         (pageNumber + 1) * 5 - 1
@@ -107,11 +196,10 @@ export default function HomeScreen() {
         coordinates: prop.coordinates,
       }));
 
-      setProperties(
-        pageNumber === 0
-          ? formattedProperties
-          : [...properties, ...formattedProperties]
+      const mergedProperties = [...properties, ...formattedProperties].filter(
+        (p, index, self) => self.findIndex((prop) => prop.id === p.id) === index
       );
+      setProperties(mergedProperties);
       setHasMore(data.length === 5);
       setPage((p) => p + 1);
     } catch (error) {
@@ -200,7 +288,8 @@ export default function HomeScreen() {
 
     return (
       <FlatList
-        data={filteredProperties}
+      ref={flatListRef}
+        data={getFilteredProperties()}
         renderItem={({ item }) => (
           <PropertyCard
             property={item}
@@ -242,7 +331,7 @@ export default function HomeScreen() {
               onChangeText={setSearchQuery}
               placeholder="Search properties..."
             />
-            
+
             <FilterModal
               onApply={handleApplyFilters}
               onClear={handleClearFilters}
@@ -255,14 +344,16 @@ export default function HomeScreen() {
               onValueChange={(value) => {
                 setSortOption(value);
                 setPage(0);
+                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
                 fetchProperties(0);
               }}
               mode="dropdown"
-              dropdownIconColor={colorScheme === 'dark' ? 'white' : 'black'}
+              dropdownIconColor={colorScheme === "dark" ? "white" : "black"}
               style={{
-                backgroundColor: colorScheme === 'dark' ? '#333' : '#fff',
-                color: colorScheme === 'dark' ? 'white' : 'black',
-              }}>
+                backgroundColor: colorScheme === "dark" ? "#333" : "#fff",
+                color: colorScheme === "dark" ? "white" : "black",
+              }}
+            >
               <Picker.Item label="Newest" value="newest" />
               <Picker.Item label="Oldest" value="oldest" />
               <Picker.Item label="Price: Low to High" value="price_asc" />

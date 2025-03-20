@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, TextInput, TouchableOpacity, Text, Alert } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, Stack } from "expo-router";
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
@@ -38,6 +38,12 @@ export default function SignInScreen() {
 
   return (
     <View className="flex-1 flex flex-col gap- bg-white px-6 py-12">
+      <Stack.Screen
+        options={{
+          title: "Sign In",
+          headerTitle: "Sign In",
+        }}
+      />
       <Text className="text-3xl font-bold text-center text-gray-800 mb-8">
         Sign In
       </Text>

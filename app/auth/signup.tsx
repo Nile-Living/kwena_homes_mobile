@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, Alert } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState("");
@@ -35,6 +35,12 @@ export default function SignUpScreen() {
 
   return (
     <View className="flex-1 bg-white px-6 py-12">
+      <Stack.Screen
+              options={{
+                title: "Sign Up",
+                headerTitle: "Sign Up",
+              }}
+            />
       <Text className="text-3xl font-bold text-center text-gray-800 mb-8">
         Sign Up
       </Text>
