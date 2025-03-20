@@ -136,6 +136,20 @@ export default function EditPropertyScreen() {
     }
   };
 
+    const deleteImageFromStorage = async (imageUrl: string) => {
+      try {
+        const path = imageUrl.split('/').slice(-2).join('/');
+        const { error } = await supabase.storage
+        .from('property-images')
+        .remove([path]);
+  
+        if (error) throw error;
+      } catch (error) {
+        console.error(' Error deleting image from storage:', error);
+      }
+    }
+  
+
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent;
     setFormData(prev => ({
@@ -173,8 +187,9 @@ export default function EditPropertyScreen() {
       setLoading(true);
 
       const removedImages = existingImages.filter(img => !allImages.includes(img));
-      await
-       Promise
+      await Promise.all(
+        removedImages.map(imageUrl => deleteImageFromStorage(imageUrl))
+      );
       
       const uploadedImages = await Promise.all(
         newImages.map(async (uri, index) => {
