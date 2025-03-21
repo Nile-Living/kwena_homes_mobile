@@ -351,7 +351,7 @@ export default function AddPropertyScreen() {
         <View className="mb-4">
           <Text className="text-sm text-gray-600 mb-1">
             {formData.propertyType === "rent"
-              ? "Price ($/month) *"
+              ? "Price (K/month) *"
               : "Price ($) *"}
           </Text>
           <TextInput
@@ -370,7 +370,7 @@ export default function AddPropertyScreen() {
           <TextInput
             value={formData.location}
             onChangeText={(text) => updateFormField("location", text)}
-            placeholder="e.g. 123 Main St, Anytown"
+            placeholder="e.g. Kabulonga"
             className="border border-gray-300 rounded-lg p-3 bg-gray-50"
           />
         </View>
