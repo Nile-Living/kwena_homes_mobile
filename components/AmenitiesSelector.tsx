@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { PropertyType } from '../constants/propertyTypes';
+import { PropertyType } from '../constants/PropertyTypes';
 
 // Define amenities by property type
 const AMENITIES_BY_TYPE: Record<PropertyType, string[]> = {

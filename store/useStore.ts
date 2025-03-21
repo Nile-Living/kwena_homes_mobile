@@ -17,8 +17,8 @@ export interface Property {
   title: string;
   price: number;
   location: string;
-  bedrooms: number;
-  bathrooms: number;
+  bedrooms?: number;
+  bathrooms?: number;
   images: string[];
   property_type: "rent" | "sale";
   user_id: string;

@@ -94,7 +94,7 @@ export default function PropertyCard({
             <View className="flex-row items-center gap-1">
               <Ionicons name="bed-outline" size={16} color="#4b5563" />
               <Text className="text-sm text-neutral-600">
-                {property.bedrooms}
+              {property.bedrooms || '-'}
               </Text>
             </View>
             <View className="flex-row items-center gap-1">

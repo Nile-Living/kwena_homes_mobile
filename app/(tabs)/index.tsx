@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 
 const SKELETON_COUNT = 6;
 
@@ -38,7 +39,7 @@ export default function HomeScreen() {
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedType, setSelectedType] = useState<PropertyCategory | 'all'>('all');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -110,7 +111,7 @@ export default function HomeScreen() {
 
     if (propertyTypeFilter !== "all") {
       filtered = filtered.filter(
-        (property) => property.property_type === propertyTypeFilter
+        (property) => property.property_type?.toLowerCase() === propertyTypeFilter
       );
     }
 
@@ -149,6 +150,10 @@ export default function HomeScreen() {
         .from("properties")
         .select("*, agents(*)", { count: "exact" });
 
+        if (selectedType !== 'all') {
+          query = query.eq("category", selectedType);
+        }
+
       switch (sortOption) {
         case "newest":
           query = query.order("created_at", { ascending: false });
@@ -174,8 +179,12 @@ export default function HomeScreen() {
         query = query.eq("property_type", propertyTypeFilter);
       }
       if (selectedType) query = query.eq("category", selectedType);
-      if (bedrooms > 0) query = query.gte("bedrooms", bedrooms);
-      if (bathrooms > 0) query = query.gte("bathrooms", bathrooms);
+      if (selectedType === 'all' || PROPERTY_TYPES[selectedType]?.hasBedBath) {
+        if (bedrooms > 0) query = query.gte("bedrooms", bedrooms);
+        if (bathrooms > 0) query = query.gte("bathrooms", bathrooms);
+      } else {
+        query = query.is("bedrooms", null).is("bathrooms", null);
+      }
       if (garages > 0) query = query.gte("garages", garages);
       if (parkings > 0) query = query.gte("parkings", parkings);
       if (selectedFeatures !== "Any")
@@ -185,7 +194,7 @@ export default function HomeScreen() {
 
       const { data, error } = await query.range(
         pageNumber * 5,
-        (pageNumber + 1) * 5 - 1
+        (pageNumber * 5) + 4
       );
 
       if (error) throw error;
@@ -202,6 +211,9 @@ export default function HomeScreen() {
       setProperties(mergedProperties);
       setHasMore(data.length === 5);
       setPage((p) => p + 1);
+
+      console.log("Fetched data:", data);
+    console.log("Query error:", error);
     } catch (error) {
       setError("Failed to load properties");
     } finally {
@@ -252,12 +264,16 @@ export default function HomeScreen() {
     const parseFilterValue = (value: string) =>
       value === "Any" ? 0 : parseInt(value.split("+")[0].trim());
 
+    const categoryKey = Object.entries(PROPERTY_TYPES).find(
+      ([key, val]) => val.label === filters.selectedType
+    )?.[0] || 'all';
+
     setBedrooms(parseFilterValue(filters.selectedBedrooms));
     setBathrooms(parseFilterValue(filters.selectedBathrooms));
     setGarages(parseFilterValue(filters.selectedGarages));
     setParkings(parseFilterValue(filters.selectedParkings));
     setSelectedType(
-      filters.selectedType === "All properties" ? "" : filters.selectedType
+      filters.selectedType === "All properties" ? "all" : filters.selectedType as PropertyCategory
     );
     setSelectedFeatures(filters.selectedFeatures);
     setSelectedAmenities(filters.selectedAmenities);
@@ -271,7 +287,7 @@ export default function HomeScreen() {
     setPriceRange({ min: 0, max: 0 });
     setBedrooms(0);
     setBathrooms(0);
-    setSelectedType("");
+    setSelectedType("all");
   };
 
   const renderContent = () => {

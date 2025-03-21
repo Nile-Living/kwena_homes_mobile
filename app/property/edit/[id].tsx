@@ -186,7 +186,7 @@ export default function EditPropertyScreen() {
     try {
       setLoading(true);
 
-      const removedImages = existingImages.filter(img => !allImages.includes(img));
+      const removedImages = existingImages?.filter(img => !allImages?.includes(img)) ?? [];
       await Promise.all(
         removedImages.map(imageUrl => deleteImageFromStorage(imageUrl))
       );
@@ -212,9 +212,9 @@ export default function EditPropertyScreen() {
       const successfulUploads = uploadedImages.filter(url => url !== null) as string[];
       
       // Combine existing and new images
-      const allImages = [...existingImages, ...successfulUploads];
+      const allImages = [...existingImages ?? [], ...successfulUploads ?? []];
 
-      if (allImages.length === 0) {
+      if ((allImages ?? []).length === 0) {
         Alert.alert("Error", "At least one image is required");
         return;
       }

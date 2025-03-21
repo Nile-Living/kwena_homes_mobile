@@ -19,9 +19,8 @@ import {
   prepareImageForUpload,
   uploadImageToSupabase,
 } from "@/hooks/imageHelpers";
-import * as Location from "expo-location";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 
-// Define type for form data
 interface FormData {
   title: string;
   price: string;
@@ -34,6 +33,8 @@ interface FormData {
     latitude: number;
     longitude: number;
   };
+  category: PropertyCategory;
+  amenities: string[];
 }
 
 export default function AddPropertyScreen() {
@@ -56,6 +57,8 @@ export default function AddPropertyScreen() {
       latitude: -15.3875,
       longitude: 28.3228,
     },
+    category: "house",
+    amenities: [],
   });
 
   const pickImage = async () => {
@@ -114,98 +117,121 @@ export default function AddPropertyScreen() {
 
   const handleSubmit = async () => {
     if (!user) {
-      Alert.alert("Authentication Error", "You must be logged in to list a property");
+      Alert.alert(
+        "Authentication Error",
+        "You must be logged in to list a property"
+      );
       return;
     }
-  
-    // Form validation
-    if (
-      !formData.title ||
-      !formData.price ||
-      !formData.location ||
-      !formData.bedrooms ||
-      !formData.bathrooms ||
-      !formData.description
-    ) {
-      Alert.alert("Missing Information", "Please fill in all required fields");
+
+    const validationErrors = [];
+    if (!formData.title) validationErrors.push("Title");
+    if (!formData.price) validationErrors.push("Price");
+    if (!formData.location) validationErrors.push("Location");
+    if (PROPERTY_TYPES[formData.category].hasBedBath) {
+      if (!formData.bedrooms) validationErrors.push("Bedrooms");
+      if (!formData.bathrooms) validationErrors.push("Bathrooms");
+    }
+    if (!formData.description) validationErrors.push("Description");
+
+    if (validationErrors.length > 0) {
+      Alert.alert(
+        "Missing Information",
+        `Please fill in: ${validationErrors.join(", ")}`
+      );
       return;
     }
-  
+
     if (images.length === 0) {
       Alert.alert("Missing Images", "Please add at least one image");
       return;
     }
-  
+
     try {
       setLoading(true);
       setUploadProgress(0);
-  
+
       // Show progress indicator
       Alert.alert(
         "Upload Started",
         "Your images are being uploaded. This may take a few minutes depending on your connection speed.",
         [{ text: "OK" }]
       );
-  
+
       // Upload images one by one with progress tracking
       const imageUrls = [];
       const failedUploads = [];
-      
+
       for (let i = 0; i < images.length; i++) {
         try {
           // Update progress indicator
           setUploadProgress(Math.floor((i / images.length) * 100));
-          
-          console.log(`Starting upload for image ${i+1} of ${images.length}`);
-          
+
+          console.log(`Starting upload for image ${i + 1} of ${images.length}`);
+
           // Use the enhanced helper function to upload the image with ArrayBuffer
           const imageUrl = await uploadImageToSupabase(
             supabase,
             images[i],
             user.id,
             i,
-            'property-images',
+            "property-images",
             3 // Max retries
           );
-          
+
           imageUrls.push(imageUrl);
-          console.log(`Successfully uploaded image ${i+1}: ${imageUrl.substring(0, 30)}...`);
+          console.log(
+            `Successfully uploaded image ${i + 1}: ${imageUrl.substring(
+              0,
+              30
+            )}...`
+          );
         } catch (uploadError) {
           console.error(`Error uploading image ${i}:`, uploadError);
           failedUploads.push(i + 1); // Store failed upload index (1-based for user display)
         }
       }
-  
+
       // Check if we have any successful uploads
       if (imageUrls.length === 0) {
-        throw new Error("Failed to upload any images. Please check your internet connection and try again.");
+        throw new Error(
+          "Failed to upload any images. Please check your internet connection and try again."
+        );
       }
-      
+
       // Notify user of partial uploads if any failed
       if (failedUploads.length > 0) {
-        console.log(`${failedUploads.length} images failed to upload: ${failedUploads.join(', ')}`);
-        
+        console.log(
+          `${
+            failedUploads.length
+          } images failed to upload: ${failedUploads.join(", ")}`
+        );
+
         const shouldContinue = await new Promise((resolve) => {
           Alert.alert(
             "Partial Upload",
             `Successfully uploaded ${imageUrls.length} out of ${images.length} images. Would you like to continue with the listing?`,
             [
-              { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-              { text: "Continue", onPress: () => resolve(true) }
+              {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => resolve(false),
+              },
+              { text: "Continue", onPress: () => resolve(true) },
             ],
             { cancelable: false }
           );
         });
-        
+
         if (!shouldContinue) {
           setLoading(false);
           setUploadProgress(0);
           return;
         }
       }
-  
+
       setUploadProgress(100);
-  
+
       // Create property in database
       const { data, error } = await supabase
         .from("properties")
@@ -220,12 +246,14 @@ export default function AddPropertyScreen() {
           coordinates: formData.coordinates,
           images: imageUrls,
           property_type: formData.propertyType,
+          category: formData.category,
+          amenities: formData.amenities,
         })
         .select()
         .single();
-  
+
       if (error) throw error;
-  
+
       Alert.alert("Success", "Property listed successfully!", [
         { text: "OK", onPress: () => router.push("/") },
       ]);
@@ -233,7 +261,9 @@ export default function AddPropertyScreen() {
       console.error("Error creating property:", error);
       Alert.alert(
         "Error",
-        `Error creating property: ${error.message || "Unknown error"}\n\nCheck your internet connection and try again.`
+        `Error creating property: ${
+          error.message || "Unknown error"
+        }\n\nCheck your internet connection and try again.`
       );
     } finally {
       setLoading(false);
@@ -287,6 +317,73 @@ export default function AddPropertyScreen() {
         </ScrollView>
       </View>
 
+      {/* Property Category Selection */}
+      <View className="mb-6">
+        <Text className="text-base font-medium mb-2">Property Category *</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="gap-2"
+        >
+          {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
+            <TouchableOpacity
+              key={key}
+              className={`px-4 py-2 rounded-full ${
+                formData.category === key ? "bg-blue-500" : "bg-gray-100"
+              }`}
+              onPress={() =>
+                setFormData((prev) => ({
+                  ...prev,
+                  category: key as PropertyCategory,
+                  amenities: [],
+                }))
+              }
+            >
+              <Text
+                className={`${
+                  formData.category === key ? "text-white" : "text-gray-600"
+                }`}
+              >
+                {value.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Amenities Selection */}
+      <View className="mb-6">
+        <Text className="text-base font-medium mb-2">Amenities</Text>
+        <View className="flex-row flex-wrap gap-2">
+          {PROPERTY_TYPES[formData.category].amenities.map((amenity) => (
+            <TouchableOpacity
+              key={amenity}
+              className={`px-3 py-2 rounded-full ${
+                formData.amenities.includes(amenity)
+                  ? "bg-blue-100 border border-blue-500"
+                  : "bg-gray-100 border border-gray-300"
+              }`}
+              onPress={() => {
+                const newAmenities = formData.amenities.includes(amenity)
+                  ? formData.amenities.filter((a) => a !== amenity)
+                  : [...formData.amenities, amenity];
+                setFormData((prev) => ({ ...prev, amenities: newAmenities }));
+              }}
+            >
+              <Text
+                className={`${
+                  formData.amenities.includes(amenity)
+                    ? "text-blue-500"
+                    : "text-gray-600"
+                }`}
+              >
+                {amenity}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {/* Property Type Selection */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Type *</Text>
@@ -337,7 +434,6 @@ export default function AddPropertyScreen() {
       {/* Property Details */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Details</Text>
-
         <View className="mb-4">
           <Text className="text-sm text-gray-600 mb-1">Title *</Text>
           <TextInput
@@ -347,7 +443,6 @@ export default function AddPropertyScreen() {
             className="border border-gray-300 rounded-lg p-3 bg-gray-50"
           />
         </View>
-
         <View className="mb-4">
           <Text className="text-sm text-gray-600 mb-1">
             {formData.propertyType === "rent"
@@ -364,7 +459,6 @@ export default function AddPropertyScreen() {
             className="border border-gray-300 rounded-lg p-3 bg-gray-50"
           />
         </View>
-
         <View className="mb-4">
           <Text className="text-sm text-gray-600 mb-1">Location *</Text>
           <TextInput
@@ -375,29 +469,30 @@ export default function AddPropertyScreen() {
           />
         </View>
 
-        <View className="flex-row mb-4 space-x-3">
-          <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Bedrooms *</Text>
-            <TextInput
-              value={formData.bedrooms}
-              onChangeText={(text) => updateFormField("bedrooms", text)}
-              placeholder="e.g. 2"
-              keyboardType="numeric"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50"
-            />
+        {PROPERTY_TYPES[formData.category].hasBedBath && (
+          <View className="flex-row mb-4 space-x-3">
+            <View className="flex-1">
+              <Text className="text-sm text-gray-600 mb-1">Bedrooms *</Text>
+              <TextInput
+                value={formData.bedrooms}
+                onChangeText={(text) => updateFormField("bedrooms", text)}
+                placeholder="e.g. 2"
+                keyboardType="numeric"
+                className="border border-gray-300 rounded-lg p-3 bg-gray-50"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm text-gray-600 mb-1">Bathrooms *</Text>
+              <TextInput
+                value={formData.bathrooms}
+                onChangeText={(text) => updateFormField("bathrooms", text)}
+                placeholder="e.g. 1"
+                keyboardType="numeric"
+                className="border border-gray-300 rounded-lg p-3 bg-gray-50"
+              />
+            </View>
           </View>
-          <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Bathrooms *</Text>
-            <TextInput
-              value={formData.bathrooms}
-              onChangeText={(text) => updateFormField("bathrooms", text)}
-              placeholder="e.g. 1"
-              keyboardType="numeric"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50"
-            />
-          </View>
-        </View>
-
+        )}
         <View className="mb-4">
           <Text className="text-sm text-gray-600 mb-1">Description *</Text>
           <TextInput

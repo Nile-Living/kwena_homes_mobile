@@ -9,10 +9,11 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 
 interface FilterModalProps {
   onApply: (filters: {
-    selectedType: string;
+    selectedType: PropertyCategory | "all";
     selectedBedrooms: string;
     selectedBathrooms: string;
     selectedGarages: string;
@@ -32,7 +33,7 @@ const propertyTypes = [
   "Lodge",
   "Freestanding",
   "Commercial",
-  "Industrial"
+  "Industrial",
 ];
 
 const pickerOptions = ["Any", "1 +", "2 +", "3 +", "4 +", "5 +"];
@@ -45,7 +46,7 @@ const amenitiesList = [
   "Security system",
   "Borehole",
   "Solar System/Generator",
-  "Parking"
+  "Parking",
 ];
 
 const features = [
@@ -58,7 +59,9 @@ const features = [
 export default function FilterModal({ onApply, onClear }: FilterModalProps) {
   const colorScheme = useColorScheme();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const [selectedType, setSelectedType] = useState<string>("All properties");
+  const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
+    "all"
+  );
   const [selectedBedrooms, setSelectedBedrooms] = useState<string>("Any");
   const [selectedBathrooms, setSelectedBathrooms] = useState<string>("Any");
   const [selectedGarages, setSelectedGarages] = useState<string>("Any");
@@ -74,6 +77,9 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
     bottomSheetModalRef.current?.dismiss();
   }, []);
 
+  const availableAmenities =
+    selectedType === "all" ? [] : PROPERTY_TYPES[selectedType]?.amenities || [];
+
   const toggleAmenity = (amenity: string) => {
     setSelectedAmenities((prev) =>
       prev.includes(amenity)
@@ -83,7 +89,7 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
   };
 
   const handleClear = () => {
-    setSelectedType("All properties");
+    setSelectedType("all");
     setSelectedBedrooms("Any");
     setSelectedBathrooms("Any");
     setSelectedGarages("Any");
@@ -125,48 +131,70 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
               <View className="border border-gray-200 rounded">
                 <Picker
                   selectedValue={selectedType}
-                  onValueChange={(itemValue) => setSelectedType(itemValue)}
+                  onValueChange={(value) => {
+                    setSelectedType(value);
+                    setSelectedAmenities([]);
+                  }}
                   style={{ height: 55, color: "#000" }} // sets the overall text color
                   itemStyle={{ color: "#000" }}
                 >
-                  {propertyTypes.map((option) => (
-                    <Picker.Item key={option} label={option} value={option} />
+                  <Picker.Item label="All properties" value="all" />
+                  {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
+                    <Picker.Item key={key} label={value.label} value={key} />
                   ))}
                 </Picker>
               </View>
             </View>
 
             {/* Two-column layout for numeric dropdowns */}
-            <View className="flex-row space-x-4 mb-4">
-              <View className="flex-1">
-                <Text className="text-base font-semibold mb-2">Bedrooms</Text>
-                <View className="border border-gray-200 rounded">
-                  <Picker
-                    selectedValue={selectedBedrooms}
-                    onValueChange={(value) => setSelectedBedrooms(value)}
-                    style={{ height: 55 }}
-                  >
-                    {pickerOptions.map((option) => (
-                      <Picker.Item key={option} label={option} value={option} />
-                    ))}
-                  </Picker>
+            {selectedType !== "all" &&
+              PROPERTY_TYPES[selectedType].hasBedBath && (
+                <View className="flex-row space-x-4 mb-4">
+                  {/* Bedrooms Picker */}
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold mb-2">
+                      Bedrooms
+                    </Text>
+                    <View className="border border-gray-200 rounded">
+                      <Picker
+                        selectedValue={selectedBedrooms}
+                        onValueChange={setSelectedBedrooms}
+                        style={{ height: 55 }}
+                      >
+                        {pickerOptions.map((option) => (
+                          <Picker.Item
+                            key={option}
+                            label={option}
+                            value={option}
+                          />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
+
+                  {/* Bathrooms Picker */}
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold mb-2">
+                      Bathrooms
+                    </Text>
+                    <View className="border border-gray-200 rounded">
+                      <Picker
+                        selectedValue={selectedBathrooms}
+                        onValueChange={setSelectedBathrooms}
+                        style={{ height: 55 }}
+                      >
+                        {pickerOptions.map((option) => (
+                          <Picker.Item
+                            key={option}
+                            label={option}
+                            value={option}
+                          />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
                 </View>
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold mb-2">Bathrooms</Text>
-                <View className="border border-gray-200 rounded">
-                  <Picker
-                    selectedValue={selectedBathrooms}
-                    onValueChange={(value) => setSelectedBathrooms(value)}
-                    style={{ height: 55 }}
-                  >
-                    {pickerOptions.map((option) => (
-                      <Picker.Item key={option} label={option} value={option} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-            </View>
+              )}
 
             <View className="flex-row space-x-4 mb-4">
               <View className="flex-1">
@@ -261,7 +289,7 @@ export default function FilterModal({ onApply, onClear }: FilterModalProps) {
                     selectedFeatures,
                     selectedGarages,
                     selectedParkings,
-                    selectedType
+                    selectedType,
                   });
                   closeModal();
                 }}
