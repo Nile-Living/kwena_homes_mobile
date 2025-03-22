@@ -13,7 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/PropertyTypes";
 
 const SKELETON_COUNT = 6;
 
