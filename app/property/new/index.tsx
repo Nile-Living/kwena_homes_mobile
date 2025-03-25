@@ -19,7 +19,7 @@ import {
   prepareImageForUpload,
   uploadImageToSupabase,
 } from "@/hooks/imageHelpers";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/PropertyTypes";
 
 interface FormData {
   title: string;
