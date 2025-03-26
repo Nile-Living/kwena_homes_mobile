@@ -1,6 +1,6 @@
 import { StyleSheet, FlatList, View, RefreshControl } from "react-native";
 import { useEffect, useRef, useState } from "react";
-import { useStore } from "@/store/useStore";
+import { Property, useStore } from "@/store/useStore";
 import { useRouter } from "expo-router";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import SearchBar from "@/components/SearchBar";
@@ -8,7 +8,6 @@ import PropertyCard from "@/components/PropertyCard";
 import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
 import FilterModal from "@/components/FilterModal";
 import { Colors } from "@/constants/Colors";
-import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Picker } from "@react-native-picker/picker";
@@ -115,11 +114,11 @@ export default function HomeScreen() {
       );
     }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (property) => property.status === statusFilter
-      );
-    }
+    // if (statusFilter !== "all") {
+    //   filtered = filtered.filter(
+    //     (property) => property.status === statusFilter
+    //   );
+    // }
 
     filtered.sort((a, b) => {
       switch (sortOption) {
@@ -143,93 +142,62 @@ export default function HomeScreen() {
     return filtered;
   };
 
-  const fetchProperties = async (pageNumber: number) => {
-    try {
-      setIsFetchingMore(true);
-      let query = supabase
-        .from("properties")
-        .select("*, agents(*)", { count: "exact" });
+// Replace the existing fetchProperties function with this:
+const fetchProperties = async (pageNumber: number) => {
+  try {
+    setIsFetchingMore(true);
+    
+    // Construct query parameters based on current filters
+    const params = new URLSearchParams({
+      page: pageNumber.toString(),
+      page_size: "10", // Match your Go backend's page size
+      ...(searchQuery && { location: searchQuery }),
+      ...(propertyTypeFilter !== "all" && { property_type: propertyTypeFilter }),
+      ...(bedrooms > 0 && { bedrooms: bedrooms.toString() }),
+      ...(bathrooms > 0 && { bathrooms: bathrooms.toString() }),
+      ...(garages > 0 && { garage: garages.toString() }),
+      ...(parkings > 0 && { parkings: parkings.toString() }),
+      // Add other filters as needed
+    });
 
-        if (selectedType !== 'all') {
-          query = query.eq("category", selectedType);
-        }
+    const response = await fetch(`https://kwena-properties-backend.onrender.com/api/properties`);
+    
+    if (!response.ok) throw new Error('Failed to fetch properties');
+    
+    const data: {
+      properties: Property[];
+      total: number;
+      page: number;
+      page_size: number;
+    } = await response.json();
 
-      switch (sortOption) {
-        case "newest":
-          query = query.order("created_at", { ascending: false });
-          break;
-        case "oldest":
-          query = query.order("created_at", { ascending: true });
-          break;
-        case "price_asc":
-          query = query.order("price", { ascending: true });
-          break;
-        case "price_desc":
-          query = query.order("price", { ascending: false });
-          break;
-      }
+    console.log("Received data: ", data)
 
-      if (searchQuery.trim()) {
-        query = query.or(
-          `title.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
-        );
-      }
+    const mergedProperties = [...properties, ...data.properties].filter(
+      (p, index, self) => self.findIndex((prop) => prop.id === p.id) === index
+    );
+    
+    setProperties(mergedProperties);
+    setHasMore(data.properties.length === 5);
+    setPage((p) => p + 1);
+    
+  } catch (error) {
+    setError("Failed to load properties");
+  } finally {
+    setLoading(false);
+    setIsFetchingMore(false);
+  }
+};
 
-      if (propertyTypeFilter !== "all") {
-        query = query.eq("property_type", propertyTypeFilter);
-      }
-      if (selectedType) query = query.eq("category", selectedType);
-      if (selectedType === 'all' || PROPERTY_TYPES[selectedType]?.hasBedBath) {
-        if (bedrooms > 0) query = query.gte("bedrooms", bedrooms);
-        if (bathrooms > 0) query = query.gte("bathrooms", bathrooms);
-      } else {
-        query = query.is("bedrooms", null).is("bathrooms", null);
-      }
-      if (garages > 0) query = query.gte("garages", garages);
-      if (parkings > 0) query = query.gte("parkings", parkings);
-      if (selectedFeatures !== "Any")
-        query = query.eq("features", selectedFeatures);
-      if (selectedAmenities.length > 0)
-        query = query.contains("amenities", selectedAmenities);
+useEffect(() => {
+  const debounceTimer = setTimeout(() => {
+    setPage(0);
+    setProperties([]); // Clear existing properties when search changes
+    fetchProperties(0);
+  }, 500);
 
-      const { data, error } = await query.range(
-        pageNumber * 5,
-        (pageNumber * 5) + 4
-      );
-
-      if (error) throw error;
-
-      const formattedProperties = data.map((prop) => ({
-        ...prop,
-        agent: prop.agents,
-        coordinates: prop.coordinates,
-      }));
-
-      const mergedProperties = [...properties, ...formattedProperties].filter(
-        (p, index, self) => self.findIndex((prop) => prop.id === p.id) === index
-      );
-      setProperties(mergedProperties);
-      setHasMore(data.length === 5);
-      setPage((p) => p + 1);
-
-      console.log("Fetched data:", data);
-    console.log("Query error:", error);
-    } catch (error) {
-      setError("Failed to load properties");
-    } finally {
-      setLoading(false);
-      setIsFetchingMore(false);
-    }
-  };
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      setPage(0);
-      fetchProperties(0);
-    }, 500);
-
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
+  return () => clearTimeout(debounceTimer);
+}, [searchQuery, propertyTypeFilter, bedrooms, bathrooms, garages, parkings]);
 
   const handleLoadMore = () => {
     if (!isFetchingMore && hasMore) {

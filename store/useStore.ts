@@ -20,26 +20,18 @@ export interface Property {
   bedrooms?: number;
   bathrooms?: number;
   images: string[];
-  property_type: "rent" | "sale";
-  user_id: string;
-  liked?: boolean;
   coordinates?: {
     latitude: number;
     longitude: number;
   };
   description?: string;
-  agent?: {
-    name: string;
-    phone: string;
-    email?: string;
-  };
+  created_at: string;
+  property_type: "rent" | "sale";
   category: string;
-  garages: number;
+  garage: number;
   parkings: number;
   amenities: string[];
   security_features: string[];
-  created_at: string;
-  status?: PropertyStatus;
 }
 
 interface PropertyState {
