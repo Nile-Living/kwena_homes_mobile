@@ -21,6 +21,8 @@ import {
 } from "@/hooks/imageHelpers";
 import { PROPERTY_TYPES, PropertyCategory } from "@/constants/PropertyTypes";
 
+const API_BASE_URL = "http://192.168.100.18:8080/api";
+
 interface FormData {
   title: string;
   price: string;
@@ -164,8 +166,8 @@ export default function AddPropertyScreen() {
 
       for (let i = 0; i < images.length; i++) {
         try {
-          // Update progress indicator
-          setUploadProgress(Math.floor((i / images.length) * 100));
+          const currentProgress = Math.floor(((i + 1) / images.length) * 100);
+          setUploadProgress(currentProgress);
 
           console.log(`Starting upload for image ${i + 1} of ${images.length}`);
 
@@ -179,13 +181,18 @@ export default function AddPropertyScreen() {
             3 // Max retries
           );
 
-          imageUrls.push(imageUrl);
-          console.log(
-            `Successfully uploaded image ${i + 1}: ${imageUrl.substring(
-              0,
-              30
-            )}...`
-          );
+          if (imageUrl) {
+            imageUrls.push(imageUrl);
+            console.log(
+              `Successfully uploaded image ${i + 1}: ${imageUrl.substring(
+                0,
+                30
+              )}...`
+            );
+          } else {
+            // Handle case where helper might return null/undefined on failure
+            throw new Error("Upload helper returned no URL");
+          }
         } catch (uploadError) {
           console.error(`Error uploading image ${i}:`, uploadError);
           failedUploads.push(i + 1); // Store failed upload index (1-based for user display)
@@ -233,29 +240,50 @@ export default function AddPropertyScreen() {
       setUploadProgress(100);
 
       // Create property in database
-      const { data, error } = await supabase
-        .from("properties")
-        .insert({
-          user_id: user.id,
-          title: formData.title,
-          price: parseFloat(formData.price),
-          location: formData.location,
-          bedrooms: parseInt(formData.bedrooms),
-          bathrooms: parseInt(formData.bathrooms),
-          description: formData.description,
-          coordinates: formData.coordinates,
-          images: imageUrls,
-          property_type: formData.propertyType,
-          category: formData.category,
-          amenities: formData.amenities,
-        })
-        .select()
-        .single();
 
-      if (error) throw error;
+      const payload = {
+        title: formData.title,
+        price: parseFloat(formData.price) || 0,
+        location: formData.location,
+        bedrooms: parseInt(formData.bedrooms, 10) || 0,
+        bathrooms: parseInt(formData.bedrooms, 10) || 0,
+        description: formData.description,
+        coordinates: formData.coordinates,
+        images: imageUrls,
+        property_type: formData.propertyType,
+        category: formData.category,
+        amenities: formData.amenities,
+        user_id: user.id,
+        // agent_id: user.id,
+      };
+
+      console.log("Sending payload to backend:", JSON.stringify(payload));
+
+      const response = await fetch(`${API_BASE_URL}/properties`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        // Try to get error message from backend response body
+        let errorMsg = `HTTP error! Status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg;
+        } catch (e) {
+          // Ignore if response body is not JSON
+        }
+        throw new Error(`Failed to create property: ${errorMsg}`);
+      }
+
+      const createdProperty = await response.json(); // Backend returns the created property
+      console.log("Property created successfully:", createdProperty);
 
       Alert.alert("Success", "Property listed successfully!", [
-        { text: "OK", onPress: () => router.push("/") },
+        { text: "OK", onPress: () => router.push("/") }, // Navigate home on success
       ]);
     } catch (error: any) {
       console.error("Error creating property:", error);

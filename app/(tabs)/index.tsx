@@ -1,5 +1,12 @@
-import { StyleSheet, FlatList, View, RefreshControl } from "react-native";
-import { useEffect, useRef, useState } from "react";
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  RefreshControl,
+  Alert,
+  Text,
+} from "react-native";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Property, useStore } from "@/store/useStore";
 import { useRouter } from "expo-router";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -15,6 +22,8 @@ import { useColorScheme } from "react-native";
 import { PROPERTY_TYPES, PropertyCategory } from "@/constants/PropertyTypes";
 
 const SKELETON_COUNT = 6;
+const API_BASE_URL = "http://192.168.100.18:8080/api";
+const PAGE_SIZE = 10;
 
 type PropertyStatus =
   | "available"
@@ -24,10 +33,15 @@ type PropertyStatus =
   | "under-maintenance"
   | "pending-approval";
 
+type BackendSortOption =
+  | "created_at.desc"
+  | "created_at.asc"
+  | "price.asc"
+  | "price.desc";
+
 export default function HomeScreen() {
   const router = useRouter();
-
-  const flatListRef = useRef<FlatList>(null)
+  const flatListRef = useRef<FlatList>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,8 +52,10 @@ export default function HomeScreen() {
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
-  const [selectedType, setSelectedType] = useState<PropertyCategory | 'all'>('all');
-  const [page, setPage] = useState(0);
+  const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
+    "all"
+  );
+  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [garages, setGarages] = useState(0);
@@ -62,6 +78,7 @@ export default function HomeScreen() {
     toggleSavedProperty,
     setProperties,
     setLoading,
+    fetchSavedProperties
   } = useStore();
 
   const statusOptions = [
@@ -94,114 +111,161 @@ export default function HomeScreen() {
     },
   ];
 
-  const filteredProperties = properties;
-
-  const getFilteredProperties = () => {
-    let filtered = [...properties];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (property) =>
-          property.title.toLowerCase().includes(query) ||
-          property.location.toLowerCase().includes(query)
-      );
-    }
-
-    if (propertyTypeFilter !== "all") {
-      filtered = filtered.filter(
-        (property) => property.property_type?.toLowerCase() === propertyTypeFilter
-      );
-    }
-
-    // if (statusFilter !== "all") {
-    //   filtered = filtered.filter(
-    //     (property) => property.status === statusFilter
-    //   );
-    // }
-
-    filtered.sort((a, b) => {
-      switch (sortOption) {
-        case "newest":
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-        case "oldest":
-          return (
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-        case "price_asc":
-          return a.price - b.price;
-        case "price_desc":
-          return b.price - a.price;
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  };
-
-// Replace the existing fetchProperties function with this:
-const fetchProperties = async (pageNumber: number) => {
-  try {
-    setIsFetchingMore(true);
-    
-    // Construct query parameters based on current filters
-    const params = new URLSearchParams({
-      page: pageNumber.toString(),
-      page_size: "10", // Match your Go backend's page size
-      ...(searchQuery && { location: searchQuery }),
-      ...(propertyTypeFilter !== "all" && { property_type: propertyTypeFilter }),
-      ...(bedrooms > 0 && { bedrooms: bedrooms.toString() }),
-      ...(bathrooms > 0 && { bathrooms: bathrooms.toString() }),
-      ...(garages > 0 && { garage: garages.toString() }),
-      ...(parkings > 0 && { parkings: parkings.toString() }),
-      // Add other filters as needed
-    });
-
-    const response = await fetch(`https://kwena-properties-backend.onrender.com/api/properties`);
-    
-    if (!response.ok) throw new Error('Failed to fetch properties');
-    
-    const data: {
-      properties: Property[];
-      total: number;
-      page: number;
-      page_size: number;
-    } = await response.json();
-
-    console.log("Received data: ", data)
-
-    const mergedProperties = [...properties, ...data.properties].filter(
-      (p, index, self) => self.findIndex((prop) => prop.id === p.id) === index
-    );
-    
-    setProperties(mergedProperties);
-    setHasMore(data.properties.length === 5);
-    setPage((p) => p + 1);
-    
-  } catch (error) {
-    setError("Failed to load properties");
-  } finally {
-    setLoading(false);
-    setIsFetchingMore(false);
+const getBackendSortOption = (): BackendSortOption => {
+  switch (sortOption) {
+    case "newest":
+      return "created_at.desc";
+    case "oldest":
+      return "created_at.asc";
+    case "price_asc":
+      return "price.asc";
+    case "price_desc":
+      return "price.desc";
+    default:
+      return "created_at.desc";
   }
 };
 
-useEffect(() => {
-  const debounceTimer = setTimeout(() => {
-    setPage(0);
-    setProperties([]); // Clear existing properties when search changes
-    fetchProperties(0);
-  }, 500);
+  // Replace the existing fetchProperties function with this:
+  const fetchProperties = useCallback(
+    async (pageNumber: number, isRefreshing = false) => {
+      // Use Zustand loading for initial/refresh, local state for "load more"
+      if (pageNumber === 1) {
+        setLoading(true); // Use Zustand loading for first page / filter change
+      } else {
+        setIsFetchingMore(true); // Use local state for subsequent pages
+      }
+      setError(null); // Clear previous errors
 
-  return () => clearTimeout(debounceTimer);
-}, [searchQuery, propertyTypeFilter, bedrooms, bathrooms, garages, parkings]);
+      try {
+        // Construct query parameters based on current filters/state
+        const params = new URLSearchParams();
+        params.append("page", pageNumber.toString());
+        params.append("pageSize", PAGE_SIZE.toString());
+        params.append("sort", getBackendSortOption()); // Add sort parameter
+
+        if (searchQuery) {
+          // Backend uses 'location' for search
+          params.append("location", searchQuery);
+        }
+        if (selectedType !== "all") {
+          // Backend uses 'propertyType'
+          params.append("propertyType", selectedType);
+        }
+        if (bedrooms > 0) {
+          params.append("bedrooms", bedrooms.toString());
+        }
+        if (bathrooms > 0) {
+          params.append("bathrooms", bathrooms.toString());
+        }
+        if (garages > 0) {
+          // Backend uses 'garage'
+          params.append("garage", garages.toString());
+        }
+        if (parkings > 0) {
+          params.append("parkings", parkings.toString());
+        }
+        // Add other filters like priceRange, features, amenities if implemented on backend
+
+        const response = await fetch(
+          `${API_BASE_URL}/properties?${params.toString()}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch properties (status: ${response.status})`,
+          );
+        }
+
+        const data: {
+          properties: Property[];
+          total: number;
+          page: number;
+          pageSize: number;
+        } = await response.json();
+
+        console.log(`Received data for page ${pageNumber}:`, data);
+
+        // Ensure unique properties when merging (important for refresh/load more)
+        const newProperties = data.properties || [];
+        let mergedProperties: Property[];
+
+        if (pageNumber === 1 || isRefreshing) {
+          // If first page or refreshing, replace existing properties
+          mergedProperties = newProperties;
+        } else {
+          // Otherwise, merge and remove duplicates
+          const currentProperties = properties || []; // Get current properties from store
+          mergedProperties = [...currentProperties, ...newProperties].filter(
+            (p, index, self) =>
+              index === self.findIndex((prop) => prop.id === p.id),
+          );
+        }
+
+        setProperties(mergedProperties); // Update Zustand store
+
+        // Update pagination state based on total count
+        setHasMore(mergedProperties.length < data.total);
+        setPage(pageNumber + 1); // Set the *next* page number to fetch
+
+      } catch (error: any) {
+        console.error("Error fetching properties:", error);
+        setError(
+          error.message || "Failed to load properties. Please try again.",
+        );
+        // Don't clear properties on error, maybe show previous list with error message
+      } finally {
+        if (pageNumber === 1) {
+          setLoading(false); // Turn off Zustand loading
+        } else {
+          setIsFetchingMore(false); // Turn off local loading more indicator
+        }
+        if (isRefreshing) {
+          setRefreshing(false); // Turn off pull-to-refresh indicator
+        }
+      }
+    },
+    [
+      searchQuery,
+      selectedType,
+      bedrooms,
+      bathrooms,
+      garages,
+      parkings,
+      sortOption,
+      properties, // Include properties to correctly merge in subsequent calls
+      setLoading,
+      setProperties,
+    ], // Add all filter/sort states that trigger a refetch
+  );
+
+  useEffect(() => {
+    // Debounce fetching when filters change
+    const debounceTimer = setTimeout(() => {
+      console.log("Filters changed, fetching page 1");
+      setPage(1); // Reset to page 1
+      setHasMore(true); // Assume there might be more data
+      setProperties([]);
+      fetchProperties(1);
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: false }); // Scroll to top
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(debounceTimer);
+  }, [
+    searchQuery,
+    selectedType,
+    bedrooms,
+    bathrooms,
+    garages,
+    parkings,
+    sortOption,
+    // fetchProperties,
+  ]);
 
   const handleLoadMore = () => {
-    if (!isFetchingMore && hasMore) {
-      fetchProperties(page);
+    if (!isFetchingMore && hasMore && !loading) {
+      console.log(`Loading more, fetching page ${page}`);
+      fetchProperties(page); // Fetch the next page
     }
   };
 
@@ -209,16 +273,20 @@ useEffect(() => {
     router.push(`../property/${propertyId}`);
   };
 
-  const onRefresh = async () => {
-    setLoading(true);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setPage(1); // Reset page for refresh
+    setHasMore(true); // Reset hasMore
+    // Fetch saved properties first if needed for like status
     try {
-      await useStore.getState().fetchSavedProperties();
-      setLoading(false);
+      await fetchSavedProperties();
     } catch (error) {
-      console.error("Error refreshing:", error);
-      setRefreshing(false);
+      console.error("Error fetching saved properties on refresh:", error);
     }
-  };
+    // Then fetch properties, indicating it's a refresh
+    await fetchProperties(1, true);
+    // setRefreshing(false) is handled in fetchProperties finally block
+  }, [fetchProperties, fetchSavedProperties]); // Add dependencies
 
   const handleApplyFilters = (filters: {
     selectedType: string;
@@ -226,40 +294,45 @@ useEffect(() => {
     selectedBathrooms: string;
     selectedGarages: string;
     selectedParkings: string;
-    selectedFeatures: string;
-    selectedAmenities: string[];
+    selectedFeatures: string; // Keep if needed
+    selectedAmenities: string[]; // Keep if needed
   }) => {
+    console.log("Applying filters:", filters);
+    // Helper function from your original code
     const parseFilterValue = (value: string) =>
       value === "Any" ? 0 : parseInt(value.split("+")[0].trim());
 
-    const categoryKey = Object.entries(PROPERTY_TYPES).find(
-      ([key, val]) => val.label === filters.selectedType
-    )?.[0] || 'all';
-
+    // Update state - this will trigger the useEffect to refetch
     setBedrooms(parseFilterValue(filters.selectedBedrooms));
     setBathrooms(parseFilterValue(filters.selectedBathrooms));
     setGarages(parseFilterValue(filters.selectedGarages));
     setParkings(parseFilterValue(filters.selectedParkings));
     setSelectedType(
-      filters.selectedType === "All properties" ? "all" : filters.selectedType as PropertyCategory
+      filters.selectedType === "All properties"
+        ? "all"
+        : (filters.selectedType as PropertyCategory),
     );
-    setSelectedFeatures(filters.selectedFeatures);
-    setSelectedAmenities(filters.selectedAmenities);
+    // Update features/amenities state if used
+    // setSelectedFeatures(filters.selectedFeatures);
+    // setSelectedAmenities(filters.selectedAmenities);
 
-    setPage(0);
-    setLoading(true);
-    fetchProperties(0);
+    // No need to call fetchProperties(0) here, useEffect handles it
   };
 
   const handleClearFilters = () => {
+    console.log("Clearing filters");
     setPriceRange({ min: 0, max: 0 });
     setBedrooms(0);
     setBathrooms(0);
     setSelectedType("all");
+    setGarages(0);
+    setParkings(0);
+    setSelectedFeatures("Any");
+    setSelectedAmenities([]);
   };
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && page === 1 && !refreshing) {
       return (
         <FlatList
           data={Array(SKELETON_COUNT).fill(null)}
@@ -270,10 +343,18 @@ useEffect(() => {
       );
     }
 
+    if (error && properties.length === 0) {
+      return <Text style={styles.errorText}>Error: {error}</Text>;
+    }
+
+    if (!loading && properties.length === 0 && !error) {
+      return <Text style={styles.infoText}>No properties found.</Text>;
+    }
+
     return (
       <FlatList
-      ref={flatListRef}
-        data={getFilteredProperties()}
+        ref={flatListRef}
+        data={properties}
         renderItem={({ item }) => (
           <PropertyCard
             property={item}
@@ -328,7 +409,10 @@ useEffect(() => {
               onValueChange={(value) => {
                 setSortOption(value);
                 setPage(0);
-                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                flatListRef.current?.scrollToOffset({
+                  offset: 0,
+                  animated: true,
+                });
                 fetchProperties(0);
               }}
               mode="dropdown"
@@ -351,3 +435,49 @@ useEffect(() => {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  flexContainer: {
+    flex: 1,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingBottom: 3, // Match original style
+    gap: 8, // Match original style
+    marginTop: 16, // Match original style
+    alignItems: "center",
+  },
+  pickerContainer: {
+    paddingHorizontal: 8, // Match original style px-2
+    paddingBottom: 4, // Match original style pb-1
+    // Add border or background if needed for Picker styling
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+    // Add specific styling for Android/iOS picker appearance if needed
+  },
+  errorText: {
+    textAlign: "center",
+    marginTop: 20,
+    color: "red",
+    fontSize: 16,
+    paddingHorizontal: 16,
+  },
+   errorTextSmall: {
+    textAlign: "center",
+    color: "orange",
+    fontSize: 12,
+    paddingHorizontal: 16,
+    marginBottom: 5,
+  },
+  infoText: {
+    textAlign: "center",
+    marginTop: 20,
+    color: Colors.light.background, // Use your theme color
+    fontSize: 16,
+    paddingHorizontal: 16,
+  },
+});

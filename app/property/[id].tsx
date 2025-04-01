@@ -49,29 +49,49 @@ export default function PropertyDetails() {
     const fetchProperty = async () => {
       try {
         setLoading(true);
-
-        // First fetch the property details
-        const { data: propertyData, error: propertyError } = await supabase
-          .from("properties")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (propertyError) throw propertyError;
-
-        // Then fetch the user/profile data separately
+        
+        // Check Zustand first
+        const existingProperty = useStore.getState().properties.find(p => p.id === id);
+        if (existingProperty) {
+          // Fetch agent data from Supabase
+          const { data: userData, error: userError } = await supabase
+            .from("profiles")
+            .select("full_name, phone, email")
+            .eq("id", existingProperty.user_id)
+            .single();
+    
+          setProperty({
+            ...existingProperty,
+            agent: {
+              name: userData?.full_name || "Unknown",
+              phone: userData?.phone || "No phone provided",
+              email: userData?.email,
+            },
+            liked: useStore.getState().savedProperties.includes(existingProperty.id),
+          });
+          setLoading(false);
+          return;
+        }
+    
+        // If not in Zustand, fetch from your backend
+        const response = await fetch(`https://kwena-properties-backend.onrender.com/api/properties/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch property');
+        const propertyData = await response.json();
+    
+        // Fetch agent data from Supabase
         const { data: userData, error: userError } = await supabase
           .from("profiles")
           .select("full_name, phone, email")
           .eq("id", propertyData.user_id)
           .single();
-
-        if (userError) {
-          console.warn("Error fetching user data:", userError);
-          // Continue with property data even if user data fails
-        }
-
-        // Structure the property data with user information
+    
+        // Update Zustand with the new property (deduplicate)
+        const currentProperties = useStore.getState().properties;
+        const mergedProperties = [...currentProperties, propertyData].filter(
+          (p, index, self) => self.findIndex((prop) => prop.id === p.id) === index
+        );
+        useStore.getState().setProperties(mergedProperties);
+    
         setProperty({
           ...propertyData,
           agent: {
