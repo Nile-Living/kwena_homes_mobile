@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useAuthStore } from "./authStore";
-import { supabase } from "@/supabaseClient";
+import { API_BASE_URL } from "@/constants/Config"; // Adjust import path
 
 // Define the property status types used in both the UI and database
 export type PropertyStatus =
@@ -11,7 +11,6 @@ export type PropertyStatus =
   | "under-maintenance"
   | "pending-approval";
 
-// Extend the Property interface to include an optional status field.
 export interface Property {
   id: string;
   title: string;
@@ -20,82 +19,111 @@ export interface Property {
   bedrooms?: number;
   bathrooms?: number;
   images: string[];
-  coordinates?: {
-    latitude: number;
-    longitude: number;
-  };
+  coordinates?: { latitude: number; longitude: number };
   description?: string;
-  created_at: string;
   property_type: "rent" | "sale";
   category: string;
-  garage: number;
-  parkings: number;
-  amenities: string[];
-  security_features: string[];
+  created_at: string;
+  status?: string;
+  last_updated?: string;
+  details?: any;
+  liked?: boolean; 
+}
+
+export interface PropertyResponseDto {
+  properties: Property[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 interface PropertyState {
   properties: Property[];
   savedProperties: string[];
   searchQuery: string;
-  activeFilters: string[];
   propertyTypeFilter: "all" | "rent" | "sale";
-  statusFilter: PropertyStatus | "all";
-  sortOption: "price" | "date" | "alphabetical";
   loading: boolean;
   error: string | null;
 
-  setProperties: (properties: Property[]) => void;
-  // Fetch properties owned by the current user and merge with status data
-  fetchUserProperties: () => Promise<void>;
-  // Fetch saved properties for the current user
-  fetchSavedProperties: () => Promise<void>;
-  toggleSavedProperty: (propertyId: string) => Promise<void>;
+  setProperties: (properties: Property[], pageNumber: number) => void;
   setSearchQuery: (query: string) => void;
-  setActiveFilters: (filters: string[]) => void;
   setPropertyTypeFilter: (filter: "all" | "rent" | "sale") => void;
-  setStatusFilter: (filter: PropertyStatus | "all") => void;
-  setSortOption: (option: "price" | "date" | "alphabetical") => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  // Update the status of a property both locally and in the database
-  updatePropertyStatus: (propertyId: string, newStatus: PropertyStatus) => Promise<void>;
-  // Delete a property from all related tables
+  setSavedProperties: (savedIds: string[]) => void;
+  fetchUserProperties: () => Promise<void>;
+  fetchSavedProperties: () => Promise<void>;
+  toggleSavedProperty: (propertyId: string) => Promise<void>;
   deleteProperty: (propertyId: string) => Promise<void>;
-
-  // Helper functions to integrate the property_status table
-  addStatusToProperties: (propertiesData: Property[]) => Promise<Property[]>;
-  createPropertyStatusTable: () => Promise<void>;
 }
 
 export const useStore = create<PropertyState>((set, get) => ({
   properties: [],
   savedProperties: [],
   searchQuery: "",
-  activeFilters: [],
   propertyTypeFilter: "all",
-  statusFilter: "all",
-  sortOption: "date",
+  // statusFilter: "all",
+  // sortOption: "date", // Or map from HomeScreen's sort state
   loading: false,
   error: null,
 
-  setProperties: (properties) => set({ properties }),
+  setProperties: (newProperties: Property[], pageNumber: number) => {
+    const currentProperties = get().properties;
+    const savedIds = get().savedProperties;
+
+    // Add 'liked' status to the new properties
+    const newPropertiesWithLiked: Property[] = newProperties.map((p) => ({
+      ...p,
+      liked: savedIds.includes(p.id),
+    }));
+
+    // Combine properties: If it's page 1, start fresh. Otherwise, append.
+    const combinedProperties: Property[] =
+      pageNumber === 1
+        ? newPropertiesWithLiked
+        : [...currentProperties, ...newPropertiesWithLiked];
+
+    // Deduplicate using a Map (keeps the last occurrence of each ID)
+    const uniquePropertiesMap: Map<string, Property> = new Map();
+    combinedProperties.forEach((p) => {
+      uniquePropertiesMap.set(p.id, p);
+    });
+
+    // Convert the Map values back to an array
+    const uniquePropertiesArray: Property[] = Array.from(uniquePropertiesMap.values());
+
+    set({ properties: uniquePropertiesArray, error: null });
+  },
+  setSavedProperties: (savedIds) => {
+    set({ savedProperties: savedIds });
+    const currentProperties = get().properties;
+    const updatedPropertiesWithLiked = currentProperties.map((p) => ({ ...p, liked: savedIds.includes(p.id) }));
+    set({ properties: updatedPropertiesWithLiked });
+  },
+  setSearchQuery: (query) => set({ searchQuery: query }),
+  setPropertyTypeFilter: (filter) => set({ propertyTypeFilter: filter }),
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
+
+  // --- API Methods ---
 
   fetchUserProperties: async () => {
     const user = useAuthStore.getState().user;
     if (!user) return;
+    set({ loading: true, error: null });
     try {
-      set({ loading: true });
-      // Fetch properties where user_id matches the logged-in user
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("user_id", user.id);
-      if (error) throw error;
-      // Merge property status from the property_status table
-      const propertiesWithStatus = await get().addStatusToProperties(data);
-      set({ properties: propertiesWithStatus, error: null });
-    } catch (err) {
+      // Assuming your backend GET /properties accepts a user_id query param
+      const response = await fetch(
+        `${API_BASE_URL}/properties?user_id=${user.id}`,
+      );
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch user properties (status: ${response.status})`,
+        );
+      }
+      const data: PropertyResponseDto = await response.json();
+      get().setProperties(data.properties || [], 1); // Use the setter to handle 'liked'
+    } catch (err: any) {
       console.error("Error fetching user properties:", err);
       set({ error: "Failed to load your properties. Please try again later." });
     } finally {
@@ -103,157 +131,109 @@ export const useStore = create<PropertyState>((set, get) => ({
     }
   },
 
-  addStatusToProperties: async (propertiesData: Property[]): Promise<Property[]> => {
-    try {
-      const { data: statusData, error } = await supabase
-        .from("property_status")
-        .select("property_id, status")
-        .in("property_id", propertiesData.map((p) => p.id));
-      if (error) throw error;
-      if (statusData && statusData.length > 0) {
-        const statusMap = new Map(
-          (statusData as any[]).map((item) => [item.property_id, item.status])
-        );
-        return propertiesData.map((property) => ({
-          ...property,
-          status: statusMap.get(property.id) || "available",
-        }));
-      } else {
-        // No status data found; create the table and insert default statuses
-        await get().createPropertyStatusTable();
-        const statusEntries = propertiesData.map((property) => ({
-          property_id: property.id,
-          status: "available",
-          last_updated: new Date().toISOString(),
-        }));
-        await supabase.from("property_status").insert(statusEntries);
-        return propertiesData.map((property) => ({
-          ...property,
-          status: "available",
-        }));
-      }
-    } catch (err) {
-      console.error("Error adding status to properties:", err);
-      return propertiesData.map((property) => ({
-        ...property,
-        status: "available",
-      }));
-    }
-  },
-
-  createPropertyStatusTable: async () => {
-    try {
-      // Use the RPC function to create the table if it does not exist
-      const { error } = await supabase.rpc("create_property_status_table", {});
-      if (error) throw error;
-    } catch (err) {
-      console.error("Error creating property_status table:", err);
-    }
-  },
-
   fetchSavedProperties: async () => {
-    const user = useAuthStore.getState().user;
-    if (!user) return;
+    const token = useAuthStore.getState().session?.access_token;
+    if (!token) {
+      get().setSavedProperties([]); // Clear if not logged in
+      return;
+    }
+    set({ loading: true }); // Use general loading state
     try {
-      const { data, error } = await supabase
-        .from("saved_properties")
-        .select("property_id")
-        .eq("user_id", user.id);
-      if (error) throw error;
-      const savedIds = (data as any[]).map((item) => item.property_id);
-      set((state) => ({
-        savedProperties: savedIds,
-        properties: state.properties.map((property) => ({
-          ...property,
-          liked: savedIds.includes(property.id),
-        })),
-      }));
-    } catch (error) {
+      const response = await fetch(`${API_BASE_URL}/users/me/saved-properties`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Status: ${response.status}, Response: ${errorText}`);
+      }
+      const data = await response.json();
+      get().setSavedProperties(data.savedPropertyIds || []);
+    } catch (error: any) {
       console.error("Error fetching saved properties:", error);
+      set({ error: "Could not load saved properties." });
+      get().setSavedProperties([]); // Clear on error
+    } finally {
+      set({ loading: false });
     }
   },
 
   toggleSavedProperty: async (propertyId: string) => {
-    const user = useAuthStore.getState().user;
-    if (!user) return;
-    try {
-      const isLiked = get().savedProperties.includes(propertyId);
-      set((state) => ({
-        properties: state.properties.map((property) =>
-          property.id === propertyId ? { ...property, liked: !isLiked } : property
-        ),
-        savedProperties: isLiked
-          ? state.savedProperties.filter((id) => id !== propertyId)
-          : [...state.savedProperties, propertyId],
-      }));
-      if (isLiked) {
-        await supabase
-          .from("saved_properties")
-          .delete()
-          .match({ user_id: user.id, property_id: propertyId });
-      } else {
-        await supabase
-          .from("saved_properties")
-          .insert({ user_id: user.id, property_id: propertyId });
-      }
-    } catch (error) {
-      console.error("Error toggling saved property:", error);
+    const token = useAuthStore.getState().session?.access_token;
+    if (!token) {
+      console.log("User not logged in to toggle save");
+      return;
     }
-  },
+    const isLiked = get().savedProperties.includes(propertyId);
+    const currentSaved = get().savedProperties;
+    // Optimistic UI update
+    const newSavedProperties = isLiked
+      ? currentSaved.filter((id) => id !== propertyId)
+      : [...currentSaved, propertyId];
+    get().setSavedProperties(newSavedProperties);
+    set({ error: null }); // Clear previous errors
 
-  setSearchQuery: (query) => set({ searchQuery: query }),
-  setActiveFilters: (filters) => set({ activeFilters: filters }),
-  setPropertyTypeFilter: (filter) => set({ propertyTypeFilter: filter }),
-  setStatusFilter: (filter) => set({ statusFilter: filter }),
-  setSortOption: (option) => set({ sortOption: option }),
-  setLoading: (loading) => set({ loading }),
-  setError: (error) => set({ error }),
-
-  updatePropertyStatus: async (propertyId: string, newStatus: PropertyStatus) => {
-    const user = useAuthStore.getState().user;
-    if (!user) return;
     try {
-      // Upsert the new status into the property_status table
-      const { error } = await supabase
-        .from("property_status")
-        .upsert({
-          property_id: propertyId,
-          status: newStatus,
-          last_updated: new Date().toISOString(),
-        });
-      if (error) throw error;
-      // Update local state with the new status
-      set((state) => ({
-        properties: state.properties.map((property) =>
-          property.id === propertyId ? { ...property, status: newStatus } : property
-        ),
-      }));
-    } catch (err) {
-      console.error("Error updating property status:", err);
+      const method = isLiked ? "DELETE" : "POST";
+      // Use URL with param for DELETE
+      const url = isLiked
+        ? `${API_BASE_URL}/users/me/saved-properties/${propertyId}`
+        : `${API_BASE_URL}/users/me/saved-properties`;
+      const body = isLiked ? undefined : JSON.stringify({ propertyId });
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const response = await fetch(url, { method, headers, body });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Status: ${response.status}, Response: ${errorText}`);
+      }
+      // Success, optimistic update is correct
+      console.log(`Property ${propertyId} ${isLiked ? "unsaved" : "saved"}`);
+    } catch (error: any) {
+      console.error("Error toggling saved property:", error);
+      get().setSavedProperties(currentSaved); // Revert on error
+      set({ error: `Failed to ${isLiked ? 'unsave' : 'save'} property.` });
     }
   },
 
   deleteProperty: async (propertyId: string) => {
     const user = useAuthStore.getState().user;
-    if (!user) return;
+    if (!user) return; // Or handle error
+
+    const currentProperties = get().properties;
+    // Optimistic update (remove locally first)
+    set({
+      properties: currentProperties.filter((p) => p.id !== propertyId),
+    });
+
     try {
-      // Delete the status entry (if exists)
-      await supabase.from("property_status").delete().eq("property_id", propertyId);
-      // Delete any saved property reference
-      await supabase.from("saved_properties").delete().eq("property_id", propertyId);
-      // Delete the property itself (ensure it belongs to the current user)
-      const { error } = await supabase
-        .from("properties")
-        .delete()
-        .eq("id", propertyId)
-        .eq("user_id", user.id);
-      if (error) throw error;
-      // Update local state by removing the deleted property
-      set((state) => ({
-        properties: state.properties.filter((property) => property.id !== propertyId),
-      }));
-    } catch (err) {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
+        method: "DELETE",
+        headers: {
+          // Add Authorization header if needed
+        },
+      });
+
+      if (!response.ok) {
+        // Check for specific errors (e.g., 403 Forbidden, 404 Not Found)
+        throw new Error(`Failed to delete property (status: ${response.status})`);
+      }
+      console.log(`Property ${propertyId} deleted successfully.`);
+      // Remove from saved properties if it exists there too
+      const currentSaved = get().savedProperties;
+      if (currentSaved.includes(propertyId)) {
+        set({
+          savedProperties: currentSaved.filter((id) => id !== propertyId),
+        });
+      }
+    } catch (err: any) {
       console.error("Error deleting property:", err);
+      // Revert optimistic update
+      set({ properties: currentProperties });
+      set({ error: "Failed to delete property. Please try again." });
     }
   },
 }));

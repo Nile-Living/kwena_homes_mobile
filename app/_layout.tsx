@@ -10,6 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useAuthStore } from "@/store/authStore";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 
@@ -19,10 +20,15 @@ import "../global.css";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const checkAuth = useAuthStore((state) => state.checkAuth);
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   useEffect(() => {
     if (loaded) {
@@ -45,7 +51,10 @@ export default function RootLayout() {
           />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
 
-          <Stack.Screen name="properties/index" options={{ title: "Manage Properties" }} />
+          <Stack.Screen
+            name="properties/index"
+            options={{ title: "Manage Properties" }}
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />

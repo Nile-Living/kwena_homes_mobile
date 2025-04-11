@@ -1,3 +1,9 @@
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import {
   StyleSheet,
   FlatList,
@@ -5,9 +11,9 @@ import {
   RefreshControl,
   Alert,
   Text,
+  ActivityIndicator, // Import ActivityIndicator
 } from "react-native";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Property, useStore } from "@/store/useStore";
+import { Property, PropertyResponseDto, useStore } from "@/store/useStore"; // Ensure Property includes 'status', 'liked' etc.
 import { useRouter } from "expo-router";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import SearchBar from "@/components/SearchBar";
@@ -19,23 +25,21 @@ import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/PropertyTypes";
+import {
+  PROPERTY_TYPES,
+  PropertyCategory,
+} from "@/constants/propertyTypes"; // Keep if needed for FilterModal
+import {
+  API_BASE_URL,
+  PAGE_SIZE,
+  SKELETON_COUNT,
+  QueryParams,
+} from "@/constants/Config"; // Import constants
 
-const SKELETON_COUNT = 6;
-const API_BASE_URL = "http://192.168.100.18:8080/api";
-const PAGE_SIZE = 10;
-
-type PropertyStatus =
-  | "available"
-  | "occupied"
-  | "rented"
-  | "off-market"
-  | "under-maintenance"
-  | "pending-approval";
-
-type BackendSortOption =
-  | "created_at.desc"
-  | "created_at.asc"
+// Define sort options matching backend expectations (or map them)
+type SortOption =
+  | "created_at.desc" // newest
+  | "created_at.asc" // oldest
   | "price.asc"
   | "price.desc";
 
@@ -43,129 +47,105 @@ export default function HomeScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
 
-  const [error, setError] = useState<string | null>(null);
+  // Local state for UI control and filters/pagination
   const [refreshing, setRefreshing] = useState(false);
-  const [sortOption, setSortOption] = useState<
-    "newest" | "oldest" | "price_asc" | "price_desc"
-  >("newest");
-  const colorScheme = useColorScheme();
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
+  const [sortOption, setSortOption] = useState<SortOption>("created_at.desc");
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 0 }); // Keep if filter modal uses it
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
   const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
-    "all"
+    "all",
   );
+  const [garages, setGarages] = useState(0);
+  const [parkings, setParkings] = useState(0); // This might need mapping based on category
+  // const [selectedFeatures, setSelectedFeatures] = useState("Any"); // Keep if filter modal uses it
+  // const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]); // Keep if filter modal uses it
+  // const [statusFilter, setStatusFilter] = useState<"all" | PropertyStatus>("all"); // Keep if filter modal uses it
+
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [garages, setGarages] = useState(0);
-  const [parkings, setParkings] = useState(0);
-  const [selectedFeatures, setSelectedFeatures] = useState("Any");
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<"all" | PropertyStatus>(
-    "all"
-  );
+  const [localError, setLocalError] = useState<string | null>(null); // Local error for fetch issues
 
+  // Get data and setters from Zustand store
   const {
     properties,
     searchQuery,
-    activeFilters,
-    propertyTypeFilter,
-    loading,
-    setSearchQuery,
-    setActiveFilters,
-    setPropertyTypeFilter,
-    toggleSavedProperty,
+    loading: zustandLoading, // Use Zustand loading for initial/filter load
+    // error: zustandError, // Use localError for fetch issues in this screen
     setProperties,
-    setLoading,
-    fetchSavedProperties
+    setLoading: setZustandLoading,
+    setError: setZustandError, // Use to set global errors if needed, otherwise use localError
+    toggleSavedProperty, // Keep toggleSavedProperty from store
+    fetchSavedProperties, // Fetch saved properties on mount/refresh
   } = useStore();
 
-  const statusOptions = [
-    { value: "all", label: "All Properties", color: "#4B5563", icon: "list" },
-    {
-      value: "available",
-      label: "Available",
-      color: "#4CAF50",
-      icon: "checkmark-circle",
-    },
-    { value: "occupied", label: "Occupied", color: "#FF9800", icon: "home" },
-    { value: "rented", label: "Rented Out", color: "#2196F3", icon: "cash" },
-    {
-      value: "off-market",
-      label: "Off Market",
-      color: "#9E9E9E",
-      icon: "eye-off",
-    },
-    {
-      value: "under-maintenance",
-      label: "Under Maintenance",
-      color: "#FFC107",
-      icon: "construct",
-    },
-    {
-      value: "pending-approval",
-      label: "Pending Approval",
-      color: "#673AB7",
-      icon: "time",
-    },
-  ];
+  const { user } = useAuthStore(); // Get user for potential authenticated actions
+  const colorScheme = useColorScheme();
 
-const getBackendSortOption = (): BackendSortOption => {
-  switch (sortOption) {
-    case "newest":
-      return "created_at.desc";
-    case "oldest":
-      return "created_at.asc";
-    case "price_asc":
-      return "price.asc";
-    case "price_desc":
-      return "price.desc";
-    default:
-      return "created_at.desc";
-  }
-};
-
-  // Replace the existing fetchProperties function with this:
+  // --- Fetching Logic ---
   const fetchProperties = useCallback(
-    async (pageNumber: number, isRefreshing = false) => {
-      // Use Zustand loading for initial/refresh, local state for "load more"
+    async (pageNumber: number, isRefresh = false) => {
       if (pageNumber === 1) {
-        setLoading(true); // Use Zustand loading for first page / filter change
+        setZustandLoading(true); // Use Zustand loading for initial/refresh/filter
+        setLocalError(null); // Clear local errors on new fetch
+        setZustandError(null); // Clear global errors too
       } else {
-        setIsFetchingMore(true); // Use local state for subsequent pages
+        setIsFetchingMore(true); // Use local state for "load more" indicator
       }
-      setError(null); // Clear previous errors
+      if (isRefresh) {
+        setRefreshing(true);
+        // Fetch saved properties again on refresh
+        await fetchSavedProperties();
+      }
 
       try {
-        // Construct query parameters based on current filters/state
         const params = new URLSearchParams();
-        params.append("page", pageNumber.toString());
-        params.append("pageSize", PAGE_SIZE.toString());
-        params.append("sort", getBackendSortOption()); // Add sort parameter
+        params.append(QueryParams.PAGE, pageNumber.toString());
+        params.append(QueryParams.PAGE_SIZE, PAGE_SIZE.toString());
+        params.append(QueryParams.SORT, sortOption);
 
         if (searchQuery) {
-          // Backend uses 'location' for search
-          params.append("location", searchQuery);
+          params.append(QueryParams.LOCATION, searchQuery); // Backend uses p_location_pattern
         }
         if (selectedType !== "all") {
-          // Backend uses 'propertyType'
-          params.append("propertyType", selectedType);
+          params.append(QueryParams.CATEGORY, selectedType); // Backend uses p_category
         }
         if (bedrooms > 0) {
-          params.append("bedrooms", bedrooms.toString());
+          params.append(QueryParams.BEDROOMS, bedrooms.toString()); // Backend uses p_min_bedrooms
         }
         if (bathrooms > 0) {
-          params.append("bathrooms", bathrooms.toString());
+          params.append(QueryParams.BATHROOMS, bathrooms.toString()); // Backend uses p_min_bathrooms
         }
         if (garages > 0) {
-          // Backend uses 'garage'
-          params.append("garage", garages.toString());
+          params.append(QueryParams.GARAGES, garages.toString()); // Backend uses p_min_garages (house only)
         }
+        // Handle parkings based on category if necessary, or let backend RPC handle it
         if (parkings > 0) {
-          params.append("parkings", parkings.toString());
+          // Option 1: Send generic 'parkings' if backend handles mapping
+          // params.append('parkings', parkings.toString());
+          // Option 2: Send specific param based on type (requires knowing type)
+          if (selectedType === "house") {
+            params.append(QueryParams.HOUSE_PARKINGS, parkings.toString());
+          } else if (
+            selectedType === "apartment" ||
+            selectedType === "commercial"
+          ) {
+            params.append(QueryParams.PARKING_SPACES, parkings.toString());
+          }
+          // Add more complex logic if 'all' types are selected
         }
-        // Add other filters like priceRange, features, amenities if implemented on backend
+
+        // Add other filters if implemented (priceRange, statusFilter, propertyTypeFilter etc.)
+        // if (statusFilter !== 'all') {
+        //   params.append(QueryParams.STATUS, statusFilter);
+        // }
+        // if (priceRange.min > 0) {
+        //    params.append(QueryParams.MIN_PRICE, priceRange.min.toString());
+        // }
+        // if (priceRange.max > 0) { // Assuming max > 0 means it's set
+        //    params.append(QueryParams.MAX_PRICE, priceRange.max.toString());
+        // }
 
         const response = await fetch(
           `${API_BASE_URL}/properties?${params.toString()}`,
@@ -177,51 +157,34 @@ const getBackendSortOption = (): BackendSortOption => {
           );
         }
 
-        const data: {
-          properties: Property[];
-          total: number;
-          page: number;
-          pageSize: number;
-        } = await response.json();
-
-        console.log(`Received data for page ${pageNumber}:`, data);
-
-        // Ensure unique properties when merging (important for refresh/load more)
+        const data: PropertyResponseDto = await response.json(); // Expecting PropertyResponseDto structure
         const newProperties = data.properties || [];
-        let mergedProperties: Property[];
 
-        if (pageNumber === 1 || isRefreshing) {
-          // If first page or refreshing, replace existing properties
-          mergedProperties = newProperties;
-        } else {
-          // Otherwise, merge and remove duplicates
-          const currentProperties = properties || []; // Get current properties from store
-          mergedProperties = [...currentProperties, ...newProperties].filter(
-            (p, index, self) =>
-              index === self.findIndex((prop) => prop.id === p.id),
-          );
-        }
+        // Merge or replace properties based on page number
+        const mergedProperties =
+          pageNumber === 1 || isRefresh
+            ? newProperties
+            : [...properties, ...newProperties];
 
-        setProperties(mergedProperties); // Update Zustand store
-
-        // Update pagination state based on total count
+        // Update Zustand store
+        setProperties(mergedProperties, pageNumber); // Setter now handles 'liked' status
         setHasMore(mergedProperties.length < data.total);
         setPage(pageNumber + 1); // Set the *next* page number to fetch
-
       } catch (error: any) {
         console.error("Error fetching properties:", error);
-        setError(
+        setLocalError(
           error.message || "Failed to load properties. Please try again.",
         );
-        // Don't clear properties on error, maybe show previous list with error message
+        // Optionally set global error: setZustandError(...)
+        setHasMore(false); // Stop pagination on error
       } finally {
         if (pageNumber === 1) {
-          setLoading(false); // Turn off Zustand loading
+          setZustandLoading(false);
         } else {
-          setIsFetchingMore(false); // Turn off local loading more indicator
+          setIsFetchingMore(false);
         }
-        if (isRefreshing) {
-          setRefreshing(false); // Turn off pull-to-refresh indicator
+        if (isRefresh) {
+          setRefreshing(false);
         }
       }
     },
@@ -233,21 +196,22 @@ const getBackendSortOption = (): BackendSortOption => {
       garages,
       parkings,
       sortOption,
-      properties, // Include properties to correctly merge in subsequent calls
-      setLoading,
       setProperties,
-    ], // Add all filter/sort states that trigger a refetch
+      setZustandLoading,
+      setZustandError,
+      fetchSavedProperties, // Include fetchSavedProperties
+    ],
   );
 
+  // Initial fetch and fetch on filter/sort changes (debounced)
   useEffect(() => {
-    // Debounce fetching when filters change
     const debounceTimer = setTimeout(() => {
       console.log("Filters changed, fetching page 1");
       setPage(1); // Reset to page 1
       setHasMore(true); // Assume there might be more data
-      setProperties([]);
+      // setProperties([]); // Clear existing properties before new filter fetch
       fetchProperties(1);
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: false }); // Scroll to top
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, 500); // 500ms debounce
 
     return () => clearTimeout(debounceTimer);
@@ -259,98 +223,98 @@ const getBackendSortOption = (): BackendSortOption => {
     garages,
     parkings,
     sortOption,
-    // fetchProperties,
+    fetchProperties, // fetchProperties is now stable due to useCallback
   ]);
 
+  // Fetch saved properties on initial mount
+  useEffect(() => {
+    fetchSavedProperties();
+  }, [fetchSavedProperties]);
+
   const handleLoadMore = () => {
-    if (!isFetchingMore && hasMore && !loading) {
+    if (!isFetchingMore && hasMore && !zustandLoading && !refreshing) {
       console.log(`Loading more, fetching page ${page}`);
       fetchProperties(page); // Fetch the next page
     }
   };
 
-  const handlePropertyPress = (propertyId: string) => {
-    router.push(`../property/${propertyId}`);
-  };
-
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
     setPage(1); // Reset page for refresh
     setHasMore(true); // Reset hasMore
-    // Fetch saved properties first if needed for like status
-    try {
-      await fetchSavedProperties();
-    } catch (error) {
-      console.error("Error fetching saved properties on refresh:", error);
-    }
-    // Then fetch properties, indicating it's a refresh
-    await fetchProperties(1, true);
-    // setRefreshing(false) is handled in fetchProperties finally block
-  }, [fetchProperties, fetchSavedProperties]); // Add dependencies
+    await fetchProperties(1, true); // Pass isRefresh = true
+  }, [fetchProperties]); // fetchProperties dependency
 
-  const handleApplyFilters = (filters: {
-    selectedType: string;
-    selectedBedrooms: string;
-    selectedBathrooms: string;
-    selectedGarages: string;
-    selectedParkings: string;
-    selectedFeatures: string; // Keep if needed
-    selectedAmenities: string[]; // Keep if needed
-  }) => {
-    console.log("Applying filters:", filters);
-    // Helper function from your original code
-    const parseFilterValue = (value: string) =>
-      value === "Any" ? 0 : parseInt(value.split("+")[0].trim());
+  const handlePropertyPress = (propertyId: string) => {
+    router.push(`../property/${propertyId}`); // Adjust path as needed
+  };
 
-    // Update state - this will trigger the useEffect to refetch
-    setBedrooms(parseFilterValue(filters.selectedBedrooms));
-    setBathrooms(parseFilterValue(filters.selectedBathrooms));
-    setGarages(parseFilterValue(filters.selectedGarages));
-    setParkings(parseFilterValue(filters.selectedParkings));
+  // --- Filter Modal Handlers ---
+  const handleApplyFilters = (filters: any) => {
+    // Update local state based on filters from modal
+    // This will trigger the useEffect to refetch
+    setBedrooms(filters.selectedBedrooms === "Any" ? 0 : parseInt(filters.selectedBedrooms));
+    setBathrooms(filters.selectedBathrooms === "Any" ? 0 : parseInt(filters.selectedBathrooms));
+    setGarages(filters.selectedGarages === "Any" ? 0 : parseInt(filters.selectedGarages));
+    setParkings(filters.selectedParkings === "Any" ? 0 : parseInt(filters.selectedParkings));
     setSelectedType(
       filters.selectedType === "All properties"
         ? "all"
         : (filters.selectedType as PropertyCategory),
     );
-    // Update features/amenities state if used
+    // Update other filters like priceRange, features, amenities if used
     // setSelectedFeatures(filters.selectedFeatures);
     // setSelectedAmenities(filters.selectedAmenities);
-
-    // No need to call fetchProperties(0) here, useEffect handles it
   };
 
   const handleClearFilters = () => {
-    console.log("Clearing filters");
+    // Reset local filter state
+    // This will trigger the useEffect to refetch
     setPriceRange({ min: 0, max: 0 });
     setBedrooms(0);
     setBathrooms(0);
     setSelectedType("all");
     setGarages(0);
     setParkings(0);
-    setSelectedFeatures("Any");
-    setSelectedAmenities([]);
+    // setSelectedFeatures("Any");
+    // setSelectedAmenities([]);
+    // setStatusFilter("all");
   };
 
+  // --- Like/Save Handler ---
+  const handleLikePress = (propertyId: string) => {
+    if (!user) {
+      router.push("/auth/signin"); // Redirect to login if not authenticated
+      return;
+    }
+    toggleSavedProperty(propertyId); // Call the Zustand action
+  };
+
+  // --- Render Logic ---
   const renderContent = () => {
-    if (loading && page === 1 && !refreshing) {
+    // Show skeletons only on initial load (page 1, not refreshing)
+    if (zustandLoading && page === 1 && !refreshing) {
       return (
         <FlatList
           data={Array(SKELETON_COUNT).fill(null)}
           renderItem={() => <PropertyCardSkeleton />}
           keyExtractor={(_, index) => `skeleton-${index}`}
-          contentContainerClassName="p-4"
+          contentContainerClassName="p-4" // Use className if using Nativewind
+          // contentContainerStyle={styles.listContent} // Use StyleSheet otherwise
         />
       );
     }
 
-    if (error && properties.length === 0) {
-      return <Text style={styles.errorText}>Error: {error}</Text>;
+    // Show error message if fetch failed and no properties are loaded
+    if (localError && properties.length === 0) {
+      return <Text style={styles.errorText}>Error: {localError}</Text>;
     }
 
-    if (!loading && properties.length === 0 && !error) {
+    // Show "No properties found" only if not loading, no error, and properties array is empty
+    if (!zustandLoading && properties.length === 0 && !localError) {
       return <Text style={styles.infoText}>No properties found.</Text>;
     }
 
+    // Render the list of properties
     return (
       <FlatList
         ref={flatListRef}
@@ -359,73 +323,81 @@ const getBackendSortOption = (): BackendSortOption => {
           <PropertyCard
             property={item}
             onPress={() => handlePropertyPress(item.id)}
-            onLike={() => {
-              const { user } = useAuthStore.getState();
-              if (!user) {
-                router.push("/auth/signin");
-                return;
-              }
-              toggleSavedProperty(item.id);
-            }}
-            key={item.id}
+            onLike={() => handleLikePress(item.id)}
+            // Pass the 'liked' status from the property object
+            isLiked={item.liked}
           />
         )}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.1}
-        ListFooterComponent={isFetchingMore ? <PropertyCardSkeleton /> : null}
         keyExtractor={(item) => item.id}
-        contentContainerClassName="p-4"
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5} // Adjust threshold as needed
+        ListFooterComponent={
+          isFetchingMore ? (
+            <ActivityIndicator size="large" style={{ marginVertical: 20 }} />
+          ) : null // Show loading indicator at the bottom
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[Colors.light.background]}
+            colors={[Colors.light.tint]} // Adjust colors as needed
+            tintColor={Colors.light.tint}
           />
         }
+        contentContainerClassName="p-4" // Use className if using Nativewind
+        // contentContainerStyle={styles.listContent} // Use StyleSheet otherwise
       />
     );
   };
 
   return (
-    <GestureHandlerRootView className="flex-1">
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* Use StyleSheet */}
+      {/* <GestureHandlerRootView style={styles.flexContainer}> */}
       <BottomSheetModalProvider>
-        <View className="flex-1">
-          <View className="flex-row p-4 pb-3 gap-2 mt-4">
+        {/* <View style={styles.flexContainer}> */}
+        <View style={{ flex: 1 }}>
+          {/* Use className */}
+          <View className="flex-row p-4 pb-3 gap-2 mt-4 items-center">
+            {/* Use StyleSheet */}
+            {/* <View style={styles.headerContainer}> */}
             <SearchBar
               value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search properties..."
+              onChangeText={useStore((s) => s.setSearchQuery)} // Directly use setter
+              placeholder="Search location..." // Changed placeholder
             />
-
             <FilterModal
               onApply={handleApplyFilters}
               onClear={handleClearFilters}
+              // Pass initial filter values if needed
             />
           </View>
 
+          {/* Use className */}
           <View className="px-2 pb-1">
+            {/* Use StyleSheet */}
+            {/* <View style={styles.pickerContainer}> */}
             <Picker
               selectedValue={sortOption}
-              onValueChange={(value) => {
-                setSortOption(value);
-                setPage(0);
-                flatListRef.current?.scrollToOffset({
-                  offset: 0,
-                  animated: true,
-                });
-                fetchProperties(0);
+              onValueChange={(itemValue) => {
+                setSortOption(itemValue as SortOption);
+                // No need to fetch here, useEffect handles it
               }}
               mode="dropdown"
               dropdownIconColor={colorScheme === "dark" ? "white" : "black"}
-              style={{
-                backgroundColor: colorScheme === "dark" ? "#333" : "#fff",
-                color: colorScheme === "dark" ? "white" : "black",
-              }}
+              style={[
+                styles.picker, // Keep base styles
+                {
+                  backgroundColor: colorScheme === "dark" ? "#333" : "#fff",
+                  color: colorScheme === "dark" ? "white" : "black",
+                },
+              ]}
             >
-              <Picker.Item label="Newest" value="newest" />
-              <Picker.Item label="Oldest" value="oldest" />
-              <Picker.Item label="Price: Low to High" value="price_asc" />
-              <Picker.Item label="Price: High to Low" value="price_desc" />
+              <Picker.Item label="Newest" value="created_at.desc" />
+              <Picker.Item label="Oldest" value="created_at.asc" />
+              <Picker.Item label="Price: Low to High" value="price.asc" />
+              <Picker.Item label="Price: High to Low" value="price.desc" />
+              {/* Add other sort options if backend supports them */}
             </Picker>
           </View>
 
@@ -436,6 +408,7 @@ const getBackendSortOption = (): BackendSortOption => {
   );
 }
 
+// --- Styles --- (Keep your existing styles)
 const styles = StyleSheet.create({
   flexContainer: {
     flex: 1,
@@ -466,18 +439,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 16,
   },
-   errorTextSmall: {
-    textAlign: "center",
-    color: "orange",
-    fontSize: 12,
-    paddingHorizontal: 16,
-    marginBottom: 5,
-  },
   infoText: {
     textAlign: "center",
     marginTop: 20,
-    color: Colors.light.background, // Use your theme color
+    // color: Colors.light.background, // Use your theme color
+    color: "#666", // Example color
     fontSize: 16,
     paddingHorizontal: 16,
+  },
+  listContent: {
+    padding: 16, // Example padding (p-4 equivalent)
   },
 });
