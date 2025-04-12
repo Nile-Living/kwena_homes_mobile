@@ -1,258 +1,200 @@
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
+import React from "react";
+import { View, Text, Image, TouchableOpacity } from "react-native";
+import { Ionicons, FontAwesome } from "@expo/vector-icons"; // Import both icon sets
+import { Property } from "@/store/useStore"; // Import your Property type
 
+// Interface for the component props
 interface PropertyCardProps {
-  property: {
-    id: string;
-    title: string;
-    price: number;
-    location: string;
-    // Make bedrooms/bathrooms optional if they come from details
-    bedrooms?: number;
-    bathrooms?: number;
-    images: string[];
-    // 'liked' inside property is no longer strictly needed here if passed separately
-    // liked?: boolean;
-    property_type: "rent" | "sale";
-    created_at: string;
-    details?: any;
-
-  };
+  property: Property; // Use the defined Property type
   onPress: () => void;
-  onLike?: () => void;
-  isLiked?: boolean;
+  onLike?: () => void; // Optional like handler
+  isLiked?: boolean; // Optional liked status indicator
 }
 
-const getTimeAgo = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
+// Helper function to format time difference
+const getTimeAgo = (dateString?: string): string => {
+  if (!dateString) return "Unknown date";
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
 
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+    if (isNaN(diff)) return "Invalid date"; // Handle invalid date strings
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
 
-  const days = Math.floor(hours / 24);
-  return `${days} day${days !== 1 ? 's' : ''} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+
+    const weeks = Math.floor(days / 7);
+     if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+
+    const months = Math.floor(days / 30);
+     if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
+
+    const years = Math.floor(days / 365);
+    return `${years} year${years !== 1 ? 's' : ''} ago`;
+
+  } catch (e) {
+      console.error("Error parsing date for getTimeAgo:", dateString, e);
+      return "Unknown date";
+  }
 };
 
+// Placeholder image URL
+const PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/300x200.png?text=No+Image";
+
+// The PropertyCard Component
 export default function PropertyCard({
   property,
   onPress,
   onLike,
-  isLiked, // <-- Destructure the new prop
+  isLiked,
 }: PropertyCardProps) {
-  // Default bedrooms/bathrooms if not present (might come from details now)
-  const displayBedrooms = property.bedrooms ?? property.details?.bedrooms ?? "-";
-  const displayBathrooms =
-    property.bathrooms ?? property.details?.bathrooms ?? 0;
+
+  // --- Dynamic Feature Extraction based on Category ---
+  let feature1Icon: React.ComponentProps<typeof Ionicons>['name'] | null = null;
+  let feature1Value: string | number | null = null;
+  let feature2Icon: React.ComponentProps<typeof Ionicons>['name'] | React.ComponentProps<typeof FontAwesome>['name'] | null = null;
+  let feature2Value: string | number | null = null;
+  let feature2IconLibrary: 'Ionicons' | 'FontAwesome' = 'Ionicons'; // Default
+
+  // Safely access details
+  const details = property.details || {};
+
+  switch (property.category) {
+    case 'house':
+    case 'apartment':
+    case 'lodge': // Assuming lodge also uses bed/bath
+      feature1Icon = 'bed-outline';
+      feature1Value = details.bedrooms ?? '-'; // Use details first
+      feature2Icon = 'bathtub'; // Using FontAwesome
+      feature2IconLibrary = 'FontAwesome';
+      feature2Value = details.bathrooms ?? 0;
+      break;
+    case 'land':
+    case 'farm': // Assuming farm might show size and maybe road access
+      feature1Icon = 'resize-outline';
+      feature1Value = details.size_sqm ? `${details.size_sqm} sqm` : '-';
+      feature2Icon = 'car-outline';
+      feature2Value = details.road_access ? 'Road Access' : null; // Only show if true?
+      break;
+    case 'commercial':
+    case 'industrial': // Assuming industrial might show area and power
+      feature1Icon = 'business-outline';
+      feature1Value = details.property_type || property.category; // Show specific type or category
+      feature2Icon = 'resize-outline';
+      feature2Value = details.square_meters ? `${details.square_meters} sqm` : '-';
+      break;
+    // Add default case or handle other categories if necessary
+    default:
+      // Maybe show category as feature 1?
+      feature1Icon = 'information-circle-outline';
+      feature1Value = property.category;
+      break;
+  }
+  // --- End Dynamic Feature Extraction ---
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} delayPressIn={150}>
+    <TouchableOpacity
+      className="bg-white rounded-lg mb-4 shadow-md overflow-hidden border border-gray-100" // Added border and overflow
+      onPress={onPress}
+      delayPressIn={150} // Optional: slight delay before press registers
+      activeOpacity={0.8} // Optional: feedback on press
+    >
+      {/* Image Section */}
       <Image
-        // Use a placeholder if images array might be empty
-        source={{ uri: property.images?.[0] || "placeholder_image_url" }}
-        style={styles.image}
+        source={{ uri: property.images?.[0] || PLACEHOLDER_IMAGE_URL }}
+        className="w-full h-48" // Adjust height as needed (e.g., h-52)
         resizeMode="cover"
       />
-      {/* Type Tag (For Sale/For Rent) */}
-      <View style={styles.tagContainer}>
+
+      {/* Type Tag (Absolute Positioned) */}
+      <View className="absolute top-3 left-3">
         <View
-          style={[
-            styles.typeTag,
-            {
-              backgroundColor:
-                property.property_type === "sale" ? "#244835" : "#ED9B6B", // Example colors
-            },
-          ]}
+          className={`px-3 py-1 rounded-full shadow ${
+            property.property_type === 'sale' ? 'bg-emerald-700' : 'bg-amber-600' // Example colors
+          }`}
         >
-          <Text style={styles.typeTagText}>
-            {property.property_type === "sale" ? "For Sale" : "For Rent"}
+          <Text className="text-white text-xs font-semibold">
+            {property.property_type === 'sale' ? 'For Sale' : 'For Rent'}
           </Text>
         </View>
       </View>
 
-      {/* Like Button */}
-      {onLike && ( // Conditionally render if onLike is provided
-        <TouchableOpacity style={styles.likeButton} onPress={onLike}>
+      {/* Like Button (Absolute Positioned, conditional) */}
+      {onLike && (
+        <TouchableOpacity
+          className="absolute top-3 right-3 bg-white/80 p-2 rounded-full shadow" // Added slight transparency
+          onPress={onLike}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Increase tappable area
+        >
           <Ionicons
-            // Use the isLiked prop passed from HomeScreen
             name={isLiked ? "heart" : "heart-outline"}
-            size={24}
-            // Use the isLiked prop passed from HomeScreen
-            color={isLiked ? "#ED9B6B" : "#244835"} // Example colors
+            size={22} // Slightly smaller icon?
+            color={isLiked ? "#ef4444" : "#374151"} // Example: Red when liked, dark gray otherwise
           />
         </TouchableOpacity>
       )}
 
-      {/* Use className="p-4" if using Nativewind */}
-      <View style={styles.content}>
+      {/* Content Section */}
+      <View className="p-4">
         {/* Price Row */}
-        {/* Use className="flex-row justify-between items-start mb-2" */}
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 8,
-          }}
-        >
-          {/* Use className="text-2xl font-bold text-primary-800" */}
-          {/* Use style={styles.price} */}
-          <Text style={styles.price}>
-            K{property.price.toLocaleString()}
-            {property.property_type === "rent" && (
-              // Use className="text-base font-medium text-neutral-600"
-              // Use style={styles.rentPeriod}
-              <Text style={styles.rentPeriod}>/mo</Text>
+        <View className="flex-row justify-between items-start mb-2">
+          <Text className="text-xl font-bold text-emerald-800">
+            K{property.price?.toLocaleString() ?? 'N/A'} {/* Handle potential null price */}
+            {property.property_type === 'rent' && (
+              <Text className="text-sm font-medium text-gray-600 self-end ml-1">
+                /mo
+              </Text>
             )}
           </Text>
         </View>
 
-        {/* Title & Location */}
-        {/* Use className="text-lg font-semibold text-neutral-900 mb-1" */}
-        {/* Use style={styles.title} */}
-        <Text style={styles.title} numberOfLines={1}>
+        {/* Title */}
+        <Text className="text-lg font-semibold text-gray-900 mb-1" numberOfLines={1}>
           {property.title}
         </Text>
-        {/* Use className="text-sm text-neutral-600 mb-3" */}
-        {/* Use style={styles.location} */}
-        <Text style={styles.location} numberOfLines={1}>
+
+        {/* Location */}
+        <Text className="text-sm text-gray-600 mb-3" numberOfLines={1}>
           {property.location}
         </Text>
 
         {/* Metadata Row */}
-        {/* Use className="flex-row justify-between items-center" */}
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <View className="flex-row justify-between items-center">
           {/* Time Ago */}
-          {/* Use className="text-xs text-neutral-500" */}
-          {/* Use style={styles.timeAgo} */}
-          <Text style={styles.timeAgo}>
+          <Text className="text-xs text-gray-500">
             {getTimeAgo(property.created_at)}
           </Text>
 
-          {/* Features */}
-          {/* Use className="flex-row gap-4" */}
-          {/* Use style={styles.features} */}
-          <View style={styles.features}>
-            {/* Use className="flex-row items-center gap-1" */}
-            {/* Use style={styles.feature} */}
-            <View style={styles.feature}>
-              <Ionicons name="bed-outline" size={16} color="#4b5563" />
-              {/* Use className="text-sm text-neutral-600" */}
-              {/* Use style={styles.featureText} */}
-              <Text style={styles.featureText}>{displayBedrooms}</Text>
-            </View>
-            {/* Use className="flex-row items-center gap-1" */}
-            {/* Use style={styles.feature} */}
-            <View style={styles.feature}>
-              <FontAwesome name="bathtub" size={16} color="#4b5563" />
-              {/* Use className="text-sm text-neutral-600" */}
-              {/* Use style={styles.featureText} */}
-              <Text style={styles.featureText}>{displayBathrooms}</Text>
-            </View>
-            {/* Add other features like garages/parkings if needed */}
+          {/* Dynamic Features Display */}
+          <View className="flex-row space-x-3 items-center">
+            {feature1Icon && feature1Value !== null && (
+              <View className="flex-row items-center space-x-1">
+                <Ionicons name={feature1Icon} size={16} color="#4b5563" />
+                <Text className="text-sm text-gray-600">{feature1Value}</Text>
+              </View>
+            )}
+            {feature2Icon && feature2Value !== null && (
+              <View className="flex-row items-center space-x-1">
+                {feature2IconLibrary === 'FontAwesome' ? (
+                  <FontAwesome name={feature2Icon as any} size={14} color="#4b5563" /> // Adjusted size
+                ) : (
+                  <Ionicons name={feature2Icon as any} size={16} color="#4b5563" />
+                )}
+                <Text className="text-sm text-gray-600">{feature2Value}</Text>
+              </View>
+            )}
           </View>
+          {/* End Dynamic Features Display */}
         </View>
       </View>
     </TouchableOpacity>
   );
 }
-
-// --- Styles --- (Keep your existing styles)
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  image: {
-    width: "100%",
-    height: 200,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  tagContainer: {
-    position: "absolute",
-    top: 16,
-    left: 16,
-  },
-  typeTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  typeTagText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  likeButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    backgroundColor: "#FFF", // Example background for visibility
-    borderRadius: 20, // Make it circular
-    padding: 8, // Add padding
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  content: {
-    padding: 16,
-  },
-  price: {
-    fontSize: 20, // text-2xl is approx 24, adjust as needed
-    fontWeight: "700", // font-bold
-    color: "#244835", // text-primary-800 (example mapping)
-  },
-  rentPeriod: {
-    fontSize: 14, // text-base is 16, adjust as needed
-    fontWeight: "500", // font-medium
-    color: "#4B5563", // text-neutral-600 (example mapping)
-  },
-  title: {
-    fontSize: 18, // text-lg
-    fontWeight: "600", // font-semibold
-    color: "#1F2937", // text-neutral-900 (example mapping)
-    marginBottom: 4, // mb-1
-  },
-  location: {
-    fontSize: 14, // text-sm
-    color: "#4B5563", // text-neutral-600
-    marginBottom: 12, // mb-3
-  },
-  timeAgo: {
-    fontSize: 12, // text-xs
-    color: "#6B7280", // text-neutral-500
-  },
-  features: {
-    flexDirection: "row",
-    gap: 16, // gap-4
-  },
-  feature: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4, // gap-1
-  },
-  featureText: {
-    fontSize: 14, // text-sm
-    color: "#4B5563", // text-neutral-600
-  },
-});

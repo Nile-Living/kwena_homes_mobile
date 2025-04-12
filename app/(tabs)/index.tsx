@@ -1,9 +1,4 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-} from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   StyleSheet,
   FlatList,
@@ -25,10 +20,7 @@ import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
-import {
-  PROPERTY_TYPES,
-  PropertyCategory,
-} from "@/constants/propertyTypes"; // Keep if needed for FilterModal
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes"; // Keep if needed for FilterModal
 import {
   API_BASE_URL,
   PAGE_SIZE,
@@ -54,7 +46,7 @@ export default function HomeScreen() {
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
   const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
-    "all",
+    "all"
   );
   const [garages, setGarages] = useState(0);
   const [parkings, setParkings] = useState(0); // This might need mapping based on category
@@ -109,51 +101,47 @@ export default function HomeScreen() {
           params.append(QueryParams.LOCATION, searchQuery); // Backend uses p_location_pattern
         }
         if (selectedType !== "all") {
-          params.append(QueryParams.CATEGORY, selectedType); // Backend uses p_category
+          params.append(QueryParams.CATEGORY, selectedType);
         }
         if (bedrooms > 0) {
-          params.append(QueryParams.BEDROOMS, bedrooms.toString()); // Backend uses p_min_bedrooms
+          // Backend view uses 'effective_bedrooms'
+          params.append(QueryParams.BEDROOMS, bedrooms.toString());
         }
         if (bathrooms > 0) {
-          params.append(QueryParams.BATHROOMS, bathrooms.toString()); // Backend uses p_min_bathrooms
+          // Backend view uses 'effective_bathrooms'
+          params.append(QueryParams.BATHROOMS, bathrooms.toString());
         }
-        if (garages > 0) {
-          params.append(QueryParams.GARAGES, garages.toString()); // Backend uses p_min_garages (house only)
+        if (
+          garages > 0 &&
+          (selectedType === "all" || selectedType === "house")
+        ) {
+          // Only relevant for house (or all) - view uses 'house_garages'
+          params.append(QueryParams.GARAGES, garages.toString());
         }
-        // Handle parkings based on category if necessary, or let backend RPC handle it
         if (parkings > 0) {
-          // Option 1: Send generic 'parkings' if backend handles mapping
-          // params.append('parkings', parkings.toString());
-          // Option 2: Send specific param based on type (requires knowing type)
+          // This needs careful mapping based on DTO/View
+          // Option A: Send specific based on type (if known)
           if (selectedType === "house") {
-            params.append(QueryParams.HOUSE_PARKINGS, parkings.toString());
+            params.append(QueryParams.HOUSE_PARKINGS, parkings.toString()); // View: house_parkings
           } else if (
             selectedType === "apartment" ||
             selectedType === "commercial"
           ) {
-            params.append(QueryParams.PARKING_SPACES, parkings.toString());
+            params.append(QueryParams.PARKING_SPACES, parkings.toString()); // View: effective_parking_spaces
+          } else if (selectedType === "all") {
+            // How to handle 'all'? Send both? Let backend decide?
+            // Safest might be to send the most common one or have backend handle 'parkings' param
+            params.append(QueryParams.PARKING_SPACES, parkings.toString()); // Example: Default to apt/comm parking spaces
           }
-          // Add more complex logic if 'all' types are selected
         }
 
-        // Add other filters if implemented (priceRange, statusFilter, propertyTypeFilter etc.)
-        // if (statusFilter !== 'all') {
-        //   params.append(QueryParams.STATUS, statusFilter);
-        // }
-        // if (priceRange.min > 0) {
-        //    params.append(QueryParams.MIN_PRICE, priceRange.min.toString());
-        // }
-        // if (priceRange.max > 0) { // Assuming max > 0 means it's set
-        //    params.append(QueryParams.MAX_PRICE, priceRange.max.toString());
-        // }
-
         const response = await fetch(
-          `${API_BASE_URL}/properties?${params.toString()}`,
+          `${API_BASE_URL}/properties?${params.toString()}`
         );
 
         if (!response.ok) {
           throw new Error(
-            `Failed to fetch properties (status: ${response.status})`,
+            `Failed to fetch properties (status: ${response.status})`
           );
         }
 
@@ -173,7 +161,7 @@ export default function HomeScreen() {
       } catch (error: any) {
         console.error("Error fetching properties:", error);
         setLocalError(
-          error.message || "Failed to load properties. Please try again.",
+          error.message || "Failed to load properties. Please try again."
         );
         // Optionally set global error: setZustandError(...)
         setHasMore(false); // Stop pagination on error
@@ -199,8 +187,8 @@ export default function HomeScreen() {
       setProperties,
       setZustandLoading,
       setZustandError,
-      fetchSavedProperties, // Include fetchSavedProperties
-    ],
+      fetchSavedProperties,
+    ]
   );
 
   // Initial fetch and fetch on filter/sort changes (debounced)
@@ -252,14 +240,28 @@ export default function HomeScreen() {
   const handleApplyFilters = (filters: any) => {
     // Update local state based on filters from modal
     // This will trigger the useEffect to refetch
-    setBedrooms(filters.selectedBedrooms === "Any" ? 0 : parseInt(filters.selectedBedrooms));
-    setBathrooms(filters.selectedBathrooms === "Any" ? 0 : parseInt(filters.selectedBathrooms));
-    setGarages(filters.selectedGarages === "Any" ? 0 : parseInt(filters.selectedGarages));
-    setParkings(filters.selectedParkings === "Any" ? 0 : parseInt(filters.selectedParkings));
+    setBedrooms(
+      filters.selectedBedrooms === "Any"
+        ? 0
+        : parseInt(filters.selectedBedrooms)
+    );
+    setBathrooms(
+      filters.selectedBathrooms === "Any"
+        ? 0
+        : parseInt(filters.selectedBathrooms)
+    );
+    setGarages(
+      filters.selectedGarages === "Any" ? 0 : parseInt(filters.selectedGarages)
+    );
+    setParkings(
+      filters.selectedParkings === "Any"
+        ? 0
+        : parseInt(filters.selectedParkings)
+    );
     setSelectedType(
       filters.selectedType === "All properties"
         ? "all"
-        : (filters.selectedType as PropertyCategory),
+        : (filters.selectedType as PropertyCategory)
     );
     // Update other filters like priceRange, features, amenities if used
     // setSelectedFeatures(filters.selectedFeatures);

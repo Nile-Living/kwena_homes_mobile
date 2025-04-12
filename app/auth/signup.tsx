@@ -1,18 +1,33 @@
 import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, Alert } from "react-native";
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  Text,
+  Alert,
+  ScrollView,
+  Image, // Import Image
+} from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, Stack, useLocalSearchParams } from "expo-router"; // Import useLocalSearchParams
+import { Ionicons } from "@expo/vector-icons";
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
-  const { signUp, loading, error } = useAuthStore();
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  // Get signInWithGoogle from the store
+  const { signUp, signInWithGoogle, loading, error } = useAuthStore();
   const router = useRouter();
+  // Get redirectTo in case Google sign-in needs it (though less common on sign-up)
+  const { redirectTo } = useLocalSearchParams();
 
   const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
+    // Keep existing validation logic
+    if (!email || !password || !confirmPassword || !phone) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
@@ -20,92 +35,175 @@ export default function SignUpScreen() {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
-  
     if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
-      Alert.alert("Error", "Please enter a valid phone number with the country code (e.g. +260...)");
+      Alert.alert(
+        "Error",
+        "Please enter a valid phone number with the country code (e.g. +260...)"
+      );
       return;
     }
-  
+
     const success = await signUp(email, password, phone);
-    
-    if (success) {
-      router.push("/");
+
+    // Keep existing navigation logic
+    if (success && !useAuthStore.getState().error) {
+      if (useAuthStore.getState().user && useAuthStore.getState().session) {
+        router.replace("/");
+      }
     }
   };
 
+  // Google Sign-In/Sign-Up Handler (same as SignInScreen)
+  const handleGoogleSignIn = async () => {
+    await signInWithGoogle();
+    // Check error state after attempt
+    // Supabase handles creating the user if they don't exist
+    if (!useAuthStore.getState().error) {
+      if (redirectTo) {
+        router.replace(redirectTo as any);
+      } else {
+        router.replace("/");
+      }
+    }
+  };
+
+  // Placeholder for Facebook Sign-In/Sign-Up
+  const handleFacebookSignIn = () => {
+    Alert.alert("Coming Soon", "Facebook Sign-Up is not yet implemented.");
+  };
+
+
   return (
-    <View className="flex-1 bg-white px-6 py-12">
+    <ScrollView
+      className="flex-1 bg-white"
+      contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+      keyboardShouldPersistTaps="handled"
+    >
       <Stack.Screen
-              options={{
-                title: "Sign Up",
-                headerTitle: "Sign Up",
-              }}
-            />
-      <Text className="text-3xl font-bold text-center text-gray-800 mb-8">
-        Sign Up
-      </Text>
+        options={{
+          title: "Sign Up",
+          headerTitle: "Create Account",
+          headerBackVisible: true,
+        }}
+      />
 
-      <View className="space-y-4 flex flex-col gap-6">
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
-          placeholderTextColor="#9CA3AF"
-        />
+      <View className="px-6 py-10">
+        {/* Logo Placeholder */}
+        <View className="items-center mb-8">
+          <View className="w-20 h-20 bg-emerald-800 rounded-2xl items-center justify-center">
+            <View className="w-8 h-8 bg-white/50 rounded-md" />
+          </View>
+        </View>
 
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
-          placeholderTextColor="#9CA3AF"
-        />
+        <Text className="text-2xl font-bold text-gray-800 mb-2 text-center">
+          Create Your Account
+        </Text>
+        <Text className="text-base text-gray-500 mb-10 text-center">
+          Enter your details below
+        </Text>
 
-        <TextInput
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
-          placeholderTextColor="#9CA3AF"
-        />
+        {/* Input Fields (Email, Password, Confirm, Phone) */}
+        {/* ... (Input fields remain the same as before) ... */}
+        <View className="mb-5 w-full">
+          <Text className="text-xs text-gray-500 mb-1 ml-1">Email</Text>
+          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center bg-white">
+            <TextInput placeholder="Enter your email address" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" className="flex-1 text-base text-black" placeholderTextColor="#9CA3AF"/>
+          </View>
+        </View>
+        <View className="mb-5 w-full">
+          <Text className="text-xs text-gray-500 mb-1 ml-1">Password</Text>
+          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center justify-between bg-white">
+            <TextInput placeholder="Create a password" value={password} onChangeText={setPassword} secureTextEntry={!isPasswordVisible} className="flex-1 text-base text-black mr-2" placeholderTextColor="#9CA3AF"/>
+            <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+              <Ionicons name={isPasswordVisible ? "eye-off-outline" : "eye-outline"} size={24} color="#6B7280"/>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View className="mb-5 w-full">
+          <Text className="text-xs text-gray-500 mb-1 ml-1">Confirm Password</Text>
+          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center justify-between bg-white">
+            <TextInput placeholder="Confirm your password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!isConfirmPasswordVisible} className="flex-1 text-base text-black mr-2" placeholderTextColor="#9CA3AF"/>
+            <TouchableOpacity onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}>
+              <Ionicons name={isConfirmPasswordVisible ? "eye-off-outline" : "eye-outline"} size={24} color="#6B7280"/>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View className="mb-8 w-full">
+          <Text className="text-xs text-gray-500 mb-1 ml-1">Phone Number</Text>
+          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center bg-white">
+            <TextInput placeholder="+260 9..." value={phone} onChangeText={setPhone} keyboardType="phone-pad" className="flex-1 text-base text-black" placeholderTextColor="#9CA3AF"/>
+          </View>
+        </View>
 
-        <TextInput
-          placeholder="Phone number"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="number-pad"
-          className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base"
-          placeholderTextColor="#9CA3AF"
-        />
-      </View>
 
-      <View className="mt-8">
+        {/* Sign Up Button */}
         <TouchableOpacity
           onPress={handleSignUp}
           disabled={loading}
-          className="w-full h-12 bg-green-800 rounded-lg items-center justify-center"
+          className="w-full bg-emerald-800 rounded-lg h-14 justify-center items-center mb-6 shadow-sm"
         >
-          <Text className="text-white text-base font-semibold">
-            {loading ? "Creating account..." : "Sign Up"}
+          <Text className="text-white font-semibold text-base">
+            {loading ? "Creating Account..." : "Sign Up"}
           </Text>
         </TouchableOpacity>
-      </View>
 
-      <TouchableOpacity
-        onPress={() => router.push("/auth/signin")}
-        className="mt-6"
-      >
-        <Text className="text-green-800 text-center text-base">
-          Already have an account? Sign In
+        {/* Or continue with */}
+        <Text className="text-sm text-gray-500 mb-6 text-center">
+          Or continue with
         </Text>
-      </TouchableOpacity>
 
-      {error && <Text className="mt-4 text-red-500 text-center">{error}</Text>}
-    </View>
+        {/* Social Logins */}
+        <View className="w-full flex-row justify-between mb-10">
+          {/* Google Button */}
+          <TouchableOpacity
+            onPress={handleGoogleSignIn} // Connect handler
+            disabled={loading}
+            className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
+          >
+            <Image
+              source={{ uri: 'https://img.icons8.com/color/48/google-logo.png' }}
+              className="w-6 h-6 mr-2"
+            />
+            <Text className="text-gray-700 font-semibold text-base">
+              Google
+            </Text>
+          </TouchableOpacity>
+
+          {/* Facebook Button */}
+          <TouchableOpacity
+            onPress={handleFacebookSignIn} // Connect handler
+            disabled={loading} // Disable while loading
+            className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
+          >
+             <Image
+              source={{ uri: 'https://img.icons8.com/color/48/facebook-new.png' }}
+              className="w-6 h-6 mr-2"
+            />
+            <Text className="text-gray-700 font-semibold text-base">
+              Facebook
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sign In Link */}
+        <View className="flex-row justify-center items-center">
+          <Text className="text-sm text-gray-500">
+            Already have an account?{" "}
+          </Text>
+          <TouchableOpacity onPress={() => router.push("/auth/signin")}>
+            <Text className="text-sm font-semibold text-emerald-800">
+              Sign In
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Error Display */}
+        {error && (
+          <Text className="mt-4 text-red-600 text-center text-sm">
+            {error}
+          </Text>
+        )}
+      </View>
+    </ScrollView>
   );
 }

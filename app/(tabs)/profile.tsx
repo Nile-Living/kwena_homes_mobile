@@ -7,65 +7,81 @@ import {
   ScrollView,
   Alert,
   Modal,
-  TextInput
+  TextInput,
+  ActivityIndicator, // Import ActivityIndicator for loading state
+  StyleSheet, // Keep StyleSheet for modal overlay potentially
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router"; // Import Stack
 import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
+import { Colors } from "@/constants/Colors"; // Assuming you might use theme colors
 
+// Interface for Profile data
 interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   phone: string | null;
   email: string | null;
+  created_at?: string; // Add created_at if you want to show "Joined..."
 }
+
+// Helper function to calculate time ago (simplified version)
+const getTimeAgo = (dateString?: string): string => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365));
+  if (years > 0) return `Joined ${years} year${years > 1 ? 's' : ''} ago`;
+  const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
+  if (months > 0) return `Joined ${months} month${months > 1 ? 's' : ''} ago`;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days > 0) return `Joined ${days} day${days > 1 ? 's' : ''} ago`;
+  return "Joined recently";
+};
+
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut, signInWithGoogle } = useAuthStore();
+  const { user, signOut } = useAuthStore(); // Removed signInWithGoogle if not used here
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isNameModalVisisble, setNameModalVisible] = useState(false);
+  const [isNameModalVisible, setNameModalVisible] = useState(false);
   const [nameInput, setNameInput] = useState("");
-  const supabaseUrl = "https://jdscpwxbrlbvnfsivwmp.supabase.co";
+  // const supabaseUrl = "https://jdscpwxbrlbvnfsivwmp.supabase.co"; // Not used
 
+  // --- Existing Logic (Keep As Is) ---
   useEffect(() => {
     fetchProfile();
-    // console.log("this is the supabase url", supabaseUrl);
   }, [user]);
 
   const fetchProfile = async () => {
+    setLoading(true); // Ensure loading starts
     try {
       if (!user) {
+        setProfile(null); // Clear profile if no user
         setLoading(false);
         return;
       }
 
+      // Fetch profile including created_at for "Joined" text
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("*, created_at") // Select created_at
         .eq("id", user.id)
         .single();
 
       if (error) {
-        // If profile doesn't exist, create one
-        if (error.code === "PGRST116") {
+        if (error.code === "PGRST116") { // Profile doesn't exist
+          console.log("Profile not found, creating one...");
           const { data: newProfile, error: createError } = await supabase
             .from("profiles")
-            .insert([
-              {
-                id: user.id,
-                email: user.email,
-                full_name: null,
-                avatar_url: null,
-                phone: null,
-              },
-            ])
-            .select("*")
+            .insert([{ id: user.id, email: user.email }]) // Insert minimal data
+            .select("*, created_at") // Select created_at for the new profile
             .single();
 
           if (createError) throw createError;
@@ -75,111 +91,68 @@ export default function ProfileScreen() {
         }
       } else {
         setProfile(data);
-        // console.log(data);
       }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
+    } catch (error: any) {
+      console.error("Error fetching/creating profile:", error);
+      Alert.alert("Error", "Could not load profile data.");
+      setProfile(null); // Clear profile on error
     } finally {
       setLoading(false);
     }
   };
 
-  // Fix the image upload function
   const handleImagePick = async () => {
-    if (!user) {
-      Alert.alert(
-        "Sign in required",
-        "Please sign in to update your profile image"
-      );
-      router.push("/auth/signin");
-      return;
-    }
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets.length > 0) {
-        const uri = result.assets[0].uri;
-        const fileExtension = uri.split(".").pop();
-        // This path should match your policy expectations
-        const fileName = `${user.id}/avatar.${fileExtension}`;
-
-        // Read the file as a base64 string
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        // Convert base64 to ArrayBuffer
-        const buffer = Uint8Array.from(atob(base64), (c) =>
-          c.charCodeAt(0)
-        ).buffer;
-
-        // Upload directly to the existing bucket
-        const { data, error } = await supabase.storage
-          .from("avatars")
-          .upload(fileName, buffer, {
-            contentType: `image/${fileExtension}`,
-            upsert: true,
-          });
-
-        if (error) throw error;
-
-        // Use the getPublicUrl method to get the correct URL
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("avatars").getPublicUrl(fileName);
-
-        // Update profile with the correct public URL
-        await updateProfile({ avatar_url: publicUrl });
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      Alert.alert("Upload failed", "There was a problem uploading your image");
-    }
+    // ... (Keep existing image pick and upload logic)
+     if (!user) { Alert.alert("Sign in required", "Please sign in to update your profile image"); router.push("/auth/signin"); return; }
+     try {
+       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+       if (!result.canceled && result.assets.length > 0) {
+         const uri = result.assets[0].uri;
+         const fileExtension = uri.split(".").pop();
+         const fileName = `${user.id}/avatar.${fileExtension}`;
+         const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+         const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)).buffer;
+         const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, buffer, { contentType: `image/${fileExtension}`, upsert: true });
+         if (uploadError) throw uploadError;
+         const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName);
+         await updateProfile({ avatar_url: publicUrl });
+       }
+     } catch (error) { console.error("Error uploading image:", error); Alert.alert("Upload failed", "There was a problem uploading your image"); }
   };
 
   const handleUpdateName = () => {
-    if (!user) {
-      Alert.alert("Sign in required", "Please sign in to update your profile");
-      router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/profile"}
-      });
-      return;
-    }
-    
+    if (!user) { Alert.alert("Sign in required", "Please sign in to update your profile"); router.push({ pathname: "/auth/signin", params: { redirectTo: "/(tabs)/profile"} }); return; } // Ensure redirect works with tabs
     setNameInput(profile?.full_name || '');
     setNameModalVisible(true);
   };
 
+  const saveNameUpdate = async () => {
+     if (nameInput && nameInput.trim() && profile?.full_name !== nameInput.trim()) {
+        await updateProfile({ full_name: nameInput.trim() });
+     }
+     setNameModalVisible(false);
+  }
+
   const updateProfile = async (updates: Partial<Profile>) => {
+    if (!user) return; // Should not happen if called correctly, but safe check
     try {
+      setLoading(true); // Indicate loading during update
       const { error } = await supabase
         .from("profiles")
         .update(updates)
-        .eq("id", user?.id);
+        .eq("id", user.id);
 
       if (error) throw error;
-      fetchProfile();
-    } catch (error) {
+      // Refetch profile to show updated data
+      await fetchProfile();
+    } catch (error: any) {
       console.error("Error updating profile:", error);
+      Alert.alert("Update Failed", "Could not update profile.");
+    } finally {
+        setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  // Navigation handlers with auth checks
   const handleNavigateToProperties = () => {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to view your properties");
@@ -192,168 +165,218 @@ export default function ProfileScreen() {
     }
   };
 
+  // Navigation handlers (keep existing logic, ensure redirects work with tabs)
   const handleNavigateToAddProperty = () => {
-    if (!user) {
-      Alert.alert("Sign in required", "Please sign in to add a property");
-      router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/property/new"}
-      });
-    } else {
-      router.push("/property/new");
-    }
+    if (!user) { Alert.alert("Sign in required", "Please sign in to add a property"); router.push({ pathname: "/auth/signin", params: { redirectTo: "/property/new"} }); }
+    else { router.push("/property/new"); }
   };
-
   const handleNavigateToSettings = () => {
-    if (!user) {
-      Alert.alert("Sign in required", "Please sign in to access settings");
-      router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/settings"}
-      });    } else {
-      router.push("/settings");
-    }
+    // Assuming settings doesn't strictly require login, or add check if needed
+    router.push("/settings"); // Example: Navigate to settings screen
+  };
+  const handleNavigateToEditProfile = () => {
+     if (!user) { Alert.alert("Sign in required", "Please sign in to edit your profile"); router.push({ pathname: "/auth/signin", params: { redirectTo: "/(tabs)/profile"} }); } // Redirect back to profile after sign in
+     else {
+        // Navigate to a dedicated Edit Profile screen if you have one,
+        // or trigger the name modal directly if that's the only edit action for now.
+        handleUpdateName(); // Example: Trigger name modal directly
+        // router.push("/profile/edit"); // Example: Navigate to edit screen
+     }
   };
 
-  // Handle auth action based on current state
-  const handleAuthAction = () => {
-    if (user) {
-      signOut();
-    } else {
-      router.push("/auth/signin");
-    }
+  // Sign Out handler
+  const handleSignOut = async () => {
+    setLoading(true); // Show loading during sign out
+    await signOut();
+    setProfile(null); // Clear profile state on sign out
+    setLoading(false);
+    // Navigation might happen automatically via layout listener, or force it:
+    // router.replace('/');
   };
 
+  // --- Render Logic ---
+
+  if (loading && !profile) { // Show full screen loader only on initial load
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  // If not loading and still no user (e.g., after sign out or failed checkAuth)
+  if (!user) {
+     return (
+        <View className="flex-1 items-center justify-center bg-white p-6">
+             <Stack.Screen options={{ title: "Profile" }} />
+             <Ionicons name="person-circle-outline" size={80} color="gray" />
+             <Text className="text-xl font-bold my-4">Welcome Guest</Text>
+             <Text className="text-center text-gray-500 mb-8">
+                Sign in to manage your profile, properties, and saved items.
+             </Text>
+             <TouchableOpacity
+                onPress={() => router.push("/auth/signin")}
+                className="w-full bg-emerald-700 rounded-lg h-12 justify-center items-center shadow-sm"
+             >
+                <Text className="text-white font-semibold text-base">Sign In / Sign Up</Text>
+             </TouchableOpacity>
+        </View>
+     )
+  }
+
+  // --- Main Profile View (User is logged in) ---
   return (
-    <ScrollView className="flex-1 bg-white">
-      <View className="items-center p-6">
-        <TouchableOpacity onPress={handleImagePick} className="mb-4">
+    <ScrollView className="flex-1 bg-gray-50">
+       <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
+      {/* Profile Header */}
+      <View className="items-center pt-8 pb-6 bg-white">
+        <TouchableOpacity onPress={handleImagePick} className="mb-3 relative">
           {profile?.avatar_url ? (
             <Image
               source={{ uri: profile.avatar_url }}
-              className="w-24 h-24 rounded-full"
+              className="w-24 h-24 rounded-full border-2 border-gray-200" // Added border
             />
           ) : (
-            <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center">
-              <Ionicons name="person" size={40} color="gray" />
+            <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center border-2 border-gray-300">
+              <Ionicons name="person-outline" size={48} color="gray" />
             </View>
           )}
-          <View className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full">
-            <Ionicons name="camera" size={16} color="white" />
-          </View>
+          {/* Optional: Add a small edit icon overlay if desired */}
+          {/* <View className="absolute -bottom-1 -right-1 bg-gray-600 p-1 rounded-full border-2 border-white">
+             <Ionicons name="pencil-outline" size={12} color="white" />
+          </View> */}
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleUpdateName}>
-          <Text className="text-xl font-bold mb-4">
-            {profile?.full_name || (user ? "Add your name" : "Welcome Guest")}
-          </Text>
-        </TouchableOpacity>
+
+        {/* Name - Make clickable to edit */}
+         <TouchableOpacity onPress={handleNavigateToEditProfile}>
+            <Text className="text-xl font-bold text-gray-800">
+                {profile?.full_name || "Update Your Name"}
+            </Text>
+         </TouchableOpacity>
+
+        {/* Joined Date */}
+        <Text className="text-sm text-gray-500 mt-1">
+          {getTimeAgo(profile?.created_at || user?.created_at)}
+        </Text>
       </View>
 
-      <View className="p-6">
-        {/* My Properties Button */}
+      {/* Action Buttons */}
+      <View className="p-4 mt-4">
+        {/* Edit Profile Button */}
         <TouchableOpacity
-          onPress={handleNavigateToProperties}
-          className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
+          onPress={handleNavigateToEditProfile} // Correct handler attached
+          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
         >
-          <Ionicons name="home" size={24} color="#0f172a" />
-          <Text className="ml-4 text-lg text-gray-900">My Properties</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color="#0f172a"
-            style={{ marginLeft: "auto" }}
-          />
+          {/* ... Edit Profile Icon and Text ... */}
+           <View className="flex-row items-center">
+            <Ionicons name="person-outline" size={22} color="#4B5563" />
+            <Text className="ml-4 text-base text-gray-700">Edit Profile</Text>
+          </View>
+          <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
         </TouchableOpacity>
+
+        {/* --- CORRECTED My Properties Button --- */}
+        <TouchableOpacity
+          onPress={handleNavigateToProperties} // <-- ADD THIS LINE BACK
+          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
+        >
+          <View className="flex-row items-center">
+            {/* Changed icon to something more suitable like list or business */}
+            <Ionicons name="business-outline" size={22} color="#4B5563" />
+            <Text className="ml-4 text-base text-gray-700">My Properties</Text>
+          </View>
+          <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
+        </TouchableOpacity>
+        {/* --- END CORRECTION --- */}
+
 
         {/* Add Property Button */}
         <TouchableOpacity
-          onPress={handleNavigateToAddProperty}
-          className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
+          onPress={handleNavigateToAddProperty} // Correct handler attached
+          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
         >
-          <Ionicons name="add-circle" size={24} color="#0f172a" />
-          <Text className="ml-4 text-lg text-gray-900">Add Property</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color="#0f172a"
-            style={{ marginLeft: "auto" }}
-          />
+           {/* ... Add Property Icon and Text ... */}
+           <View className="flex-row items-center">
+             <Ionicons name="add-circle-outline" size={24} color="#4B5563" />
+             <Text className="ml-4 text-base text-gray-700">Add Property</Text>
+           </View>
+           <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* Settings Button */}
         <TouchableOpacity
-          onPress={handleNavigateToSettings}
-          className="flex-row items-center p-4 bg-white rounded-lg shadow mb-4"
+          onPress={handleNavigateToSettings} // Correct handler attached
+          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
         >
-          <Ionicons name="settings-outline" size={24} color="#0f172a" />
-          <Text className="ml-4 text-lg text-gray-900">Settings</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color="#0f172a"
-            style={{ marginLeft: "auto" }}
-          />
+          {/* ... Settings Icon and Text ... */}
+          <View className="flex-row items-center">
+            <Ionicons name="options-outline" size={22} color="#4B5563" />
+            <Text className="ml-4 text-base text-gray-700">Settings</Text>
+          </View>
+          <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
-        {/* Sign In/Out Button - dynamic based on auth state */}
+        {/* Sign Out Button */}
         <TouchableOpacity
-          onPress={handleAuthAction}
-          className={`flex-row items-center p-4 rounded-lg ${
-            user ? "bg-red-50" : "bg-green-50"
-          }`}
+          onPress={handleSignOut} // Correct handler attached
+          disabled={loading}
+          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mt-4"
         >
-          <Ionicons
-            name={user ? "log-out" : "log-in"}
-            size={24}
-            color={user ? "#ef4444" : "#3b82f6"}
-          />
-          <Text
-            className={`ml-4 text-lg ${
-              user ? "text-red-500" : "text-green-700"
-            }`}
-          >
-            {user ? "Sign Out" : "Sign In"}
-          </Text>
+          {/* ... Sign Out Icon and Text ... */}
+           <View className="flex-row items-center">
+             <Ionicons name="log-out-outline" size={24} color="#EF4444" />
+             <Text className="ml-4 text-base text-red-600">Sign Out</Text>
+          </View>
+           {loading && <ActivityIndicator size="small" color="#EF4444" />}
         </TouchableOpacity>
       </View>
 
+
+      {/* Name Update Modal */}
       <Modal
-  animationType="slide"
-  transparent={true}
-  visible={isNameModalVisisble}
-  onRequestClose={() => setNameModalVisible(false)}
->
-  <View className="flex-1 justify-center items-center" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
-    <View className="bg-white p-6 rounded-lg w-4/5">
-      <Text className="text-lg font-bold mb-4">Update Your Name</Text>
-      <TextInput
-        className="border border-gray-300 p-2 rounded-md mb-4"
-        value={nameInput}
-        onChangeText={setNameInput}
-        placeholder="Enter your full name"
-      />
-      <View className="flex-row justify-end">
-        <TouchableOpacity 
-          onPress={() => setNameModalVisible(false)}
-          className="px-4 py-2 mr-2"
-        >
-          <Text className="text-gray-500">Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => {
-            if (nameInput && nameInput.trim()) {
-              updateProfile({ full_name: nameInput.trim() });
-              setNameModalVisible(false);
-            }
-          }}
-          className="bg-blue-500 px-4 py-2 rounded"
-        >
-          <Text className="text-white">Save</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+        animationType="fade" // Changed animation
+        transparent={true}
+        visible={isNameModalVisible}
+        onRequestClose={() => setNameModalVisible(false)}
+      >
+        {/* Use StyleSheet for semi-transparent background */}
+        <View style={styles.modalOverlay}>
+          <View className="bg-white p-6 rounded-lg w-4/5 shadow-xl">
+            <Text className="text-lg font-semibold mb-4 text-gray-800">Update Your Name</Text>
+            <TextInput
+              className="border border-gray-300 p-3 rounded-md mb-5 text-base" // Adjusted padding/margin
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="Enter your full name"
+              autoCapitalize="words"
+            />
+            <View className="flex-row justify-end space-x-3">
+              <TouchableOpacity
+                onPress={() => setNameModalVisible(false)}
+                className="px-4 py-2 rounded" // Simple cancel button
+              >
+                <Text className="text-gray-600 font-medium">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={saveNameUpdate} // Call save function
+                className="bg-emerald-700 px-5 py-2 rounded shadow-sm" // Styled save button
+              >
+                <Text className="text-white font-medium">Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
+
+// StyleSheet for things difficult with NativeWind (like modal overlay)
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent background
+  },
+});

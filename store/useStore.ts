@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import { useAuthStore } from "./authStore";
-import { API_BASE_URL } from "@/constants/Config"; // Adjust import path
+import { API_BASE_URL } from "@/constants/Config";
 
-// Define the property status types used in both the UI and database
 export type PropertyStatus =
   | "available"
   | "occupied"
@@ -16,8 +15,6 @@ export interface Property {
   title: string;
   price: number;
   location: string;
-  bedrooms?: number;
-  bathrooms?: number;
   images: string[];
   coordinates?: { latitude: number; longitude: number };
   description?: string;
@@ -194,7 +191,7 @@ export const useStore = create<PropertyState>((set, get) => ({
       console.log(`Property ${propertyId} ${isLiked ? "unsaved" : "saved"}`);
     } catch (error: any) {
       console.error("Error toggling saved property:", error);
-      get().setSavedProperties(currentSaved); // Revert on error
+      get().setSavedProperties(currentSaved);
       set({ error: `Failed to ${isLiked ? 'unsave' : 'save'} property.` });
     }
   },
