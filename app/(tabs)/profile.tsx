@@ -26,7 +26,8 @@ interface Profile {
   avatar_url: string | null;
   phone: string | null;
   email: string | null;
-  created_at?: string; // Add created_at if you want to show "Joined..."
+  created_at?: string;
+  role?: 'user' | 'agent' | null;
 }
 
 // Helper function to calculate time ago (simplified version)
@@ -60,45 +61,21 @@ export default function ProfileScreen() {
   }, [user]);
 
   const fetchProfile = async () => {
-    setLoading(true); // Ensure loading starts
+    setLoading(true);
     try {
-      if (!user) {
-        setProfile(null); // Clear profile if no user
-        setLoading(false);
-        return;
-      }
-
-      // Fetch profile including created_at for "Joined" text
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*, created_at") // Select created_at
-        .eq("id", user.id)
-        .single();
-
+      if (!user) { setProfile(null); setLoading(false); return; }
+      // Ensure role is selected (using * includes it)
+      const { data, error } = await supabase.from("profiles").select("*, created_at, role").eq("id", user.id).single();
       if (error) {
-        if (error.code === "PGRST116") { // Profile doesn't exist
-          console.log("Profile not found, creating one...");
-          const { data: newProfile, error: createError } = await supabase
-            .from("profiles")
-            .insert([{ id: user.id, email: user.email }]) // Insert minimal data
-            .select("*, created_at") // Select created_at for the new profile
-            .single();
-
+        if (error.code === "PGRST116") {
+          console.log("Profile not found, creating one with default role 'user'...");
+          const { data: newProfile, error: createError } = await supabase.from("profiles").insert([{ id: user.id, email: user.email, role: 'user' }]).select("*, created_at, role").single(); // Add role on creation
           if (createError) throw createError;
           setProfile(newProfile);
-        } else {
-          throw error;
-        }
-      } else {
-        setProfile(data);
-      }
-    } catch (error: any) {
-      console.error("Error fetching/creating profile:", error);
-      Alert.alert("Error", "Could not load profile data.");
-      setProfile(null); // Clear profile on error
-    } finally {
-      setLoading(false);
-    }
+        } else { throw error; }
+      } else { setProfile(data); }
+    } catch (error: any) { console.error("Error fetching/creating profile:", error); Alert.alert("Error", "Could not load profile data."); setProfile(null);
+    } finally { setLoading(false); }
   };
 
   const handleImagePick = async () => {
@@ -165,7 +142,11 @@ export default function ProfileScreen() {
     }
   };
 
-  // Navigation handlers (keep existing logic, ensure redirects work with tabs)
+  const handleNavigateToSaved = () => { // For Regular Users
+    if (!user) { Alert.alert("Sign in required", "Please sign in to view saved properties"); router.push({ pathname: "/auth/signin", params: { redirectTo: "/(tabs)/saved"} }); } // Redirect to saved tab
+    else { router.push("/(tabs)/saved"); } // Navigate to saved tab
+  };
+
   const handleNavigateToAddProperty = () => {
     if (!user) { Alert.alert("Sign in required", "Please sign in to add a property"); router.push({ pathname: "/auth/signin", params: { redirectTo: "/property/new"} }); }
     else { router.push("/property/new"); }
@@ -190,11 +171,8 @@ export default function ProfileScreen() {
     await signOut();
     setProfile(null); // Clear profile state on sign out
     setLoading(false);
-    // Navigation might happen automatically via layout listener, or force it:
-    // router.replace('/');
-  };
 
-  // --- Render Logic ---
+  };
 
   if (loading && !profile) { // Show full screen loader only on initial load
     return (
@@ -224,91 +202,67 @@ export default function ProfileScreen() {
      )
   }
 
-  // --- Main Profile View (User is logged in) ---
   return (
     <ScrollView className="flex-1 bg-gray-50">
-       <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
-      {/* Profile Header */}
+<Stack.Screen options={{ headerShown: false, title: "Profile" }} />    
       <View className="items-center pt-8 pb-6 bg-white">
         <TouchableOpacity onPress={handleImagePick} className="mb-3 relative">
-          {profile?.avatar_url ? (
-            <Image
-              source={{ uri: profile.avatar_url }}
-              className="w-24 h-24 rounded-full border-2 border-gray-200" // Added border
-            />
-          ) : (
-            <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center border-2 border-gray-300">
-              <Ionicons name="person-outline" size={48} color="gray" />
-            </View>
-          )}
-          {/* Optional: Add a small edit icon overlay if desired */}
-          {/* <View className="absolute -bottom-1 -right-1 bg-gray-600 p-1 rounded-full border-2 border-white">
-             <Ionicons name="pencil-outline" size={12} color="white" />
-          </View> */}
+          {profile?.avatar_url ? ( <Image source={{ uri: profile.avatar_url }} className="w-24 h-24 rounded-full border-2 border-gray-200" /> )
+           : ( <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center border-2 border-gray-300"><Ionicons name="person-outline" size={48} color="gray" /></View> )}
         </TouchableOpacity>
-
-        {/* Name - Make clickable to edit */}
-         <TouchableOpacity onPress={handleNavigateToEditProfile}>
+        <TouchableOpacity onPress={handleNavigateToEditProfile}>
             <Text className="text-xl font-bold text-gray-800">
                 {profile?.full_name || "Update Your Name"}
             </Text>
          </TouchableOpacity>
-
-        {/* Joined Date */}
         <Text className="text-sm text-gray-500 mt-1">
           {getTimeAgo(profile?.created_at || user?.created_at)}
         </Text>
       </View>
 
-      {/* Action Buttons */}
       <View className="p-4 mt-4">
-        {/* Edit Profile Button */}
-        <TouchableOpacity
-          onPress={handleNavigateToEditProfile} // Correct handler attached
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
-        >
-          {/* ... Edit Profile Icon and Text ... */}
-           <View className="flex-row items-center">
-            <Ionicons name="person-outline" size={22} color="#4B5563" />
-            <Text className="ml-4 text-base text-gray-700">Edit Profile</Text>
-          </View>
-          <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
 
-        {/* --- CORRECTED My Properties Button --- */}
-        <TouchableOpacity
-          onPress={handleNavigateToProperties} // <-- ADD THIS LINE BACK
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
-        >
-          <View className="flex-row items-center">
-            {/* Changed icon to something more suitable like list or business */}
-            <Ionicons name="business-outline" size={22} color="#4B5563" />
-            <Text className="ml-4 text-base text-gray-700">My Properties</Text>
-          </View>
-          <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-        {/* --- END CORRECTION --- */}
+        {profile?.role === 'agent' && (
+          <>
+            <TouchableOpacity onPress={handleNavigateToProperties} className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3">
+              <View className="flex-row items-center">
+                <Ionicons name="business-outline" size={22} color="#4B5563" />
+                <Text className="ml-4 text-base text-gray-700">My Properties</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
 
+            <TouchableOpacity onPress={handleNavigateToAddProperty} className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3">
+              <View className="flex-row items-center">
+                <Ionicons name="add-circle-outline" size={24} color="#4B5563" />
+                <Text className="ml-4 text-base text-gray-700">Add Property</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </>
+        )}
 
-        {/* Add Property Button */}
-        <TouchableOpacity
-          onPress={handleNavigateToAddProperty} // Correct handler attached
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
-        >
-           {/* ... Add Property Icon and Text ... */}
-           <View className="flex-row items-center">
-             <Ionicons name="add-circle-outline" size={24} color="#4B5563" />
-             <Text className="ml-4 text-base text-gray-700">Add Property</Text>
-           </View>
-           <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
+        {profile?.role === 'user' && (
+          <>
+            <TouchableOpacity onPress={handleNavigateToEditProfile} className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3">
+              <View className="flex-row items-center">
+                <Ionicons name="person-outline" size={22} color="#4B5563" />
+                <Text className="ml-4 text-base text-gray-700">Edit Profile</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
 
-        {/* Settings Button */}
-        <TouchableOpacity
-          onPress={handleNavigateToSettings} // Correct handler attached
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
-        >
-          {/* ... Settings Icon and Text ... */}
+            <TouchableOpacity onPress={handleNavigateToSaved} className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3">
+              <View className="flex-row items-center">
+                <Ionicons name="heart-outline" size={22} color="#4B5563" />
+                <Text className="ml-4 text-base text-gray-700">Saved Property</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </>
+        )}
+
+        <TouchableOpacity onPress={handleNavigateToSettings} className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3">
           <View className="flex-row items-center">
             <Ionicons name="options-outline" size={22} color="#4B5563" />
             <Text className="ml-4 text-base text-gray-700">Settings</Text>
@@ -316,14 +270,8 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          onPress={handleSignOut} // Correct handler attached
-          disabled={loading}
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mt-4"
-        >
-          {/* ... Sign Out Icon and Text ... */}
-           <View className="flex-row items-center">
+        <TouchableOpacity onPress={handleSignOut} disabled={loading} className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mt-4">
+          <View className="flex-row items-center">
              <Ionicons name="log-out-outline" size={24} color="#EF4444" />
              <Text className="ml-4 text-base text-red-600">Sign Out</Text>
           </View>
@@ -331,41 +279,8 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-
-      {/* Name Update Modal */}
-      <Modal
-        animationType="fade" // Changed animation
-        transparent={true}
-        visible={isNameModalVisible}
-        onRequestClose={() => setNameModalVisible(false)}
-      >
-        {/* Use StyleSheet for semi-transparent background */}
-        <View style={styles.modalOverlay}>
-          <View className="bg-white p-6 rounded-lg w-4/5 shadow-xl">
-            <Text className="text-lg font-semibold mb-4 text-gray-800">Update Your Name</Text>
-            <TextInput
-              className="border border-gray-300 p-3 rounded-md mb-5 text-base" // Adjusted padding/margin
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder="Enter your full name"
-              autoCapitalize="words"
-            />
-            <View className="flex-row justify-end space-x-3">
-              <TouchableOpacity
-                onPress={() => setNameModalVisible(false)}
-                className="px-4 py-2 rounded" // Simple cancel button
-              >
-                <Text className="text-gray-600 font-medium">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={saveNameUpdate} // Call save function
-                className="bg-emerald-700 px-5 py-2 rounded shadow-sm" // Styled save button
-              >
-                <Text className="text-white font-medium">Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+      <Modal animationType="fade" transparent={true} visible={isNameModalVisible} onRequestClose={() => setNameModalVisible(false)}>
+         <View style={styles.modalOverlay}><View className="bg-white p-6 rounded-lg w-4/5 shadow-xl"><Text className="text-lg font-semibold mb-4 text-gray-800">Update Your Name</Text><TextInput className="border border-gray-300 p-3 rounded-md mb-5 text-base" value={nameInput} onChangeText={setNameInput} placeholder="Enter your full name" autoCapitalize="words"/><View className="flex-row justify-end space-x-3"><TouchableOpacity onPress={() => setNameModalVisible(false)} className="px-4 py-2 rounded"><Text className="text-gray-600 font-medium">Cancel</Text></TouchableOpacity><TouchableOpacity onPress={saveNameUpdate} className="bg-emerald-700 px-5 py-2 rounded shadow-sm"><Text className="text-white font-medium">Save</Text></TouchableOpacity></View></View></View>
       </Modal>
     </ScrollView>
   );

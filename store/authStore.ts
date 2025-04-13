@@ -5,6 +5,8 @@ import { useStore } from "@/store/useStore";
 import { API_BASE_URL } from "@/constants/Config";
 import { Alert } from "react-native";
 
+export type UserRole = 'user' | 'agent';
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -12,7 +14,7 @@ interface AuthState {
   error: string | null;
 
   signIn: (email: string, password: string) => Promise<boolean>;
-  signUp: (email: string, password: string, phone: string) => Promise<boolean>;
+  signUp: (email: string, password: string, phone: string, role: UserRole) => Promise<boolean>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   checkAuth: () => Promise<void>;
@@ -107,13 +109,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password, phone) => {
+  signUp: async (email, password, phone, role) => {
     set({ loading: true, error: null });
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, phone }),
+        body: JSON.stringify({ email, password, phone, role }),
       });
 
       const data = await response.json(); // Includes message, session, user
@@ -127,8 +129,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const user = data.user as User | null;
 
       if (session && user) {
-          // If backend confirms immediate login (no email confirmation needed)
-          // Update Supabase client's internal state
           await supabase.auth.setSession({
               access_token: session.access_token,
               refresh_token: session.refresh_token,
