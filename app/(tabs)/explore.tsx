@@ -68,7 +68,6 @@ const PropertyPreview = ({
 
 export default function ExploreScreen() {
   const router = useRouter();
-  const { properties, searchQuery, setSearchQuery } = useStore();
   const [region, setRegion] = useState<Region>(LUSAKA_COORDS);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null
@@ -136,13 +135,6 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container} className="">
-      {/* <View style={styles.searchContainer} className="mt-6">
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search location..."
-        />
-      </View> */}
 
       {Platform.OS === "web" ? (
         <View style={styles.mapPlaceholder}>

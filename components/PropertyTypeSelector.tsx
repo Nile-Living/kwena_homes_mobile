@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { PROPERTY_TYPES, PropertyType } from '../constants/propertyTypes';
+import { PROPERTY_TYPES, PropertyType } from '../constants/PropertyTypes';
 
 interface PropertyTypeSelectorProps {
   value: PropertyType;
