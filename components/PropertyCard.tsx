@@ -174,7 +174,7 @@ export default function PropertyCard({
           </Text>
 
           {/* Dynamic Features Display */}
-          <View className="flex-row space-x-3 items-center">
+          <View className="flex-row gap-3 space-x-3 items-center">
             {feature1Icon && feature1Value !== null && (
               <View className="flex-row items-center space-x-1">
                 <Ionicons name={feature1Icon} size={16} color="#4b5563" />

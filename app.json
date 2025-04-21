@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Kwena Homes",
+    "name": "Kwena Properties",
     "slug": "kwena_homes_mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "kwena_properties_mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
