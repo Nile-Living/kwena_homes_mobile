@@ -1,4 +1,4 @@
-export const API_BASE_URL = "http://192.168.43.35:8080/api";
+export const API_BASE_URL = "http://95.217.214.201/api";
 export const PAGE_SIZE = 10;
 export const SKELETON_COUNT = 6;
 

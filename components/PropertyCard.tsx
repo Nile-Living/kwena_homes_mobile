@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import { View, Text, Image, TouchableOpacity, useColorScheme } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons"; // Import both icon sets
 import { Property } from "@/store/useStore"; // Import your Property type
 
@@ -11,7 +11,7 @@ interface PropertyCardProps {
   isLiked?: boolean; // Optional liked status indicator
 }
 
-// Helper function to format time difference
+
 const getTimeAgo = (dateString?: string): string => {
   if (!dateString) return "Unknown date";
   try {
@@ -56,7 +56,7 @@ export default function PropertyCard({
   onLike,
   isLiked,
 }: PropertyCardProps) {
-
+  const colorScheme = useColorScheme();
   // --- Dynamic Feature Extraction based on Category ---
   let feature1Icon: React.ComponentProps<typeof Ionicons>['name'] | null = null;
   let feature1Value: string | number | null = null;
@@ -102,23 +102,27 @@ export default function PropertyCard({
 
   return (
     <TouchableOpacity
-      className="bg-white rounded-lg mb-4 shadow-md overflow-hidden border border-gray-100" // Added border and overflow
+      className={`rounded-lg mb-4 shadow-md overflow-hidden border ${
+        colorScheme === 'dark' 
+          ? 'bg-slate-800 border-slate-700' 
+          : 'bg-white border-gray-100'
+      }`}
       onPress={onPress}
-      delayPressIn={150} // Optional: slight delay before press registers
-      activeOpacity={0.8} // Optional: feedback on press
+      delayPressIn={150}
+      activeOpacity={0.8}
     >
       {/* Image Section */}
       <Image
         source={{ uri: property.images?.[0] || PLACEHOLDER_IMAGE_URL }}
-        className="w-full h-48" // Adjust height as needed (e.g., h-52)
+        className="w-full h-48"
         resizeMode="cover"
       />
 
-      {/* Type Tag (Absolute Positioned) */}
+      {/* Type Tag */}
       <View className="absolute top-3 left-3">
         <View
           className={`px-3 py-1 rounded-full shadow ${
-            property.property_type === 'sale' ? 'bg-emerald-700' : 'bg-amber-600' // Example colors
+            property.property_type === 'sale' ? 'bg-emerald-700' : 'bg-amber-600'
           }`}
         >
           <Text className="text-white text-xs font-semibold">
@@ -127,17 +131,19 @@ export default function PropertyCard({
         </View>
       </View>
 
-      {/* Like Button (Absolute Positioned, conditional) */}
+      {/* Like Button */}
       {onLike && (
         <TouchableOpacity
-          className="absolute top-3 right-3 bg-white/80 p-2 rounded-full shadow" // Added slight transparency
+          className={`absolute top-3 right-3 p-2 rounded-full shadow ${
+            colorScheme === 'dark' ? 'bg-slate-700/80' : 'bg-white/80'
+          }`}
           onPress={onLike}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Increase tappable area
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
-            size={22} // Slightly smaller icon?
-            color={isLiked ? "#ef4444" : "#374151"} // Example: Red when liked, dark gray otherwise
+            size={22}
+            color={isLiked ? "#ef4444" : colorScheme === 'dark' ? "#cbd5e1" : "#374151"}
           />
         </TouchableOpacity>
       )}
@@ -146,10 +152,14 @@ export default function PropertyCard({
       <View className="p-4">
         {/* Price Row */}
         <View className="flex-row justify-between items-start mb-2">
-          <Text className="text-xl font-bold text-emerald-800">
-            K{property.price?.toLocaleString() ?? 'N/A'} {/* Handle potential null price */}
+          <Text className={`text-xl font-bold ${
+            colorScheme === 'dark' ? 'text-emerald-600' : 'text-emerald-800'
+          }`}>
+            K{property.price?.toLocaleString() ?? 'N/A'}
             {property.property_type === 'rent' && (
-              <Text className="text-sm font-medium text-gray-600 self-end ml-1">
+              <Text className={`text-sm font-medium ${
+                colorScheme === 'dark' ? 'text-slate-400' : 'text-gray-600'
+              }`}>
                 /mo
               </Text>
             )}
@@ -157,42 +167,66 @@ export default function PropertyCard({
         </View>
 
         {/* Title */}
-        <Text className="text-lg font-semibold text-gray-900 mb-1" numberOfLines={1}>
+        <Text className={`text-lg font-semibold mb-1 ${
+          colorScheme === 'dark' ? 'text-white' : 'text-gray-900'
+        }`} numberOfLines={1}>
           {property.title}
         </Text>
 
         {/* Location */}
-        <Text className="text-sm text-gray-600 mb-3" numberOfLines={1}>
+        <Text className={`text-sm mb-3 ${
+          colorScheme === 'dark' ? 'text-slate-400' : 'text-gray-600'
+        }`} numberOfLines={1}>
           {property.location}
         </Text>
 
         {/* Metadata Row */}
         <View className="flex-row justify-between items-center">
-          {/* Time Ago */}
-          <Text className="text-xs text-gray-500">
+          <Text className={`text-xs ${
+            colorScheme === 'dark' ? 'text-slate-500' : 'text-gray-500'
+          }`}>
             {getTimeAgo(property.created_at)}
           </Text>
 
-          {/* Dynamic Features Display */}
+          {/* Dynamic Features */}
           <View className="flex-row gap-3 space-x-3 items-center">
             {feature1Icon && feature1Value !== null && (
-              <View className="flex-row items-center space-x-1">
-                <Ionicons name={feature1Icon} size={16} color="#4b5563" />
-                <Text className="text-sm text-gray-600">{feature1Value}</Text>
+              <View className="flex-row gap-1 items-center space-x-1">
+                <Ionicons
+                  name={feature1Icon}
+                  size={16}
+                  color={colorScheme === 'dark' ? '#94a3b8' : '#4b5563'}
+                />
+                <Text className={`text-sm ${
+                  colorScheme === 'dark' ? 'text-slate-300' : 'text-gray-600'
+                }`}>
+                  {feature1Value}
+                </Text>
               </View>
             )}
             {feature2Icon && feature2Value !== null && (
-              <View className="flex-row items-center space-x-1">
+              <View className="flex-row gap-1 items-center space-x-1">
                 {feature2IconLibrary === 'FontAwesome' ? (
-                  <FontAwesome name={feature2Icon as any} size={14} color="#4b5563" /> // Adjusted size
+                  <FontAwesome
+                    name={feature2Icon as any}
+                    size={14}
+                    color={colorScheme === 'dark' ? '#94a3b8' : '#4b5563'}
+                  />
                 ) : (
-                  <Ionicons name={feature2Icon as any} size={16} color="#4b5563" />
+                  <Ionicons
+                    name={feature2Icon as any}
+                    size={16}
+                    color={colorScheme === 'dark' ? '#94a3b8' : '#4b5563'}
+                  />
                 )}
-                <Text className="text-sm text-gray-600">{feature2Value}</Text>
+                <Text className={`text-sm ${
+                  colorScheme === 'dark' ? 'text-slate-300' : 'text-gray-600'
+                }`}>
+                  {feature2Value}
+                </Text>
               </View>
             )}
           </View>
-          {/* End Dynamic Features Display */}
         </View>
       </View>
     </TouchableOpacity>

@@ -11,22 +11,21 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAuthStore } from "@/store/authStore";
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
-import OnboardingScreen from '@/components/OnboardingScreen'; // Import OnboardingScreen
-import { View, ActivityIndicator } from 'react-native'; // Import View and ActivityIndicator
-import { Colors } from '@/constants/Colors'; // Import Colors if needed for loader
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import OnboardingScreen from '@/components/OnboardingScreen'; 
+import { View, ActivityIndicator } from 'react-native'; 
+import { Colors } from '@/constants/Colors'; 
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 import "../global.css";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-const ONBOARDING_STORAGE_KEY = '@app_onboarding_completed_v1'; // Unique key (consider versioning if slides change)
+const ONBOARDING_STORAGE_KEY = '@app_onboarding_completed_v1';
 
 export default function RootLayout() {
-  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null); // null = checking, true = show, false = hide
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const colorScheme = useColorScheme();
   const [loaded, fontError] = useFonts({ // Capture font error
@@ -119,6 +118,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
+     
     </GestureHandlerRootView>
   );
 }

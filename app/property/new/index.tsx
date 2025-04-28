@@ -59,9 +59,6 @@ interface FormData {
   commercial_property_type?: string; // For comm
 }
 
-// Get all possible amenities once if needed for a general list
-// const allAmenitiesList = getAllAmenities();
-
 export default function AddPropertyScreen() {
   const router = useRouter();
   const { user } = useAuthStore();

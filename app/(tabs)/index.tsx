@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { Property, PropertyResponseDto, useStore } from "@/store/useStore"; // Ensure Property includes 'status', 'liked' etc.
 import { useRouter } from "expo-router";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
 import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
@@ -78,12 +77,13 @@ export default function HomeScreen() {
   // --- Fetching Logic ---
   const fetchProperties = useCallback(
     async (pageNumber: number, isRefresh = false) => {
+      if (!hasMore && pageNumber > 1) return;
       if (pageNumber === 1) {
-        setZustandLoading(true); // Use Zustand loading for initial/refresh/filter
-        setLocalError(null); // Clear local errors on new fetch
-        setZustandError(null); // Clear global errors too
+        setZustandLoading(true);
+        setLocalError(null);
+        setZustandError(null);
       } else {
-        setIsFetchingMore(true); // Use local state for "load more" indicator
+        setIsFetchingMore(true);
       }
       if (isRefresh) {
         setRefreshing(true);
@@ -148,7 +148,9 @@ export default function HomeScreen() {
         const data: PropertyResponseDto = await response.json(); // Expecting PropertyResponseDto structure
         const newProperties = data.properties || [];
 
-        // Merge or replace properties based on page number
+        const totalFetched =
+          (pageNumber === 1 ? 0 : properties.length) + newProperties.length;
+        setHasMore(totalFetched < data.total);
         const mergedProperties =
           pageNumber === 1 || isRefresh
             ? newProperties
@@ -157,14 +159,13 @@ export default function HomeScreen() {
         // Update Zustand store
         setProperties(mergedProperties, pageNumber); // Setter now handles 'liked' status
         setHasMore(mergedProperties.length < data.total);
-        setPage(pageNumber + 1); // Set the *next* page number to fetch
+        setPage(pageNumber + 1);
       } catch (error: any) {
         console.error("Error fetching properties:", error);
         setLocalError(
           error.message || "Failed to load properties. Please try again."
         );
-        // Optionally set global error: setZustandError(...)
-        setHasMore(false); // Stop pagination on error
+        setHasMore(false);
       } finally {
         if (pageNumber === 1) {
           setZustandLoading(false);
@@ -224,6 +225,17 @@ export default function HomeScreen() {
       console.log(`Loading more, fetching page ${page}`);
       fetchProperties(page); // Fetch the next page
     }
+
+    if (
+      isFetchingMore ||
+      !hasMore ||
+      zustandLoading ||
+      refreshing ||
+      properties.length === 0
+    ) {
+      return;
+    }
+    fetchProperties(page);
   };
 
   const onRefresh = useCallback(async () => {
@@ -293,15 +305,13 @@ export default function HomeScreen() {
 
   // --- Render Logic ---
   const renderContent = () => {
-    // Show skeletons only on initial load (page 1, not refreshing)
     if (zustandLoading && page === 1 && !refreshing) {
       return (
         <FlatList
           data={Array(SKELETON_COUNT).fill(null)}
           renderItem={() => <PropertyCardSkeleton />}
           keyExtractor={(_, index) => `skeleton-${index}`}
-          contentContainerClassName="p-4" // Use className if using Nativewind
-          // contentContainerStyle={styles.listContent} // Use StyleSheet otherwise
+          contentContainerClassName="p-4" // Use className if using 
         />
       );
     }
@@ -356,7 +366,6 @@ export default function HomeScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       {/* Use StyleSheet */}
       {/* <GestureHandlerRootView style={styles.flexContainer}> */}
-      <BottomSheetModalProvider>
         {/* <View style={styles.flexContainer}> */}
         <View style={{ flex: 1 }}>
           {/* Use className */}
@@ -383,15 +392,15 @@ export default function HomeScreen() {
               selectedValue={sortOption}
               onValueChange={(itemValue) => {
                 setSortOption(itemValue as SortOption);
-                // No need to fetch here, useEffect handles it
               }}
               mode="dropdown"
-              dropdownIconColor={colorScheme === "dark" ? "white" : "black"}
+              dropdownIconColor={colorScheme === "dark" ? "#cbd5e1" : "#374151"}
               style={[
-                styles.picker, // Keep base styles
+                styles.picker,
                 {
-                  backgroundColor: colorScheme === "dark" ? "#333" : "#fff",
-                  color: colorScheme === "dark" ? "white" : "black",
+                  backgroundColor: colorScheme === "dark" ? "#1e293b" : "#fff",
+                  borderColor: colorScheme === "dark" ? "#334155" : "#e5e7eb",
+                  color: colorScheme === "dark" ? "#cbd5e1" : "#1f2937",
                 },
               ]}
             >
@@ -399,18 +408,15 @@ export default function HomeScreen() {
               <Picker.Item label="Oldest" value="created_at.asc" />
               <Picker.Item label="Price: Low to High" value="price.asc" />
               <Picker.Item label="Price: High to Low" value="price.desc" />
-              {/* Add other sort options if backend supports them */}
             </Picker>
           </View>
 
           {renderContent()}
         </View>
-      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }
 
-// --- Styles --- (Keep your existing styles)
 const styles = StyleSheet.create({
   flexContainer: {
     flex: 1,
@@ -432,7 +438,9 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     width: "100%",
-    // Add specific styling for Android/iOS picker appearance if needed
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
   },
   errorText: {
     textAlign: "center",
@@ -453,3 +461,4 @@ const styles = StyleSheet.create({
     padding: 16, // Example padding (p-4 equivalent)
   },
 });
+
