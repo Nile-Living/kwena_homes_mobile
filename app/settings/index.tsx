@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from "@/store/authStore";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 
 
 const SettingsPage = () => {
@@ -91,13 +91,13 @@ const SettingsPage = () => {
           icon: 'document-text-outline',
           label: 'Terms of Service',
           type: 'navigation',
-          onPress: () => console.log('Navigate to Terms of Service'),
+          onPress: () => router.push('/settings/support/TermsConditionsScreen'),
         },
         {
           icon: 'shield-outline',
           label: 'Privacy Policy',
           type: 'navigation',
-          onPress: () => console.log('Navigate to Privacy Policy'),
+          onPress: () => router.push('/settings/support/PrivacyPolicyScreen'),
         },
       ],
     },

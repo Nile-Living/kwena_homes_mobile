@@ -177,7 +177,7 @@ export default function FilterModal({
 
       {/* Modal Component */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={closeModal}
@@ -249,7 +249,7 @@ export default function FilterModal({
 
                 {/* Bedrooms/Bathrooms */}
                 {(selectedType === "all" || currentCategoryDetails?.hasBedBath) && (
-                  <View className="flex-row space-x-4 mb-5">
+                  <View className="flex-row gap-2 space-x-4 mb-5">
                     {/* Bedrooms Picker */}
                     <View className="flex-1">
                       <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">Bedrooms</Text>
@@ -292,7 +292,7 @@ export default function FilterModal({
                   currentCategoryDetails?.hasGaragesParkings ||
                   currentCategoryDetails?.hasSquareMeters
                 ) && (
-                  <View className="flex-row space-x-4 mb-5">
+                  <View className="flex-row gap-2 space-x-4 mb-5">
                     {/* Garages */}
                     {(selectedType === "all" ||
                       currentCategoryDetails?.hasGaragesParkings) && (

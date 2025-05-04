@@ -90,9 +90,8 @@ export default function SignUpScreen() {
       <View className="px-6 py-10">
         {/* Logo Placeholder */}
         <View className="items-center mb-8">
-          <View className="w-20 h-20 bg-emerald-800 rounded-2xl items-center justify-center">
-            <View className="w-8 h-8 bg-white/50 rounded-md" />
-          </View>
+                    <Image source={require('@/assets/images/icon.png')} className="h-20 w-20"/>
+          
         </View>
 
         <Text className="text-2xl font-bold text-gray-800 mb-2 text-center">
@@ -106,7 +105,7 @@ export default function SignUpScreen() {
           <Text className="text-base font-medium mb-3 text-gray-700 dark:text-gray-300">
             I am signing up as a...
           </Text>
-          <View className="flex-row space-x-3">
+          <View className="flex-row gap-2 space-x-3">
             <TouchableOpacity
               onPress={() => setUserType("user")}
               className={`flex-1 border rounded-lg p-4 items-center ${

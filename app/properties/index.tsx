@@ -10,21 +10,24 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  FontAwesome,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { useStore, Property } from "@/store/useStore";
 import { useAuthStore } from "@/store/authStore";
 import { supabase } from "@/supabaseClient";
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
-// Property status types
-type PropertyStatus =
-  | "available"
-  | "occupied"
-  | "rented"
-  | "off-market"
-  | "under-maintenance"
-  | "pending-approval";
+import {
+  PropertyStatus,
+  StatusOption,
+  statusOptions,
+  getStatusDetails,
+  DEFAULT_PROPERTY_STATUS
+} from "@/utils/statusUtils";
 
 interface PropertyAction {
   label: string;
@@ -36,11 +39,14 @@ type NavigationProps = {
   navigate: (screen: string, params?: { id: string }) => void;
 };
 
-interface StatusOption {
-  value: PropertyStatus;
-  label: string;
-  color: string;
-  icon: string;
+interface DisplayFeature {
+  icon:
+    | React.ComponentProps<typeof Ionicons>["name"]
+    | React.ComponentProps<typeof FontAwesome>["name"]
+    | React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+  value: string | number;
+  library: "Ionicons" | "FontAwesome" | "MaterialCommunityIcons";
+  label?: string;
 }
 
 // Component for My Properties Page
@@ -123,12 +129,15 @@ const MyPropertiesPage: React.FC = () => {
     }
   };
 
-  // Add status to properties by checking property_status table
-  const addStatusToProperties = async (propertiesData: Property[]) => {
+  const addStatusToProperties = async (propertiesData: any[]): Promise<Property[]> => {
+    const parsedProperties = propertiesData.map((p) => ({
+      ...p,
+      details:
+        typeof p.details === "string" ? JSON.parse(p.details) : p.details,
+    }));
     try {
       let statusData: { property_id: string; status: PropertyStatus }[] = [];
       try {
-        // Attempt to fetch statuses
         const { data, error } = await supabase
           .from("property_status")
           .select("property_id, status")
@@ -138,32 +147,34 @@ const MyPropertiesPage: React.FC = () => {
           );
         if (error) throw error;
         statusData = data as { property_id: string; status: PropertyStatus }[];
-      } catch (err) {
-        // If table doesn't exist, create it and set defaults
-        await createPropertyStatusTable();
-        // Insert default statuses
-        const statusEntries = propertiesData.map((property) => ({
-          property_id: property.id,
-          status: "available" as PropertyStatus,
-          last_updated: new Date().toISOString(),
-        }));
-        await supabase.from("property_status").insert(statusEntries);
-        statusData = statusEntries;
+      } catch (err: any) {
+        if (err.message.includes('relation "property_status" does not exist')) {
+          await createPropertyStatusTable();
+          const statusEntries = parsedProperties.map((property) => ({
+            property_id: property.id,
+            status: DEFAULT_PROPERTY_STATUS,
+            last_updated: new Date().toISOString(),
+          }));
+          await supabase.from("property_status").insert(statusEntries);
+          statusData = statusEntries;
+       } else {
+          throw err;
+       }
       }
 
       const statusMap = new Map(
         statusData.map((item) => [item.property_id, item.status])
       );
 
-      return propertiesData.map((property) => ({
+      return parsedProperties.map((property) => ({
         ...property,
-        status: (statusMap.get(property.id) || "available") as PropertyStatus,
+        status: (statusMap.get(property.id) || DEFAULT_PROPERTY_STATUS) as PropertyStatus,
       }));
     } catch (err) {
       console.error("Error adding status to properties:", err);
-      return propertiesData.map((property) => ({
+      return parsedProperties.map((property) => ({
         ...property,
-        status: "available" as PropertyStatus,
+        status: DEFAULT_PROPERTY_STATUS as PropertyStatus,
       }));
     }
   };
@@ -219,10 +230,10 @@ const MyPropertiesPage: React.FC = () => {
       label: "Promote Listing",
       icon: "megaphone-outline",
       action: (property) =>
-        Alert.alert(
-          "Coming Soon",
-          "This feature will be available in a future update."
-        ),
+        router.push({
+          pathname: "/payments/promote", // Your target route
+          params: { propertyId: property.id, propertyTitle: property.title },
+        })
     },
     {
       label: "Delete Listing",
@@ -276,65 +287,64 @@ const MyPropertiesPage: React.FC = () => {
 
   const deleteImageFromStorage = async (imageUrl: string) => {
     try {
-      const path = imageUrl.split('/').slice(-2).join('/');
+      const path = imageUrl.split("/").slice(-2).join("/");
       const { error } = await supabase.storage
-      .from('property-images')
-      .remove([path]);
+        .from("property-images")
+        .remove([path]);
 
       if (error) throw error;
     } catch (error) {
-      console.error(' Error deleting image from storage:', error);
+      console.error(" Error deleting image from storage:", error);
     }
-  }
+  };
 
   const handleDeleteProperty = async () => {
     if (!selectedProperty || !user) return;
-    
+
     try {
-
-
       if (selectedProperty.images && selectedProperty.images.length > 0) {
         await Promise.all(
-          selectedProperty.images.map(imageUrl => deleteImageFromStorage(imageUrl))
+          selectedProperty.images.map((imageUrl) =>
+            deleteImageFromStorage(imageUrl)
+          )
         );
       }
       const { error: statusError } = await supabase
-        .from('property_status')
+        .from("property_status")
         .delete()
-        .eq('property_id', selectedProperty.id);
-        
+        .eq("property_id", selectedProperty.id);
+
       if (statusError) throw statusError;
 
       const { error: savedError } = await supabase
-        .from('saved_properties')
+        .from("saved_properties")
         .delete()
-        .eq('property_id', selectedProperty.id);
-        
+        .eq("property_id", selectedProperty.id);
+
       if (savedError) throw savedError;
 
       const { error: propertyError } = await supabase
-        .from('properties')
+        .from("properties")
         .delete()
-        .eq('id', selectedProperty.id)
-        .eq('user_id', user.id)
+        .eq("id", selectedProperty.id)
+        .eq("user_id", user.id)
         .single();
-        
+
       if (propertyError) throw propertyError;
-  
-      setProperties(properties.filter(property => property.id !== selectedProperty.id));
+
+      const updatedLocalProperties = properties.filter(
+        (property) => property.id !== selectedProperty.id
+      );
+      setProperties(updatedLocalProperties);
+
+      useStore.getState().setProperties(updatedLocalProperties, 1);
+
       setIsDeleteModalVisible(false);
 
-      useStore.getState().setProperties(
-        useStore.getState().properties.filter(p => p.id !== selectedProperty.id)
-      );
-  
-      Alert.alert('Success', 'Property deleted successfully');
+      Alert.alert("Success", "Property deleted successfully");
     } catch (err) {
-      console.error('Error deleting property:', err);
-      Alert.alert(
-        'Error',
-        'Failed to delete property. Please try again.'
-      );
+      console.error("Error deleting property:", err);
+      Alert.alert("Error", "Failed to delete property. Please try again.");
     }
   };
 
@@ -382,48 +392,144 @@ const MyPropertiesPage: React.FC = () => {
     );
   };
 
-  // Load properties when component mounts
+  const getDisplayFeatures = (property: Property): DisplayFeature[] => {
+    const features: DisplayFeature[] = [];
+    const details = property.details || {};
+
+    switch (property.category?.toLowerCase()) {
+      case "house":
+      case "apartment":
+      case "lodge":
+        if (details.bedrooms)
+          features.push({
+            icon: "bed-outline",
+            value: details.bedrooms,
+            library: "Ionicons",
+          });
+        if (details.bathrooms)
+          features.push({
+            icon: "water-outline",
+            value: details.bathrooms,
+            library: "Ionicons",
+          }); // Or 'bathtub' from FontAwesome
+        if (details.garages)
+          features.push({
+            icon: "car-outline",
+            value: details.garages,
+            library: "Ionicons",
+          });
+        break;
+      case "land":
+      case "farm":
+        if (details.size_sqm)
+          features.push({
+            icon: "resize-outline",
+            value: `${details.size_sqm} sqm`,
+            library: "Ionicons",
+          });
+        if (details.road_access === true)
+          features.push({
+            icon: "car-outline",
+            value: "Road Access",
+            library: "Ionicons",
+          });
+        // Add other relevant land/farm features if available in details
+        break;
+      case "commercial":
+      case "industrial":
+        // Use specific type from details if available, otherwise category
+        const type = details.property_type || property.category;
+        if (type)
+          features.push({
+            icon: "business-outline",
+            value: type,
+            library: "Ionicons",
+          });
+        if (details.square_meters)
+          features.push({
+            icon: "resize-outline",
+            value: `${details.square_meters} sqm`,
+            library: "Ionicons",
+          });
+        if (details.parking_spaces)
+          features.push({
+            icon: "car-outline",
+            value: `${details.parking_spaces} Parking`,
+            library: "Ionicons",
+          });
+        // Add other relevant commercial/industrial features
+        break;
+      default:
+        // Fallback for unknown or generic categories
+        if (details.bedrooms)
+          features.push({
+            icon: "bed-outline",
+            value: details.bedrooms,
+            library: "Ionicons",
+          });
+        if (details.bathrooms)
+          features.push({
+            icon: "water-outline",
+            value: details.bathrooms,
+            library: "Ionicons",
+          });
+        if (details.size_sqm)
+          features.push({
+            icon: "resize-outline",
+            value: `${details.size_sqm} sqm`,
+            library: "Ionicons",
+          });
+        break;
+    }
+
+    // Always add the general category type as a feature
+    features.push({
+      icon: "home-outline", // Using MaterialCommunityIcons for this one
+      value: property.category || "Property",
+      library: "MaterialCommunityIcons",
+    });
+
+    // Limit the number of features displayed to avoid clutter (e.g., max 4)
+    return features.slice(0, 4);
+  };
+
   useEffect(() => {
     fetchUserProperties();
   }, [user]);
 
-  // Render each property card
   const renderProperty = ({ item }: { item: Property }) => {
     const statusDetails = getStatusDetails(item.status as PropertyStatus);
+    const displayFeatures = getDisplayFeatures(item);
+
+    const iconColor = "#666";
 
     return (
-      <View className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden">
+      <View className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-gray-100">
         <View className="relative">
-          {/* Property Image */}
           <Image
             source={{
               uri:
-                item.images && item.images.length > 0
-                  ? item.images[0]
-                  : "https://picsum.photos/600/400", // Placeholder image
+                item.images?.[0] ||
+                "https://via.placeholder.com/600x400.png?text=No+Image",
             }}
             className="w-full h-48"
             resizeMode="cover"
           />
-
-          {/* Status Badge */}
           <View
             className="absolute top-2 right-2 px-3 py-1 rounded-full flex-row items-center"
-            style={{ backgroundColor: statusDetails.color + "E6" }}
+            style={{ backgroundColor: statusDetails.color + "E6" }} // Added opacity
           >
             <Ionicons
               name={statusDetails.icon as any}
               size={16}
               color="white"
             />
-            <Text className="text-white font-medium ml-1">
+            <Text className="text-white font-medium ml-1 text-xs">
               {statusDetails.label}
             </Text>
           </View>
-
-          {/* Property Type Badge */}
-          <View className="absolute top-2 left-2 bg-amber-500 px-3 py-1 rounded-full">
-            <Text className="text-white font-medium capitalize">
+          <View className="absolute top-2 left-2 bg-amber-600 px-3 py-1 rounded-full">
+            <Text className="text-white font-medium capitalize text-xs">
               {item.property_type === "rent" ? "For Rent" : "For Sale"}
             </Text>
           </View>
@@ -431,47 +537,73 @@ const MyPropertiesPage: React.FC = () => {
 
         {/* Property Details */}
         <View className="p-4">
-          <Text className="text-xl font-bold text-gray-800">{item.title}</Text>
-          <Text className="text-gray-600 mb-2">{item.location}</Text>
+          <Text
+            className="text-xl font-bold text-gray-800 mb-1"
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          <Text className="text-gray-600 mb-3" numberOfLines={1}>
+            {item.location}
+          </Text>
 
-          <View className="flex-row justify-between mb-3">
-            <View className="flex-row items-center">
-              <Ionicons name="bed-outline" size={18} color="#666" />
-              <Text className="text-gray-700 ml-1">{item.bedrooms}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons name="water-outline" size={18} color="#666" />
-              <Text className="text-gray-700 ml-1">{item.bathrooms}</Text>
-            </View>
-            {item.garages !== undefined && (
-              <View className="flex-row items-center">
-                <Ionicons name="car-outline" size={18} color="#666" />
-                <Text className="text-gray-700 ml-1">{item.garages}</Text>
+          <View className="flex-row justify-start items-center flex-wrap gap-x-4 gap-y-1 mb-3">
+            {displayFeatures.map((feature, index) => (
+              <View key={index} className="flex-row items-center">
+                {feature.library === "Ionicons" && (
+                  <Ionicons
+                    name={feature.icon as any}
+                    size={18}
+                    color={iconColor}
+                  />
+                )}
+                {feature.library === "FontAwesome" && (
+                  <FontAwesome
+                    name={feature.icon as any}
+                    size={16}
+                    color={iconColor}
+                  />
+                )}
+                {feature.library === "MaterialCommunityIcons" && (
+                  <MaterialCommunityIcons
+                    name={feature.icon as any}
+                    size={18}
+                    color={iconColor}
+                  />
+                )}
+                <Text className="text-gray-700 ml-1 capitalize">
+                  {feature.value}
+                </Text>
               </View>
-            )}
-            <View className="flex-row items-center">
-              <MaterialCommunityIcons
-                name="home-outline"
-                size={18}
-                color="#666"
-              />
-              <Text className="text-gray-700 ml-1 capitalize">
-                {item.category || "Property"}
-              </Text>
-            </View>
+            ))}
+            {/* Show message if no specific features were found besides category */}
+            {displayFeatures.length <= 1 &&
+              !["house", "apartment", "lodge"].includes(
+                item.category?.toLowerCase() ?? ""
+              ) && (
+                <Text className="text-xs text-gray-500 italic">
+                  {" "}
+                  (More details not specified)
+                </Text>
+              )}
           </View>
+          {/* --- End Dynamic Features Section --- */}
 
-          <View className="flex-row items-center mb-3">
+          {/* Price and Date Row (Keep as is) */}
+          <View className="flex-row items-center justify-between mb-4">
             <Text className="text-xl font-bold text-indigo-600">
-              K{item.price}/mo
+              K{item.price?.toLocaleString() ?? "N/A"}
+              {item.property_type === "rent" && (
+                <Text className="text-sm font-normal text-gray-600">/mo</Text>
+              )}
             </Text>
-            <Text className="text-gray-500 text-xs ml-2">
+            <Text className="text-gray-500 text-xs">
               Posted: {new Date(item.created_at).toLocaleDateString()}
             </Text>
           </View>
 
-          {/* Action Buttons */}
-          <View className="flex-row flex-wrap">
+          {/* Action Buttons (Keep as is) */}
+          <View className="flex-row flex-wrap border-t border-gray-100 pt-3 -mx-4 px-4">
             {propertyActions.map((action, index) => (
               <TouchableOpacity
                 key={index}
@@ -496,7 +628,8 @@ const MyPropertiesPage: React.FC = () => {
                   }
                 />
                 <Text
-                  className={`ml-1 text-sm font-medium ${
+                  className={`ml-1 text-xs font-medium ${
+                    // Made text smaller
                     action.label === "Delete Listing"
                       ? "text-red-600"
                       : action.label === "Change Status"
@@ -647,7 +780,6 @@ const MyPropertiesPage: React.FC = () => {
               </Text>
               <TouchableOpacity
                 className="bg-indigo-600 px-4 py-2 rounded-lg mt-4"
-                // @ts-ignore - Navigation type might need to be properly defined
                 onPress={() => navigation.navigate("AddProperty")}
               >
                 <Text className="text-white font-medium">Add New Property</Text>
@@ -661,12 +793,12 @@ const MyPropertiesPage: React.FC = () => {
 
       {/* Status Change Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={statusModalVisible}
         onRequestClose={() => setStatusModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black bg-opacity-50">
+        <View className="flex-1 justify-end bg-black/60">
           <View className="bg-white rounded-t-xl p-4">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-xl font-bold text-gray-800">

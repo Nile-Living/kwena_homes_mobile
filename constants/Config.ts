@@ -1,4 +1,6 @@
-export const API_BASE_URL = "http://95.217.214.201/api";
+// export const API_BASE_URL = "http://95.217.214.201/api";
+export const API_BASE_URL = "http://192.168.43.35:8080/api";
+// export const API_BASE_URL = "http://192.168.100.18/api";
 export const PAGE_SIZE = 10;
 export const SKELETON_COUNT = 6;
 
@@ -14,7 +16,7 @@ export const QueryParams = {
   BEDROOMS: "bedrooms",
   BATHROOMS: "bathrooms",
   GARAGES: "garages",
-  HOUSE_PARKINGS: "house_parkings", // Use if filtering specifically for house parkings
-  PARKING_SPACES: "parking_spaces", // Use if filtering for apt/comm parkings
+  HOUSE_PARKINGS: "house_parkings",
+  PARKING_SPACES: "parking_spaces",
   STATUS: "status",
 };

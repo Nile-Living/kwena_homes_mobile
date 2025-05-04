@@ -1,5 +1,5 @@
-import { StyleSheet, FlatList, View, Text } from "react-native";
-import { useRouter } from "expo-router";
+import { StyleSheet, FlatList, View, Text, useColorScheme } from "react-native";
+import { useRouter, Stack } from "expo-router";
 import { useStore } from "@/store/useStore";
 import PropertyCard from "@/components/PropertyCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -9,18 +9,24 @@ import { useEffect } from "react";
 import { RefreshControl } from "react-native-gesture-handler";
 
 export default function SavedScreen() {
+  const colorScheme = useColorScheme();
   const router = useRouter();
-  const { properties, savedProperties, toggleSavedProperty, loading, fetchSavedProperties, error } =
-    useStore();
+  const {
+    properties,
+    savedProperties,
+    toggleSavedProperty,
+    loading,
+    fetchSavedProperties,
+    error,
+  } = useStore();
 
-    const { user } = useAuthStore();
+  const { user } = useAuthStore();
 
-    useEffect(() => {
-      if (user) {
-        fetchSavedProperties();
-      }
-   
-    }, [user, fetchSavedProperties, router]);
+  useEffect(() => {
+    if (user) {
+      fetchSavedProperties();
+    }
+  }, [user, fetchSavedProperties, router]);
 
   const savedPropertyItems = properties.filter((property) =>
     savedProperties.includes(property.id)
@@ -36,9 +42,9 @@ export default function SavedScreen() {
 
   const handleRefresh = () => {
     if (user) {
-     fetchSavedProperties();
-   }
- }
+      fetchSavedProperties();
+    }
+  };
 
   if (loading && savedPropertyItems.length === 0) {
     return <LoadingSpinner />;
@@ -46,51 +52,64 @@ export default function SavedScreen() {
 
   if (error && savedPropertyItems.length === 0) {
     return (
-       <View style={styles.emptyState}>
-         <Text style={styles.errorText}>Error loading saved properties.</Text>
-         <Text style={styles.errorSubtext}>{error}</Text>
-         {/* Optionally add a retry button */}
-       </View>
-     );
- }
-
-
-
- return (
-  <View style={styles.container}>
-    {savedPropertyItems.length === 0 ? (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>No saved properties yet</Text>
-        <Text style={styles.emptyStateSubtext}>
-          Properties you save will appear here
-        </Text>
+        <Text style={styles.errorText}>Error loading saved properties.</Text>
+        <Text style={styles.errorSubtext}>{error}</Text>
+        {/* Optionally add a retry button */}
       </View>
-    ) : (
-      <FlatList
-        data={savedPropertyItems}
-        renderItem={({ item }) => (
-          <PropertyCard
-            property={item}
-            onPress={() => handlePropertyPress(item.id)}
-            onLike={() => handleLikePress(item.id)}
-            isLiked={true} // Always true on this screen
-          />
-        )}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={ // Add pull-to-refresh
-          <RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor={Colors.light.tint}/>
-        }
-      />
-    )}
-  </View>
-);
+    );
+  }
+
+  return (
+    <View
+      style={styles.container}
+      className={`${colorScheme === "dark" ? "bg-slate-800" : "bg-white"} mt-7`}
+    >
+      <Stack.Screen options={{ title: "Saved", headerShown: false }} />
+      {savedPropertyItems.length === 0 ? (
+        <View
+          style={styles.emptyState}
+         
+        >
+          <Text style={styles.emptyStateText}  className={`${
+            colorScheme === "dark" ? "text-slate-400" : "text-gray-600"
+          }`}>No saved properties yet</Text>
+          <Text style={styles.emptyStateSubtext}  className={`${
+            colorScheme === "dark" ? "text-slate-400" : "text-gray-600"
+          }`}>
+            Properties you save will appear here
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={savedPropertyItems}
+          renderItem={({ item }) => (
+            <PropertyCard
+              property={item}
+              onPress={() => handlePropertyPress(item.id)}
+              onLike={() => handleLikePress(item.id)}
+              isLiked={true}
+            />
+          )}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={handleRefresh}
+              tintColor={Colors.light.tint}
+            />
+          }
+        />
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
+    // backgroundColor: Colors.light.background,
   },
   listContent: {
     padding: 16,
@@ -105,22 +124,24 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 18,
     fontWeight: "600",
-    color: Colors.light.text,
+    // color: Colors.light.text,
     marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: "#666",
+    // color: "#666",
     textAlign: "center",
   },
-   errorText: { // Style for error message
+  errorText: {
+    // Style for error message
     fontSize: 18,
     fontWeight: "600",
     color: "red", // Or your error color
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
-  errorSubtext: { // Style for error details
+  errorSubtext: {
+    // Style for error details
     fontSize: 14,
     color: "#666",
     textAlign: "center",

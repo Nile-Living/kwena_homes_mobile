@@ -13,7 +13,7 @@ import { useLocalSearchParams, Stack, useNavigation } from "expo-router";
 import { Colors } from "@/constants/Colors";
 import { useStore, Property } from "@/store/useStore";
 import { useEffect, useState, useRef } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import {
   GestureHandlerRootView,
   PinchGestureHandler,
@@ -27,6 +27,7 @@ import Animated, {
 import { propertyDetailsStyles as styles } from "@/constants/styles/property_details";
 import { supabase } from "@/supabaseClient";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { getPropertyFeatures } from "@/utils/propertyUtils";
 
 const { width } = Dimensions.get("window");
 
@@ -268,19 +269,17 @@ export default function PropertyDetails() {
             <Text style={styles.location}>{property.location}</Text>
 
             <View style={styles.featuresContainer}>
-              <View style={styles.feature}>
-                <Ionicons name="bed-outline" size={20} color="#666" />
-                <Text style={styles.featureText}>
-                  {property.bedrooms} Bedrooms
-                </Text>
-              </View>
-              <View style={styles.feature}>
-                <Ionicons name="water-outline" size={20} color="#666" />
-                <Text style={styles.featureText}>
-                  {property.bathrooms} Bathrooms
-                </Text>
-              </View>
-            </View>
+  {getPropertyFeatures(property).map((feature, index) => (
+    <View key={index} style={styles.feature}>
+      {feature.iconLibrary === 'Ionicons' ? (
+        <Ionicons name={feature.icon as any} size={20} color="#666" />
+      ) : (
+        <FontAwesome name={feature.icon as any} size={18} color="#666" />
+      )}
+      <Text style={styles.featureText}>{feature.value}</Text>
+    </View>
+  ))}
+</View>
 
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.description}>{property.description}</Text>

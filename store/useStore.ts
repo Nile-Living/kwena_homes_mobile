@@ -1,14 +1,14 @@
-import { create } from "zustand";
-import { useAuthStore } from "./authStore";
-import { API_BASE_URL } from "@/constants/Config";
+import { create } from 'zustand';
+import { useAuthStore } from './authStore';
+import { API_BASE_URL } from '@/constants/Config';
 
 export type PropertyStatus =
-  | "available"
-  | "occupied"
-  | "rented"
-  | "off-market"
-  | "under-maintenance"
-  | "pending-approval";
+  | 'available'
+  | 'occupied'
+  | 'rented'
+  | 'off-market'
+  | 'under-maintenance'
+  | 'pending-approval';
 
 export interface Property {
   id: string;
@@ -18,13 +18,14 @@ export interface Property {
   images: string[];
   coordinates?: { latitude: number; longitude: number };
   description?: string;
-  property_type: "rent" | "sale";
+  property_type: 'rent' | 'sale';
   category: string;
   created_at: string;
   status?: string;
   last_updated?: string;
   details?: any;
-  liked?: boolean; 
+  liked?: boolean;
+  is_promoted?: boolean; // Add this flag
 }
 
 export interface PropertyResponseDto {
@@ -38,13 +39,13 @@ interface PropertyState {
   properties: Property[];
   savedProperties: string[];
   searchQuery: string;
-  propertyTypeFilter: "all" | "rent" | "sale";
+  propertyTypeFilter: 'all' | 'rent' | 'sale';
   loading: boolean;
   error: string | null;
 
   setProperties: (properties: Property[], pageNumber: number) => void;
   setSearchQuery: (query: string) => void;
-  setPropertyTypeFilter: (filter: "all" | "rent" | "sale") => void;
+  setPropertyTypeFilter: (filter: 'all' | 'rent' | 'sale') => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setSavedProperties: (savedIds: string[]) => void;
@@ -57,10 +58,8 @@ interface PropertyState {
 export const useStore = create<PropertyState>((set, get) => ({
   properties: [],
   savedProperties: [],
-  searchQuery: "",
-  propertyTypeFilter: "all",
-  // statusFilter: "all",
-  // sortOption: "date", // Or map from HomeScreen's sort state
+  searchQuery: '',
+  propertyTypeFilter: 'all',
   loading: false,
   error: null,
 
@@ -68,33 +67,35 @@ export const useStore = create<PropertyState>((set, get) => ({
     const currentProperties = get().properties;
     const savedIds = get().savedProperties;
 
-    // Add 'liked' status to the new properties
     const newPropertiesWithLiked: Property[] = newProperties.map((p) => ({
       ...p,
       liked: savedIds.includes(p.id),
+      // is_promoted flag should come directly from the backend view now
     }));
 
-    // Combine properties: If it's page 1, start fresh. Otherwise, append.
     const combinedProperties: Property[] =
       pageNumber === 1
         ? newPropertiesWithLiked
         : [...currentProperties, ...newPropertiesWithLiked];
 
-    // Deduplicate using a Map (keeps the last occurrence of each ID)
     const uniquePropertiesMap: Map<string, Property> = new Map();
     combinedProperties.forEach((p) => {
       uniquePropertiesMap.set(p.id, p);
     });
 
-    // Convert the Map values back to an array
-    const uniquePropertiesArray: Property[] = Array.from(uniquePropertiesMap.values());
+    const uniquePropertiesArray: Property[] = Array.from(
+      uniquePropertiesMap.values(),
+    );
 
     set({ properties: uniquePropertiesArray, error: null });
   },
   setSavedProperties: (savedIds) => {
     set({ savedProperties: savedIds });
     const currentProperties = get().properties;
-    const updatedPropertiesWithLiked = currentProperties.map((p) => ({ ...p, liked: savedIds.includes(p.id) }));
+    const updatedPropertiesWithLiked = currentProperties.map((p) => ({
+      ...p,
+      liked: savedIds.includes(p.id),
+    }));
     set({ properties: updatedPropertiesWithLiked });
   },
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -102,14 +103,11 @@ export const useStore = create<PropertyState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 
-  // --- API Methods ---
-
   fetchUserProperties: async () => {
     const user = useAuthStore.getState().user;
     if (!user) return;
     set({ loading: true, error: null });
     try {
-      // Assuming your backend GET /properties accepts a user_id query param
       const response = await fetch(
         `${API_BASE_URL}/properties?user_id=${user.id}`,
       );
@@ -119,10 +117,10 @@ export const useStore = create<PropertyState>((set, get) => ({
         );
       }
       const data: PropertyResponseDto = await response.json();
-      get().setProperties(data.properties || [], 1); // Use the setter to handle 'liked'
+      get().setProperties(data.properties || [], 1);
     } catch (err: any) {
-      console.error("Error fetching user properties:", err);
-      set({ error: "Failed to load your properties. Please try again later." });
+      console.error('Error fetching user properties:', err);
+      set({ error: 'Failed to load your properties. Please try again later.' });
     } finally {
       set({ loading: false });
     }
@@ -131,14 +129,17 @@ export const useStore = create<PropertyState>((set, get) => ({
   fetchSavedProperties: async () => {
     const token = useAuthStore.getState().session?.access_token;
     if (!token) {
-      get().setSavedProperties([]); // Clear if not logged in
+      get().setSavedProperties([]);
       return;
     }
-    set({ loading: true }); // Use general loading state
+    set({ loading: true });
     try {
-      const response = await fetch(`${API_BASE_URL}/users/me/saved-properties`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/users/me/saved-properties`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Status: ${response.status}, Response: ${errorText}`);
@@ -146,9 +147,9 @@ export const useStore = create<PropertyState>((set, get) => ({
       const data = await response.json();
       get().setSavedProperties(data.savedPropertyIds || []);
     } catch (error: any) {
-      console.error("Error fetching saved properties:", error);
-      set({ error: "Could not load saved properties." });
-      get().setSavedProperties([]); // Clear on error
+      console.error('Error fetching saved properties:', error);
+      set({ error: 'Could not load saved properties.' });
+      get().setSavedProperties([]);
     } finally {
       set({ loading: false });
     }
@@ -157,27 +158,25 @@ export const useStore = create<PropertyState>((set, get) => ({
   toggleSavedProperty: async (propertyId: string) => {
     const token = useAuthStore.getState().session?.access_token;
     if (!token) {
-      console.log("User not logged in to toggle save");
+      console.log('User not logged in to toggle save');
       return;
     }
     const isLiked = get().savedProperties.includes(propertyId);
     const currentSaved = get().savedProperties;
-    // Optimistic UI update
     const newSavedProperties = isLiked
       ? currentSaved.filter((id) => id !== propertyId)
       : [...currentSaved, propertyId];
     get().setSavedProperties(newSavedProperties);
-    set({ error: null }); // Clear previous errors
+    set({ error: null });
 
     try {
-      const method = isLiked ? "DELETE" : "POST";
-      // Use URL with param for DELETE
+      const method = isLiked ? 'DELETE' : 'POST';
       const url = isLiked
         ? `${API_BASE_URL}/users/me/saved-properties/${propertyId}`
         : `${API_BASE_URL}/users/me/saved-properties`;
       const body = isLiked ? undefined : JSON.stringify({ propertyId });
       const headers: HeadersInit = {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       };
 
@@ -187,10 +186,9 @@ export const useStore = create<PropertyState>((set, get) => ({
         const errorText = await response.text();
         throw new Error(`Status: ${response.status}, Response: ${errorText}`);
       }
-      // Success, optimistic update is correct
-      console.log(`Property ${propertyId} ${isLiked ? "unsaved" : "saved"}`);
+      console.log(`Property ${propertyId} ${isLiked ? 'unsaved' : 'saved'}`);
     } catch (error: any) {
-      console.error("Error toggling saved property:", error);
+      console.error('Error toggling saved property:', error);
       get().setSavedProperties(currentSaved);
       set({ error: `Failed to ${isLiked ? 'unsave' : 'save'} property.` });
     }
@@ -198,28 +196,24 @@ export const useStore = create<PropertyState>((set, get) => ({
 
   deleteProperty: async (propertyId: string) => {
     const user = useAuthStore.getState().user;
-    if (!user) return; // Or handle error
+    if (!user) return;
 
     const currentProperties = get().properties;
-    // Optimistic update (remove locally first)
     set({
       properties: currentProperties.filter((p) => p.id !== propertyId),
     });
 
     try {
       const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
-        method: "DELETE",
-        headers: {
-          // Add Authorization header if needed
-        },
+        method: 'DELETE',
       });
 
       if (!response.ok) {
-        // Check for specific errors (e.g., 403 Forbidden, 404 Not Found)
-        throw new Error(`Failed to delete property (status: ${response.status})`);
+        throw new Error(
+          `Failed to delete property (status: ${response.status})`,
+        );
       }
       console.log(`Property ${propertyId} deleted successfully.`);
-      // Remove from saved properties if it exists there too
       const currentSaved = get().savedProperties;
       if (currentSaved.includes(propertyId)) {
         set({
@@ -227,10 +221,9 @@ export const useStore = create<PropertyState>((set, get) => ({
         });
       }
     } catch (err: any) {
-      console.error("Error deleting property:", err);
-      // Revert optimistic update
+      console.error('Error deleting property:', err);
       set({ properties: currentProperties });
-      set({ error: "Failed to delete property. Please try again." });
+      set({ error: 'Failed to delete property. Please try again.' });
     }
   },
 }));

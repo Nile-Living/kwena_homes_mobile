@@ -112,6 +112,7 @@ export default function RootLayout() {
             name="properties/index" // Screen for user's own properties
             options={{ title: "My Properties" }} // Updated title
           />
+          <Stack.Screen name="payments/promote" options={{ title: 'Promote Listing', headerShown: true }} />
 
           {/* Not Found Screen */}
           <Stack.Screen name="+not-found" />

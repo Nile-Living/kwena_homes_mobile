@@ -6,9 +6,9 @@ import {
   RefreshControl,
   Alert,
   Text,
-  ActivityIndicator, // Import ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
-import { Property, PropertyResponseDto, useStore } from "@/store/useStore"; // Ensure Property includes 'status', 'liked' etc.
+import { Property, PropertyResponseDto, useStore } from "@/store/useStore";
 import { useRouter } from "expo-router";
 import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
@@ -19,7 +19,7 @@ import { useAuthStore } from "@/store/authStore";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "react-native";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes"; // Keep if needed for FilterModal
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 import {
   API_BASE_URL,
   PAGE_SIZE,
@@ -27,7 +27,6 @@ import {
   QueryParams,
 } from "@/constants/Config"; // Import constants
 
-// Define sort options matching backend expectations (or map them)
 type SortOption =
   | "created_at.desc" // newest
   | "created_at.asc" // oldest
@@ -41,6 +40,8 @@ export default function HomeScreen() {
   // Local state for UI control and filters/pagination
   const [refreshing, setRefreshing] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>("created_at.desc");
+
+  const [isInitialFetchDone, setIsInitialFetchDone] = useState(false);
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 }); // Keep if filter modal uses it
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
@@ -48,15 +49,12 @@ export default function HomeScreen() {
     "all"
   );
   const [garages, setGarages] = useState(0);
-  const [parkings, setParkings] = useState(0); // This might need mapping based on category
-  // const [selectedFeatures, setSelectedFeatures] = useState("Any"); // Keep if filter modal uses it
-  // const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]); // Keep if filter modal uses it
-  // const [statusFilter, setStatusFilter] = useState<"all" | PropertyStatus>("all"); // Keep if filter modal uses it
+  const [parkings, setParkings] = useState(0); // This might need mapping 
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null); // Local error for fetch issues
+  const [localError, setLocalError] = useState<string | null>(null); 
 
   // Get data and setters from Zustand store
   const {
@@ -169,6 +167,7 @@ export default function HomeScreen() {
       } finally {
         if (pageNumber === 1) {
           setZustandLoading(false);
+          setIsInitialFetchDone(true);
         } else {
           setIsFetchingMore(false);
         }
@@ -322,7 +321,7 @@ export default function HomeScreen() {
     }
 
     // Show "No properties found" only if not loading, no error, and properties array is empty
-    if (!zustandLoading && properties.length === 0 && !localError) {
+    if (!zustandLoading && properties.length === 0 && !localError && isInitialFetchDone) {
       return <Text style={styles.infoText}>No properties found.</Text>;
     }
 
@@ -393,7 +392,7 @@ export default function HomeScreen() {
               onValueChange={(itemValue) => {
                 setSortOption(itemValue as SortOption);
               }}
-              mode="dropdown"
+              mode="dialog"
               dropdownIconColor={colorScheme === "dark" ? "#cbd5e1" : "#374151"}
               style={[
                 styles.picker,

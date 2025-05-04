@@ -66,10 +66,8 @@ export default function SignInScreen() {
       <View className="px-6 py-10">
         {/* Logo Placeholder - User will add later */}
         <View className="items-center mb-8">
-          <View className="w-20 h-20 bg-emerald-800 rounded-2xl items-center justify-center">
-            {/* Placeholder Icon/Shape representing the logo */}
-            <View className="w-8 h-8 bg-white/50 rounded-md" />
-          </View>
+          
+          <Image source={require('@/assets/images/icon.png')} className="h-20 w-20"/>
         </View>
 
         <Text className="text-2xl font-bold text-gray-800 mb-2 text-center">

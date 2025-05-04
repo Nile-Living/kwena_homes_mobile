@@ -134,7 +134,7 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View style={styles.container} className="">
+    <View style={styles.container} className="mt-8">
 
       {Platform.OS === "web" ? (
         <View style={styles.mapPlaceholder}>
