@@ -15,8 +15,18 @@ const HeaderSearchBar: React.FC<HeaderSearchBarProps> = ({
   onClear,
   placeholder = 'Search properties...',
 }) => {
+  const handleTextChange = (text: string) => {
+    console.log('Text changed:', text);
+    onChangeText(text);
+  };
+
+  const handleClear = () => {
+    console.log('Clear pressed');
+    onClear();
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="header-search-bar">
       <Ionicons
         name="search-outline"
         size={20}
@@ -27,14 +37,19 @@ const HeaderSearchBar: React.FC<HeaderSearchBarProps> = ({
         style={styles.input}
         placeholder={placeholder}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={handleTextChange}
         placeholderTextColor="#9CA3AF"
-        returnKeyType="search" // Optional: improves keyboard
+        returnKeyType="search"
         autoCapitalize="none"
         autoCorrect={false}
+        testID="search-input"
       />
       {value !== '' && (
-        <TouchableOpacity onPress={onClear} style={styles.clearButton}>
+        <TouchableOpacity 
+          onPress={handleClear}
+          style={styles.clearButton}
+          testID="clear-button"
+        >
           <Ionicons name="close-circle" size={20} color="#9CA3AF" />
         </TouchableOpacity>
       )}
@@ -45,26 +60,28 @@ const HeaderSearchBar: React.FC<HeaderSearchBarProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    flex: 1, // Take available space
     alignItems: 'center',
-    backgroundColor: '#F3F4F6', // Use a slightly different bg for header search
+    backgroundColor: '#F3F4F6',
     borderRadius: 8,
-    paddingHorizontal: 10,
-    height: 38, // Adjust height as needed
-    // Remove marginRight if headerRight provides spacing
+    paddingHorizontal: 12,
+    height: 40,
+    width: '100%',
+    maxWidth: 280,
   },
   icon: {
     marginRight: 8,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     color: '#1F2937',
-    paddingVertical: 0, // Remove default padding
+    height: '100%',
+    paddingVertical: 8,
   },
   clearButton: {
-    paddingLeft: 8,
+    padding: 4,
+    marginLeft: 4,
   },
 });
 
-export default HeaderSearchBar;
+export default React.memo(HeaderSearchBar);

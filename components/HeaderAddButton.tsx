@@ -1,22 +1,29 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface HeaderAddButtonProps {
   onPress: () => void;
-  tintColor?: string; // Expo Router passes tintColor
+  tintColor?: string;
 }
 
-const HeaderAddButton: React.FC<HeaderAddButtonProps> = ({
-  onPress,
-  tintColor,
-}) => {
+const HeaderAddButton: React.FC<HeaderAddButtonProps> = ({ onPress, tintColor }) => {
+  const handlePress = () => {
+    console.log('Button pressed in component');
+    onPress();
+  };
+
   return (
-    <TouchableOpacity onPress={onPress} style={styles.button}>
+    <TouchableOpacity 
+      onPress={handlePress}
+      style={styles.button}
+      activeOpacity={0.6}
+      testID="header-add-button"
+    >
       <Ionicons
-        name="add-circle-outline" // Changed icon slightly
-        size={28} // Slightly larger for header
-        color={tintColor || '#4F46E5'} // Use tintColor or default
+        name="add-circle-outline"
+        size={28}
+        color={tintColor || '#4F46E5'}
       />
     </TouchableOpacity>
   );
@@ -24,9 +31,10 @@ const HeaderAddButton: React.FC<HeaderAddButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    marginRight: 15, // Adjust spacing as needed
-    padding: 5,
+    marginRight: 16,
+    padding: 8,
+    backgroundColor: 'transparent',
   },
 });
 
-export default HeaderAddButton;
+export default React.memo(HeaderAddButton);

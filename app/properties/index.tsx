@@ -3,13 +3,14 @@ import React, {
   useEffect,
   useLayoutEffect,
   useCallback,
+  useMemo
 } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
-  // TextInput,
+  TextInput,
   Modal,
   FlatList,
   Alert,
@@ -35,30 +36,20 @@ import {
   DEFAULT_PROPERTY_STATUS,
 } from "@/utils/statusUtils";
 
-interface PropertyAction {
-  label: string;
-  icon: string;
-  action: (property: Property) => void;
-}
+interface PropertyAction { label: string; icon: string; action: (property: Property) => void; }
 
 type NavigationProps = {
-  navigate: (screen: string, params?: { id: string }) => void;
-  setOptions: (options: Partial<any>) => void;
+  navigate: (screen: string, params?: any) => void;
+  setOptions: (options: any) => void;
+  goBack: () => void;
 };
 
-interface DisplayFeature {
-  icon:
-    | React.ComponentProps<typeof Ionicons>["name"]
-    | React.ComponentProps<typeof FontAwesome>["name"]
-    | React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-  value: string | number;
-  library: "Ionicons" | "FontAwesome" | "MaterialCommunityIcons";
-  label?: string;
-}
+interface DisplayFeature { icon: any; value: string | number; library: string; label?: string; }
 
 // Component for My Properties Page
 const MyPropertiesPage: React.FC = () => {
   const navigation = useNavigation<NavigationProps>();
+  const router = useRouter();
   const { user } = useAuthStore();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,9 +99,6 @@ const MyPropertiesPage: React.FC = () => {
     },
   ];
 
-  const router = useRouter();
-
-  // Fetch user's properties from Supabase
   const fetchUserProperties = async () => {
     if (!user) return;
 
@@ -378,43 +366,22 @@ const MyPropertiesPage: React.FC = () => {
     }
   };
 
-  const getFilteredProperties = () => {
+  const getFilteredProperties = useCallback(() => {
     let filtered = [...properties];
-
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (property) =>
-          property.title.toLowerCase().includes(query) ||
-          property.location.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(p => p.title.toLowerCase().includes(query) || p.location.toLowerCase().includes(query));
     }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (property) => property.status === statusFilter
-      );
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(p => p.status === statusFilter);
     }
-
     switch (sortOption) {
-      case "price":
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case "date":
-        filtered.sort((a, b) => {
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-        });
-        break;
-      case "alphabetical":
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
-        break;
+      case 'price': filtered.sort((a, b) => a.price - b.price); break;
+      case 'date': filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()); break;
+      case 'alphabetical': filtered.sort((a, b) => a.title.localeCompare(b.title)); break;
     }
-
     return filtered;
-  };
-
+  }, [properties, searchQuery, statusFilter, sortOption]);
   const getStatusDetails = (status: PropertyStatus): StatusOption => {
     return (
       statusOptions.find((option) => option.value === status) ||
@@ -422,134 +389,82 @@ const MyPropertiesPage: React.FC = () => {
     );
   };
 
-  const getDisplayFeatures = (property: Property): DisplayFeature[] => {
+  const getDisplayFeatures = useCallback((property: Property): DisplayFeature[] => {
     const features: DisplayFeature[] = [];
     const details = property.details || {};
-
     switch (property.category?.toLowerCase()) {
-      case "house":
-      case "apartment":
-      case "lodge":
-        if (details.bedrooms)
-          features.push({
-            icon: "bed-outline",
-            value: details.bedrooms,
-            library: "Ionicons",
-          });
-        if (details.bathrooms)
-          features.push({
-            icon: "water-outline",
-            value: details.bathrooms,
-            library: "Ionicons",
-          }); // Or 'bathtub' from FontAwesome
-        if (details.garages)
-          features.push({
-            icon: "car-outline",
-            value: details.garages,
-            library: "Ionicons",
-          });
+      case "house": case "apartment": case "lodge":
+        if (details.bedrooms) features.push({ icon: "bed-outline", value: details.bedrooms, library: "Ionicons" });
+        if (details.bathrooms) features.push({ icon: "water-outline", value: details.bathrooms, library: "Ionicons" });
+        if (details.garages) features.push({ icon: "car-outline", value: details.garages, library: "Ionicons" });
         break;
-      case "land":
-      case "farm":
-        if (details.size_sqm)
-          features.push({
-            icon: "resize-outline",
-            value: `${details.size_sqm} sqm`,
-            library: "Ionicons",
-          });
-        if (details.road_access === true)
-          features.push({
-            icon: "car-outline",
-            value: "Road Access",
-            library: "Ionicons",
-          });
-        // Add other relevant land/farm features if available in details
+      case "land": case "farm":
+        if (details.size_sqm) features.push({ icon: "resize-outline", value: `${details.size_sqm} sqm`, library: "Ionicons" });
+        if (details.road_access === true) features.push({ icon: "car-outline", value: "Road Access", library: "Ionicons" });
         break;
-      case "commercial":
-      case "industrial":
-        // Use specific type from details if available, otherwise category
+      case "commercial": case "industrial":
         const type = details.property_type || property.category;
-        if (type)
-          features.push({
-            icon: "business-outline",
-            value: type,
-            library: "Ionicons",
-          });
-        if (details.square_meters)
-          features.push({
-            icon: "resize-outline",
-            value: `${details.square_meters} sqm`,
-            library: "Ionicons",
-          });
-        if (details.parking_spaces)
-          features.push({
-            icon: "car-outline",
-            value: `${details.parking_spaces} Parking`,
-            library: "Ionicons",
-          });
-        // Add other relevant commercial/industrial features
+        if (type) features.push({ icon: "business-outline", value: type, library: "Ionicons" });
+        if (details.square_meters) features.push({ icon: "resize-outline", value: `${details.square_meters} sqm`, library: "Ionicons" });
+        if (details.parking_spaces) features.push({ icon: "car-outline", value: `${details.parking_spaces} Parking`, library: "Ionicons" });
         break;
       default:
-        // Fallback for unknown or generic categories
-        if (details.bedrooms)
-          features.push({
-            icon: "bed-outline",
-            value: details.bedrooms,
-            library: "Ionicons",
-          });
-        if (details.bathrooms)
-          features.push({
-            icon: "water-outline",
-            value: details.bathrooms,
-            library: "Ionicons",
-          });
-        if (details.size_sqm)
-          features.push({
-            icon: "resize-outline",
-            value: `${details.size_sqm} sqm`,
-            library: "Ionicons",
-          });
+        if (details.bedrooms) features.push({ icon: "bed-outline", value: details.bedrooms, library: "Ionicons" });
+        if (details.bathrooms) features.push({ icon: "water-outline", value: details.bathrooms, library: "Ionicons" });
+        if (details.size_sqm) features.push({ icon: "resize-outline", value: `${details.size_sqm} sqm`, library: "Ionicons" });
         break;
     }
-
-    // Always add the general category type as a feature
-    features.push({
-      icon: "home-outline", // Using MaterialCommunityIcons for this one
-      value: property.category || "Property",
-      library: "MaterialCommunityIcons",
-    });
-
-    // Limit the number of features displayed to avoid clutter (e.g., max 4)
+    features.push({ icon: "home-outline", value: property.category || "Property", library: "MaterialCommunityIcons" });
     return features.slice(0, 4);
-  };
+ }, []);
 
   useEffect(() => {
     fetchUserProperties();
   }, [user]);
 
   useLayoutEffect(() => {
+    const handleAddPress = () => {
+      console.log('Add button pressed in layout effect');
+      router.push('/property/new');
+    };
+  
+    const handleSearchChange = (text: string) => {
+      console.log('Search changed in layout effect:', text);
+      setSearchQuery(text);
+    };
+  
+    const handleSearchClear = () => {
+      console.log('Search cleared in layout effect');
+      setSearchQuery('');
+    };
+  
     navigation.setOptions({
-      // Render the custom search bar component in the title area
       headerTitle: () => (
-        <HeaderSearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onClear={() => setSearchQuery("")}
-        />
+        <View style={{ flex: 1, marginRight: 16 }}>
+          <HeaderSearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            onClear={handleSearchClear}
+          />
+        </View>
       ),
-      // Render the custom add button on the right
-      headerRight: (props: { tintColor?: string }) => (
-        <HeaderAddButton
-          onPress={handleAddProperty}
-          tintColor={props.tintColor}
-        />
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={handleAddPress}
+          style={{ marginRight: 16 }}
+          testID="header-right-button"
+        >
+          <HeaderAddButton onPress={handleAddPress} tintColor="#4F46E5" />
+        </TouchableOpacity>
       ),
-      // Optional: Adjust header style if needed
-      // headerStyle: { backgroundColor: '#FFFFFF' },
-      headerTitleAlign: "left", // Align search bar left if desired
-      // headerBackTitleVisible: false, // Hide back button text if needed
+      headerTitleAlign: 'left',
+      headerStyle: {
+        height: 60,
+      },
     });
   }, [navigation, searchQuery, router]);
+  
+  
 
   const renderProperty = ({ item }: { item: Property }) => {
     const statusDetails = getStatusDetails(item.status as PropertyStatus);
@@ -571,7 +486,7 @@ const MyPropertiesPage: React.FC = () => {
           />
           <View
             className="absolute top-2 right-2 px-3 py-1 rounded-full flex-row items-center"
-            style={{ backgroundColor: statusDetails.color + "E6" }} // Added opacity
+            style={{ backgroundColor: statusDetails.color + "E6" }}
           >
             <Ionicons
               name={statusDetails.icon as any}
@@ -641,9 +556,7 @@ const MyPropertiesPage: React.FC = () => {
                 </Text>
               )}
           </View>
-          {/* --- End Dynamic Features Section --- */}
 
-          {/* Price and Date Row (Keep as is) */}
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-xl font-bold text-indigo-600">
               K{item.price?.toLocaleString() ?? "N/A"}
@@ -656,7 +569,6 @@ const MyPropertiesPage: React.FC = () => {
             </Text>
           </View>
 
-          {/* Action Buttons (Keep as is) */}
           <View className="flex-row flex-wrap border-t border-gray-100 pt-3 -mx-4 px-4">
             {propertyActions.map((action, index) => (
               <TouchableOpacity
@@ -683,7 +595,6 @@ const MyPropertiesPage: React.FC = () => {
                 />
                 <Text
                   className={`ml-1 text-xs font-medium ${
-                    // Made text smaller
                     action.label === "Delete Listing"
                       ? "text-red-600"
                       : action.label === "Change Status"
@@ -705,13 +616,11 @@ const MyPropertiesPage: React.FC = () => {
     <View className="flex-1 bg-gray-50">
       {/* Header */}
 
-      {/* Filter Options */}
       <View className="bg-white px-4 py-3 flex-row justify-between items-center">
         <View className="flex-row">
           <Text className="text-gray-700 font-medium">Status: </Text>
           <TouchableOpacity
             onPress={() => {
-              // Create a modal for status filter or cycle through options
               const currentIndex = statusOptions.findIndex(
                 (option) => option.value === statusFilter
               );
@@ -738,7 +647,6 @@ const MyPropertiesPage: React.FC = () => {
           <Text className="text-gray-700 font-medium">Sort by: </Text>
           <TouchableOpacity
             onPress={() => {
-              // Cycle through sort options
               setSortOption(
                 sortOption === "date"
                   ? "price"
@@ -761,7 +669,6 @@ const MyPropertiesPage: React.FC = () => {
         </View>
       </View>
 
-      {/* Loading State */}
       {loading && (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#4F46E5" />
@@ -769,7 +676,6 @@ const MyPropertiesPage: React.FC = () => {
         </View>
       )}
 
-      {/* Error State */}
       {error && !loading && (
         <View className="flex-1 justify-center items-center p-4">
           <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
@@ -785,7 +691,6 @@ const MyPropertiesPage: React.FC = () => {
         </View>
       )}
 
-      {/* Property List */}
       {!loading && !error && (
         <FlatList
           data={getFilteredProperties()}
@@ -817,7 +722,6 @@ const MyPropertiesPage: React.FC = () => {
         />
       )}
 
-      {/* Status Change Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -888,7 +792,6 @@ const MyPropertiesPage: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         animationType="slide"
         transparent={true}

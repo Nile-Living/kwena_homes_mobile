@@ -253,7 +253,7 @@ export default function AddPropertyScreen() {
       {/* Property Type (Rent/Sale) */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Listing Type *</Text>
-        <View className="flex-row space-x-3">
+        <View className="flex-row gap-2 space-x-3">
           <TouchableOpacity
             onPress={() => updateFormField('propertyType', 'rent')}
             className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'rent' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}
@@ -461,7 +461,7 @@ export default function AddPropertyScreen() {
         <TouchableOpacity
           onPress={handleSubmit}
           disabled={loading}
-          className={`rounded-lg py-4 px-6 items-center justify-center shadow-sm ${loading ? "bg-gray-400" : "bg-emerald-700"}`} // Use consistent color
+          className={`rounded-lg py-4 px-6 items-center justify-center shadow-sm ${loading ? "bg-gray-400" : "bg-customgreen"}`} // Use consistent color
         >
           {loading && uploadProgress < 100 ? ( // Show progress during upload
              <View className="flex-row items-center">

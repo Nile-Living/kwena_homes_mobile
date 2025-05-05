@@ -6,18 +6,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'light-tint': '#f3f4f6',
-        'dark-tint': '#14532d',
+        "light-tint": "#f3f4f6",
+        "dark-tint": "#14532d",
+        customgreen: "#54816D",
       },
       slate: {
-        300: '#cbd5e1',
-        400: '#94a3b8',
-        500: '#64748b',
-        700: '#334155',
-        800: '#1e293b',
-      }
+        300: "#cbd5e1",
+        400: "#94a3b8",
+        500: "#64748b",
+        700: "#334155",
+        800: "#1e293b",
+      },
     },
   },
   plugins: [],
-  darkMode: 'media',
-}
+  darkMode: "media",
+};

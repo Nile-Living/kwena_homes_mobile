@@ -35,11 +35,9 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Check onboarding status first
         const onboardingStatus = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
         setShowOnboarding(onboardingStatus !== 'true');
 
-        // Check authentication status
         await checkAuth();
 
       } catch (e) {
@@ -89,8 +87,6 @@ export default function RootLayout() {
     return <OnboardingScreen onDone={handleOnboardingDone} />;
   }
 
-  // --- Render Main App ---
-  // Onboarding is done (or was never needed), and fonts are loaded
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>

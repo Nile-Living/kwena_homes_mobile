@@ -133,7 +133,7 @@ export default function SignInScreen() {
           onPress={handleSignIn}
           disabled={loading}
           // Adjusted color to match design (example: emerald-800)
-          className="w-full bg-emerald-800 rounded-lg h-14 justify-center items-center mb-6 shadow-sm"
+          className="w-full bg-customgreen rounded-lg h-14 justify-center items-center mb-6 shadow-sm"
         >
           <Text className="text-white font-semibold text-base">
             {loading ? "Signing In..." : "Sign In"}
@@ -185,7 +185,7 @@ export default function SignInScreen() {
           <Text className="text-sm text-gray-500">Not our member yet? </Text>
           <TouchableOpacity onPress={() => router.push("/auth/signup")}>
             {/* Adjusted color to match design */}
-            <Text className="text-sm font-semibold text-emerald-800">
+            <Text className="text-sm font-semibold text-customgreen">
               Register Now
             </Text>
           </TouchableOpacity>
