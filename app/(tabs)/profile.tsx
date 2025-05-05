@@ -262,6 +262,7 @@ export default function ProfileScreen() {
     // Show full screen loader only on initial load
     return (
       <View className="flex-1 items-center justify-center bg-white">
+        <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
         <ActivityIndicator size="large" color={Colors.light.tint} />
       </View>
     );
@@ -291,7 +292,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView className="flex-1 bg-gray-50">
       <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
-      <View className="items-center pt-8 pb-6 bg-white">
+      <View className="items-center pt-8 pb-6 bg-white mt-12">
         <TouchableOpacity onPress={handleImagePick} className="mb-3 relative">
           {profile?.avatar_url ? (
             <Image

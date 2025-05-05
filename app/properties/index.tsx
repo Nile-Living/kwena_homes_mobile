@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
-  TextInput,
+  // TextInput,
   Modal,
   FlatList,
   Alert,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import {
   FontAwesome,
@@ -18,15 +24,15 @@ import {
 import { useStore, Property } from "@/store/useStore";
 import { useAuthStore } from "@/store/authStore";
 import { supabase } from "@/supabaseClient";
-import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+// import { useNavigation } from "@react-navigation/native";
+import { useRouter, useNavigation } from "expo-router";
+import HeaderAddButton from "@/components/HeaderAddButton";
+import HeaderSearchBar from "@/components/HeaderSearchBar";
 
 import {
   PropertyStatus,
   StatusOption,
-  statusOptions,
-  getStatusDetails,
-  DEFAULT_PROPERTY_STATUS
+  DEFAULT_PROPERTY_STATUS,
 } from "@/utils/statusUtils";
 
 interface PropertyAction {
@@ -37,6 +43,7 @@ interface PropertyAction {
 
 type NavigationProps = {
   navigate: (screen: string, params?: { id: string }) => void;
+  setOptions: (options: Partial<any>) => void;
 };
 
 interface DisplayFeature {
@@ -129,7 +136,9 @@ const MyPropertiesPage: React.FC = () => {
     }
   };
 
-  const addStatusToProperties = async (propertiesData: any[]): Promise<Property[]> => {
+  const addStatusToProperties = async (
+    propertiesData: any[]
+  ): Promise<Property[]> => {
     const parsedProperties = propertiesData.map((p) => ({
       ...p,
       details:
@@ -157,9 +166,9 @@ const MyPropertiesPage: React.FC = () => {
           }));
           await supabase.from("property_status").insert(statusEntries);
           statusData = statusEntries;
-       } else {
+        } else {
           throw err;
-       }
+        }
       }
 
       const statusMap = new Map(
@@ -168,7 +177,8 @@ const MyPropertiesPage: React.FC = () => {
 
       return parsedProperties.map((property) => ({
         ...property,
-        status: (statusMap.get(property.id) || DEFAULT_PROPERTY_STATUS) as PropertyStatus,
+        status: (statusMap.get(property.id) ||
+          DEFAULT_PROPERTY_STATUS) as PropertyStatus,
       }));
     } catch (err) {
       console.error("Error adding status to properties:", err);
@@ -233,7 +243,7 @@ const MyPropertiesPage: React.FC = () => {
         router.push({
           pathname: "/payments/promote", // Your target route
           params: { propertyId: property.id, propertyTitle: property.title },
-        })
+        }),
     },
     {
       label: "Delete Listing",
@@ -245,10 +255,30 @@ const MyPropertiesPage: React.FC = () => {
     },
   ];
 
-  // Navigate to edit property screen
-  const handleEditProperty = (property: Property) => {
-    navigation.navigate("property/edit/[id]", { id: property.id });
-  };
+  const handleEditProperty = useCallback(
+    (property: Property) => {
+      router.push(`/property/edit/${property.id}`);
+    },
+    [router]
+  );
+
+  const handlePromoteListing = useCallback(
+    (property: Property) => {
+      router.push({
+        pathname: "/payments/promote",
+        params: { propertyId: property.id, propertyTitle: property.title },
+      });
+    },
+    [router]
+  );
+
+  const handleAddProperty = useCallback(() => {
+    router.push("/property/new");
+  }, [router]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+  }, []);
 
   // Update property status
   const updatePropertyStatus = async (
@@ -497,6 +527,30 @@ const MyPropertiesPage: React.FC = () => {
     fetchUserProperties();
   }, [user]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      // Render the custom search bar component in the title area
+      headerTitle: () => (
+        <HeaderSearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onClear={() => setSearchQuery("")}
+        />
+      ),
+      // Render the custom add button on the right
+      headerRight: (props: { tintColor?: string }) => (
+        <HeaderAddButton
+          onPress={handleAddProperty}
+          tintColor={props.tintColor}
+        />
+      ),
+      // Optional: Adjust header style if needed
+      // headerStyle: { backgroundColor: '#FFFFFF' },
+      headerTitleAlign: "left", // Align search bar left if desired
+      // headerBackTitleVisible: false, // Hide back button text if needed
+    });
+  }, [navigation, searchQuery, router]);
+
   const renderProperty = ({ item }: { item: Property }) => {
     const statusDetails = getStatusDetails(item.status as PropertyStatus);
     const displayFeatures = getDisplayFeatures(item);
@@ -650,34 +704,6 @@ const MyPropertiesPage: React.FC = () => {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-green-800 pt-4 pb-4 px-4">
-        <View className="flex-row justify-between items-center">
-          {/* Search Bar */}
-          <View className="flex-row flex-1 items-center bg-white rounded-lg px-3 py-2">
-            <Ionicons name="search-outline" size={20} color="#6B7280" />
-            <TextInput
-              className="flex-1 ml-2 text-gray-800"
-              placeholder="Search properties..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#9CA3AF"
-            />
-            {searchQuery !== "" && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <Ionicons name="close-circle" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Add Property Button */}
-          <TouchableOpacity
-            className="bg-white bg-opacity-20 p-2 rounded-full ml-2"
-            onPress={() => router.push("/property/new")}
-          >
-            <Ionicons name="add" size={24} color="black" />
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* Filter Options */}
       <View className="bg-white px-4 py-3 flex-row justify-between items-center">

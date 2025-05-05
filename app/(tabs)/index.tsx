@@ -1,81 +1,66 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
-  StyleSheet,
-  FlatList,
-  View,
-  RefreshControl,
-  Alert,
-  Text,
-  ActivityIndicator,
-} from "react-native";
-import { Property, PropertyResponseDto, useStore } from "@/store/useStore";
-import { useRouter } from "expo-router";
-import SearchBar from "@/components/SearchBar";
-import PropertyCard from "@/components/PropertyCard";
-import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
-import FilterModal from "@/components/FilterModal";
-import { Colors } from "@/constants/Colors";
-import { useAuthStore } from "@/store/authStore";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Picker } from "@react-native-picker/picker";
-import { useColorScheme } from "react-native";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
-import {
-  API_BASE_URL,
-  PAGE_SIZE,
-  SKELETON_COUNT,
-  QueryParams,
-} from "@/constants/Config"; // Import constants
+  StyleSheet, FlatList, View, RefreshControl, Text, ActivityIndicator
+} from 'react-native';
+import { Property, PropertyResponseDto, useStore } from '@/store/useStore';
+import { useRouter } from 'expo-router';
+import SearchBar from '@/components/SearchBar';
+import PropertyCard from '@/components/PropertyCard';
+import PropertyCardSkeleton from '@/components/PropertyCardSkeleton';
+import FilterModal from '@/components/FilterModal';
+import FeaturedProperties from '@/components/FeaturedProperties';
+import { Colors } from '@/constants/Colors';
+import { useAuthStore } from '@/store/authStore';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Picker } from '@react-native-picker/picker';
+import { useColorScheme } from 'react-native';
+import { PROPERTY_TYPES, PropertyCategory } from '@/constants/propertyTypes';
+import { API_BASE_URL, PAGE_SIZE, SKELETON_COUNT, QueryParams } from '@/constants/Config';
 
-type SortOption =
-  | "created_at.desc" // newest
-  | "created_at.asc" // oldest
-  | "price.asc"
-  | "price.desc";
+type SortOption = 'created_at.desc' | 'created_at.asc' | 'price.asc' | 'price.desc';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlatList<Property>>(null);
 
-  // Local state for UI control and filters/pagination
+  // --- State and Hooks (Keep as is) ---
   const [refreshing, setRefreshing] = useState(false);
-  const [sortOption, setSortOption] = useState<SortOption>("created_at.desc");
-
+  const [sortOption, setSortOption] = useState<SortOption>('created_at.desc');
   const [isInitialFetchDone, setIsInitialFetchDone] = useState(false);
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 0 }); // Keep if filter modal uses it
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
-  const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
-    "all"
-  );
+  const [selectedType, setSelectedType] = useState<PropertyCategory | 'all'>('all');
   const [garages, setGarages] = useState(0);
-  const [parkings, setParkings] = useState(0); // This might need mapping 
-
+  const [parkings, setParkings] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null); 
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  // Get data and setters from Zustand store
   const {
     properties,
+    featuredProperties,
     searchQuery,
-    loading: zustandLoading, // Use Zustand loading for initial/filter load
-    // error: zustandError, // Use localError for fetch issues in this screen
+    loading: zustandLoading,
+    loadingFeatured,
+    errorFeatured,
     setProperties,
     setLoading: setZustandLoading,
-    setError: setZustandError, // Use to set global errors if needed, otherwise use localError
-    toggleSavedProperty, // Keep toggleSavedProperty from store
-    fetchSavedProperties, // Fetch saved properties on mount/refresh
+    setError: setZustandError,
+    toggleSavedProperty,
+    fetchSavedProperties,
+    fetchFeaturedProperties,
   } = useStore();
 
-  const { user } = useAuthStore(); // Get user for potential authenticated actions
+  const { user } = useAuthStore();
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-  // --- Fetching Logic ---
-  const fetchProperties = useCallback(
+  // --- Fetching Logic (Keep as is - backend exclusion is ideal but filtering handles UI) ---
+  const fetchPaginatedProperties = useCallback(
     async (pageNumber: number, isRefresh = false) => {
-      if (!hasMore && pageNumber > 1) return;
+      if (!hasMore && pageNumber > 1 && !isRefresh) return;
       if (pageNumber === 1) {
         setZustandLoading(true);
         setLocalError(null);
@@ -85,8 +70,8 @@ export default function HomeScreen() {
       }
       if (isRefresh) {
         setRefreshing(true);
-        // Fetch saved properties again on refresh
         await fetchSavedProperties();
+        await fetchFeaturedProperties();
       }
 
       try {
@@ -95,74 +80,32 @@ export default function HomeScreen() {
         params.append(QueryParams.PAGE_SIZE, PAGE_SIZE.toString());
         params.append(QueryParams.SORT, sortOption);
 
-        if (searchQuery) {
-          params.append(QueryParams.LOCATION, searchQuery); // Backend uses p_location_pattern
-        }
-        if (selectedType !== "all") {
-          params.append(QueryParams.CATEGORY, selectedType);
-        }
-        if (bedrooms > 0) {
-          // Backend view uses 'effective_bedrooms'
-          params.append(QueryParams.BEDROOMS, bedrooms.toString());
-        }
-        if (bathrooms > 0) {
-          // Backend view uses 'effective_bathrooms'
-          params.append(QueryParams.BATHROOMS, bathrooms.toString());
-        }
-        if (
-          garages > 0 &&
-          (selectedType === "all" || selectedType === "house")
-        ) {
-          // Only relevant for house (or all) - view uses 'house_garages'
-          params.append(QueryParams.GARAGES, garages.toString());
+        if (searchQuery) params.append(QueryParams.LOCATION, searchQuery);
+        if (selectedType !== 'all') params.append(QueryParams.CATEGORY, selectedType);
+        if (bedrooms > 0) params.append(QueryParams.BEDROOMS, bedrooms.toString());
+        if (bathrooms > 0) params.append(QueryParams.BATHROOMS, bathrooms.toString());
+        if (garages > 0 && (selectedType === 'all' || selectedType === 'house')) {
+            params.append(QueryParams.GARAGES, garages.toString());
         }
         if (parkings > 0) {
-          // This needs careful mapping based on DTO/View
-          // Option A: Send specific based on type (if known)
-          if (selectedType === "house") {
-            params.append(QueryParams.HOUSE_PARKINGS, parkings.toString()); // View: house_parkings
-          } else if (
-            selectedType === "apartment" ||
-            selectedType === "commercial"
-          ) {
-            params.append(QueryParams.PARKING_SPACES, parkings.toString()); // View: effective_parking_spaces
-          } else if (selectedType === "all") {
-            // How to handle 'all'? Send both? Let backend decide?
-            // Safest might be to send the most common one or have backend handle 'parkings' param
-            params.append(QueryParams.PARKING_SPACES, parkings.toString()); // Example: Default to apt/comm parking spaces
-          }
+            if (selectedType === 'house') params.append(QueryParams.HOUSE_PARKINGS, parkings.toString());
+            else if (selectedType === 'apartment' || selectedType === 'commercial') params.append(QueryParams.PARKING_SPACES, parkings.toString());
+            else if (selectedType === 'all') params.append(QueryParams.PARKING_SPACES, parkings.toString());
         }
 
-        const response = await fetch(
-          `${API_BASE_URL}/properties?${params.toString()}`
-        );
+        const response = await fetch(`${API_BASE_URL}/properties?${params.toString()}`);
+        if (!response.ok) throw new Error(`Failed to fetch properties (status: ${response.status})`);
 
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch properties (status: ${response.status})`
-          );
-        }
-
-        const data: PropertyResponseDto = await response.json(); // Expecting PropertyResponseDto structure
+        const data: PropertyResponseDto = await response.json();
         const newProperties = data.properties || [];
 
-        const totalFetched =
-          (pageNumber === 1 ? 0 : properties.length) + newProperties.length;
-        setHasMore(totalFetched < data.total);
-        const mergedProperties =
-          pageNumber === 1 || isRefresh
-            ? newProperties
-            : [...properties, ...newProperties];
-
-        // Update Zustand store
-        setProperties(mergedProperties, pageNumber); // Setter now handles 'liked' status
-        setHasMore(mergedProperties.length < data.total);
+        setProperties(newProperties, pageNumber);
+        setHasMore( (pageNumber * PAGE_SIZE) < data.total );
         setPage(pageNumber + 1);
+
       } catch (error: any) {
-        console.error("Error fetching properties:", error);
-        setLocalError(
-          error.message || "Failed to load properties. Please try again."
-        );
+        console.error('Error fetching properties:', error);
+        setLocalError(error.message || 'Failed to load properties. Please try again.');
         setHasMore(false);
       } finally {
         if (pageNumber === 1) {
@@ -177,287 +120,196 @@ export default function HomeScreen() {
       }
     },
     [
-      searchQuery,
-      selectedType,
-      bedrooms,
-      bathrooms,
-      garages,
-      parkings,
-      sortOption,
-      setProperties,
-      setZustandLoading,
-      setZustandError,
-      fetchSavedProperties,
+      featuredProperties,
+      searchQuery, selectedType, bedrooms, bathrooms, garages, parkings, sortOption,
+      hasMore, page, setProperties, setZustandLoading, setZustandError, fetchSavedProperties, fetchFeaturedProperties
     ]
   );
 
-  // Initial fetch and fetch on filter/sort changes (debounced)
   useEffect(() => {
+    fetchFeaturedProperties();
     const debounceTimer = setTimeout(() => {
-      console.log("Filters changed, fetching page 1");
-      setPage(1); // Reset to page 1
-      setHasMore(true); // Assume there might be more data
-      // setProperties([]); // Clear existing properties before new filter fetch
-      fetchProperties(1);
+      console.log('Filters changed, fetching page 1');
+      setPage(1);
+      setHasMore(true);
+      fetchPaginatedProperties(1);
       flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-    }, 500); // 500ms debounce
-
+    }, 500);
     return () => clearTimeout(debounceTimer);
-  }, [
-    searchQuery,
-    selectedType,
-    bedrooms,
-    bathrooms,
-    garages,
-    parkings,
-    sortOption,
-    fetchProperties, // fetchProperties is now stable due to useCallback
-  ]);
+  }, [searchQuery, selectedType, bedrooms, bathrooms, garages, parkings, sortOption, fetchFeaturedProperties]);
 
-  // Fetch saved properties on initial mount
   useEffect(() => {
     fetchSavedProperties();
   }, [fetchSavedProperties]);
 
+  // --- Handlers (Keep as is) ---
   const handleLoadMore = () => {
     if (!isFetchingMore && hasMore && !zustandLoading && !refreshing) {
-      console.log(`Loading more, fetching page ${page}`);
-      fetchProperties(page); // Fetch the next page
+      fetchPaginatedProperties(page);
     }
-
-    if (
-      isFetchingMore ||
-      !hasMore ||
-      zustandLoading ||
-      refreshing ||
-      properties.length === 0
-    ) {
-      return;
-    }
-    fetchProperties(page);
   };
-
   const onRefresh = useCallback(async () => {
-    setPage(1); // Reset page for refresh
-    setHasMore(true); // Reset hasMore
-    await fetchProperties(1, true); // Pass isRefresh = true
-  }, [fetchProperties]); // fetchProperties dependency
-
-  const handlePropertyPress = (propertyId: string) => {
-    router.push(`../property/${propertyId}`); // Adjust path as needed
-  };
-
-  // --- Filter Modal Handlers ---
+    setPage(1);
+    setHasMore(true);
+    await fetchPaginatedProperties(1, true);
+  }, []);
+  const handlePropertyPress = (propertyId: string) => router.push(`../property/${propertyId}`);
   const handleApplyFilters = (filters: any) => {
-    // Update local state based on filters from modal
-    // This will trigger the useEffect to refetch
-    setBedrooms(
-      filters.selectedBedrooms === "Any"
-        ? 0
-        : parseInt(filters.selectedBedrooms)
-    );
-    setBathrooms(
-      filters.selectedBathrooms === "Any"
-        ? 0
-        : parseInt(filters.selectedBathrooms)
-    );
-    setGarages(
-      filters.selectedGarages === "Any" ? 0 : parseInt(filters.selectedGarages)
-    );
-    setParkings(
-      filters.selectedParkings === "Any"
-        ? 0
-        : parseInt(filters.selectedParkings)
-    );
-    setSelectedType(
-      filters.selectedType === "All properties"
-        ? "all"
-        : (filters.selectedType as PropertyCategory)
-    );
-    // Update other filters like priceRange, features, amenities if used
-    // setSelectedFeatures(filters.selectedFeatures);
-    // setSelectedAmenities(filters.selectedAmenities);
+    setBedrooms(filters.selectedBedrooms === 'Any' ? 0 : parseInt(filters.selectedBedrooms));
+    setBathrooms(filters.selectedBathrooms === 'Any' ? 0 : parseInt(filters.selectedBathrooms));
+    setGarages(filters.selectedGarages === 'Any' ? 0 : parseInt(filters.selectedGarages));
+    setParkings(filters.selectedParkings === 'Any' ? 0 : parseInt(filters.selectedParkings));
+    setSelectedType(filters.selectedType === 'All properties' ? 'all' : (filters.selectedType as PropertyCategory));
   };
-
   const handleClearFilters = () => {
-    // Reset local filter state
-    // This will trigger the useEffect to refetch
     setPriceRange({ min: 0, max: 0 });
     setBedrooms(0);
     setBathrooms(0);
-    setSelectedType("all");
+    setSelectedType('all');
     setGarages(0);
     setParkings(0);
-    // setSelectedFeatures("Any");
-    // setSelectedAmenities([]);
-    // setStatusFilter("all");
   };
-
-  // --- Like/Save Handler ---
   const handleLikePress = (propertyId: string) => {
     if (!user) {
-      router.push("/auth/signin"); // Redirect to login if not authenticated
+      router.push('/auth/signin');
       return;
     }
-    toggleSavedProperty(propertyId); // Call the Zustand action
+    toggleSavedProperty(propertyId);
   };
 
-  // --- Render Logic ---
+  const filteredProperties = useMemo(() => {
+    const featuredIds = new Set(featuredProperties.map(p => p.id));
+    return properties.filter(p => !featuredIds.has(p.id));
+  }, [properties, featuredProperties]);
+
+  const renderListHeader = () => {
+    if (loadingFeatured && featuredProperties.length === 0) {
+       return <View style={{ height: 230 }}><ActivityIndicator/></View>;
+    }
+    if (errorFeatured) {
+        return <Text style={styles.errorTextSmall}>Could not load featured items.</Text>;
+    }
+    if (featuredProperties.length > 0) {
+      return <FeaturedProperties properties={featuredProperties} />;
+    }
+    return null;
+  };
+
   const renderContent = () => {
-    if (zustandLoading && page === 1 && !refreshing) {
+    // --- Loading Skeleton for main list ---
+    if (zustandLoading && page === 1 && !refreshing && filteredProperties.length === 0) {
       return (
         <FlatList
           data={Array(SKELETON_COUNT).fill(null)}
           renderItem={() => <PropertyCardSkeleton />}
           keyExtractor={(_, index) => `skeleton-${index}`}
-          contentContainerClassName="p-4" // Use className if using 
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderListHeader}
         />
       );
     }
 
-    // Show error message if fetch failed and no properties are loaded
-    if (localError && properties.length === 0) {
-      return <Text style={styles.errorText}>Error: {localError}</Text>;
+    // --- Error State for main list ---
+    if (localError && filteredProperties.length === 0) {
+      return (
+        <View style={{flex: 1}}>
+          {renderListHeader()}
+          <Text style={styles.errorText}>Error: {localError}</Text>
+        </View>
+      );
     }
 
-    // Show "No properties found" only if not loading, no error, and properties array is empty
-    if (!zustandLoading && properties.length === 0 && !localError && isInitialFetchDone) {
-      return <Text style={styles.infoText}>No properties found.</Text>;
+    // --- Empty State for main list ---
+    if (!zustandLoading && filteredProperties.length === 0 && !localError && isInitialFetchDone) {
+       return (
+         <View style={{flex: 1}}>
+           {renderListHeader()}
+           <Text style={styles.infoText}>No properties found matching your criteria.</Text>
+         </View>
+       );
     }
 
-    // Render the list of properties
+    // --- FlatList Rendering ---
     return (
       <FlatList
         ref={flatListRef}
-        data={properties}
+        data={filteredProperties} // *** Use the filtered list here ***
+        ListHeaderComponent={renderListHeader}
         renderItem={({ item }) => (
           <PropertyCard
             property={item}
             onPress={() => handlePropertyPress(item.id)}
             onLike={() => handleLikePress(item.id)}
-            // Pass the 'liked' status from the property object
-            isLiked={item.liked}
+            isLiked={item.liked ?? false}
           />
         )}
         keyExtractor={(item) => item.id}
         onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5} // Adjust threshold as needed
+        onEndReachedThreshold={0.5}
         ListFooterComponent={
           isFetchingMore ? (
             <ActivityIndicator size="large" style={{ marginVertical: 20 }} />
-          ) : null // Show loading indicator at the bottom
+          ) : null
         }
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.light.tint]} // Adjust colors as needed
-            tintColor={Colors.light.tint}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerClassName="p-4" // Use className if using Nativewind
-        // contentContainerStyle={styles.listContent} // Use StyleSheet otherwise
+        contentContainerStyle={styles.listContent}
       />
     );
   };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* Use StyleSheet */}
-      {/* <GestureHandlerRootView style={styles.flexContainer}> */}
-        {/* <View style={styles.flexContainer}> */}
-        <View style={{ flex: 1 }}>
-          {/* Use className */}
-          <View className="flex-row p-4 pb-3 gap-2 mt-4 items-center">
-            {/* Use StyleSheet */}
-            {/* <View style={styles.headerContainer}> */}
-            <SearchBar
-              value={searchQuery}
-              onChangeText={useStore((s) => s.setSearchQuery)} // Directly use setter
-              placeholder="Search location..." // Changed placeholder
-            />
-            <FilterModal
-              onApply={handleApplyFilters}
-              onClear={handleClearFilters}
-              // Pass initial filter values if needed
-            />
-          </View>
-
-          {/* Use className */}
-          <View className="px-2 pb-1">
-            {/* Use StyleSheet */}
-            {/* <View style={styles.pickerContainer}> */}
-            <Picker
-              selectedValue={sortOption}
-              onValueChange={(itemValue) => {
-                setSortOption(itemValue as SortOption);
-              }}
-              mode="dialog"
-              dropdownIconColor={colorScheme === "dark" ? "#cbd5e1" : "#374151"}
-              style={[
-                styles.picker,
-                {
-                  backgroundColor: colorScheme === "dark" ? "#1e293b" : "#fff",
-                  borderColor: colorScheme === "dark" ? "#334155" : "#e5e7eb",
-                  color: colorScheme === "dark" ? "#cbd5e1" : "#1f2937",
-                },
-              ]}
-            >
-              <Picker.Item label="Newest" value="created_at.desc" />
-              <Picker.Item label="Oldest" value="created_at.asc" />
-              <Picker.Item label="Price: Low to High" value="price.asc" />
-              <Picker.Item label="Price: High to Low" value="price.desc" />
-            </Picker>
-          </View>
-
-          {renderContent()}
+      <View style={{ flex: 1 }}>
+        <View style={styles.headerContainer}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={useStore((s) => s.setSearchQuery)}
+            placeholder="Search location..."
+          />
+          <FilterModal
+            onApply={handleApplyFilters}
+            onClear={handleClearFilters}
+          />
         </View>
+
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={sortOption}
+            onValueChange={(itemValue) => setSortOption(itemValue as SortOption)}
+            mode="dialog"
+            dropdownIconColor={isDark ? '#cbd5e1' : '#374151'}
+            style={[
+              styles.picker,
+              {
+                backgroundColor: isDark ? '#1e293b' : '#fff',
+                borderColor: isDark ? '#334155' : '#e5e7eb',
+                color: isDark ? '#cbd5e1' : '#1f2937',
+              },
+            ]}
+          >
+            <Picker.Item label="Newest" value="created_at.desc" />
+            <Picker.Item label="Oldest" value="created_at.asc" />
+            <Picker.Item label="Price: Low to High" value="price.asc" />
+            <Picker.Item label="Price: High to Low" value="price.desc" />
+          </Picker>
+        </View>
+
+        {renderContent()}
+      </View>
     </GestureHandlerRootView>
   );
 }
 
+// --- Styles (Keep as is) ---
 const styles = StyleSheet.create({
-  flexContainer: {
-    flex: 1,
-  },
-  headerContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    paddingBottom: 3, // Match original style
-    gap: 8, // Match original style
-    marginTop: 16, // Match original style
-    alignItems: "center",
-  },
-  pickerContainer: {
-    paddingHorizontal: 8, // Match original style px-2
-    paddingBottom: 4, // Match original style pb-1
-    // Add border or background if needed for Picker styling
-  },
-  picker: {
-    height: 50,
-    width: "100%",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  errorText: {
-    textAlign: "center",
-    marginTop: 20,
-    color: "red",
-    fontSize: 16,
-    paddingHorizontal: 16,
-  },
-  infoText: {
-    textAlign: "center",
-    marginTop: 20,
-    // color: Colors.light.background, // Use your theme color
-    color: "#666", // Example color
-    fontSize: 16,
-    paddingHorizontal: 16,
-  },
-  listContent: {
-    padding: 16, // Example padding (p-4 equivalent)
-  },
+  flexContainer: { flex: 1 },
+  headerContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 3, gap: 8, marginTop: 16, alignItems: 'center' },
+  pickerContainer: { paddingHorizontal: 8, paddingBottom: 4 },
+  picker: { height: 50, width: '100%', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12 },
+  errorText: { textAlign: 'center', marginTop: 40, color: 'red', fontSize: 16, paddingHorizontal: 16 },
+  errorTextSmall: { textAlign: 'center', marginVertical: 20, color: 'orange', fontSize: 14, paddingHorizontal: 16 },
+  infoText: { textAlign: 'center', marginTop: 40, color: '#666', fontSize: 16, paddingHorizontal: 16 },
+  listContent: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 16 },
 });
-
