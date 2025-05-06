@@ -27,8 +27,7 @@ import { useAuthStore } from "@/store/authStore";
 import { supabase } from "@/supabaseClient";
 // import { useNavigation } from "@react-navigation/native";
 import { useRouter, useNavigation } from "expo-router";
-import HeaderAddButton from "@/components/HeaderAddButton";
-import HeaderSearchBar from "@/components/HeaderSearchBar";
+import MyPropertiesHeader from "@/components/MyPropertiesHeader";
 
 import {
   PropertyStatus,
@@ -268,6 +267,10 @@ const MyPropertiesPage: React.FC = () => {
     setSearchQuery("");
   }, []);
 
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+  }, []);
+
   // Update property status
   const updatePropertyStatus = async (
     id: string,
@@ -422,47 +425,23 @@ const MyPropertiesPage: React.FC = () => {
     fetchUserProperties();
   }, [user]);
 
+
   useLayoutEffect(() => {
-    const handleAddPress = () => {
-      console.log('Add button pressed in layout effect');
-      router.push('/property/new');
-    };
-  
-    const handleSearchChange = (text: string) => {
-      console.log('Search changed in layout effect:', text);
-      setSearchQuery(text);
-    };
-  
-    const handleSearchClear = () => {
-      console.log('Search cleared in layout effect');
-      setSearchQuery('');
-    };
-  
     navigation.setOptions({
-      headerTitle: () => (
-        <View style={{ flex: 1, marginRight: 16 }}>
-          <HeaderSearchBar
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            onClear={handleSearchClear}
-          />
-        </View>
+      headerShown: true, // Ensure the header area is visible
+      header: () => ( // props from react-navigation like navigation, route, options
+        <MyPropertiesHeader
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          onSearchClear={handleClearSearch}
+          searchPlaceholder="Search my properties..."
+          onAddPress={handleAddProperty}
+          addTintColor="#4F46E5"
+          // backButtonTintColor="#FF0000" // Optional: if you want a custom back button color
+        />
       ),
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={handleAddPress}
-          style={{ marginRight: 16 }}
-          testID="header-right-button"
-        >
-          <HeaderAddButton onPress={handleAddPress} tintColor="#4F46E5" />
-        </TouchableOpacity>
-      ),
-      headerTitleAlign: 'left',
-      headerStyle: {
-        height: 60,
-      },
     });
-  }, [navigation, searchQuery, router]);
+  }, [navigation, searchQuery, router, handleAddProperty, handleClearSearch, handleSearchChange]);
   
   
 
