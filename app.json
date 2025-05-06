@@ -20,7 +20,7 @@
         "ACCESS_COARSE_LOCATION"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.chimwemwe_m.kwena_homes_mobile",
@@ -51,7 +51,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow app to use your location."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
