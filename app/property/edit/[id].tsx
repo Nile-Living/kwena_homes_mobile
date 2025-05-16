@@ -11,14 +11,14 @@ import {
   Alert,
   Switch,
 } from "react-native";
-import { supabase } from "@/supabaseClient";
-import { useAuthStore } from "@/store/authStore";
+import { supabase } from "@/supabaseClient"; // Adjust path
+import { useAuthStore } from "@/store/authStore"; // Adjust path
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
-import { uploadImageToSupabase } from "@/hooks/imageHelpers";
 import { Picker } from "@react-native-picker/picker";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes"; // Adjust path
+import { API_BASE_URL } from "@/constants/Config"; // Adjust path
 
 interface FormData {
   title: string;
@@ -30,8 +30,6 @@ interface FormData {
   category: PropertyCategory;
   amenities: string[];
   security_features?: string[];
-  
-  // Dynamic fields
   bedrooms?: string;
   bathrooms?: string;
   garages?: string;
@@ -51,6 +49,7 @@ interface FormData {
 export default function EditPropertyScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const propertyId = Array.isArray(id) ? id[0] : id;
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<FormData>({
@@ -66,70 +65,61 @@ export default function EditPropertyScreen() {
   });
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<string[]>([]);
+  const [imagesToDeletePublicIds, setImagesToDeletePublicIds] = useState<string[]>([]);
+
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
   const availableAmenities = currentCategoryDetails?.amenities || [];
 
   useEffect(() => {
     const fetchProperty = async () => {
-      if (!user) {
-        Alert.alert("Error", "User not authenticated");
+      if (!user || !propertyId) {
+        Alert.alert("Error", "User not authenticated or Property ID missing");
         router.back();
         return;
       }
       
       try {
         setLoading(true);
-        
-        // Fetch base property
-        const { data: propertyData, error: propertyError } = await supabase
-          .from("properties")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (propertyError) throw propertyError;
-
-        // Fetch details based on category
-        const detailTable = `property_details_${propertyData.category}`;
-        const { data: detailData, error: detailError } = await supabase
-          .from(detailTable)
-          .select("*")
-          .eq("property_id", id)
-          .single();
-
-        if (detailError && propertyData.category !== 'land') throw detailError;
-
-        // Combine data
-        setFormData({
-          title: propertyData.title,
-          price: propertyData.price?.toString() ?? "",
-          location: propertyData.location,
-          description: propertyData.description || "",
-          propertyType: propertyData.property_type,
-          coordinates: propertyData.coordinates || { latitude: -15.3875, longitude: 28.3228 },
-          category: propertyData.category,
-          amenities: detailData?.amenities || [],
-          security_features: detailData?.security_features || [],
-          bedrooms: detailData?.bedrooms?.toString() ?? "",
-          bathrooms: detailData?.bathrooms?.toString() ?? "",
-          garages: detailData?.garages?.toString() ?? "",
-          parkings: detailData?.parkings?.toString() ?? "",
-          size_sqm: detailData?.size_sqm?.toString() ?? "",
-          legal_status: detailData?.legal_status ?? "",
-          intended_use: detailData?.intended_use ?? "",
-          road_access: detailData?.road_access ?? false,
-          water_supply: detailData?.water_supply ?? "",
-          electricity_available: detailData?.electricity_available ?? false,
-          fenced: detailData?.fenced ?? false,
-          square_meters: detailData?.square_meters?.toString() ?? "",
-          parking_spaces: detailData?.parking_spaces?.toString() ?? "",
-          commercial_property_type: detailData?.property_type ?? "",
+        const token = useAuthStore.getState().session?.access_token;
+        const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
+            headers: { Authorization: `Bearer ${token}` },
         });
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch property: ${response.status} ${errorText}`);
+        }
+        const propertyData = await response.json();
+
+        setFormData({
+          title: propertyData.title || "",
+          price: propertyData.price?.toString() ?? "",
+          location: propertyData.location || "",
+          description: propertyData.description || "",
+          propertyType: propertyData.property_type || "rent",
+          coordinates: propertyData.coordinates || { latitude: -15.3875, longitude: 28.3228 },
+          category: propertyData.category || "house",
+          amenities: propertyData.details?.amenities || [],
+          security_features: propertyData.details?.security_features || [],
+          bedrooms: propertyData.details?.bedrooms?.toString() ?? "",
+          bathrooms: propertyData.details?.bathrooms?.toString() ?? "",
+          garages: propertyData.details?.garages?.toString() ?? "",
+          parkings: propertyData.details?.parkings?.toString() ?? "",
+          size_sqm: propertyData.details?.size_sqm?.toString() ?? "",
+          legal_status: propertyData.details?.legal_status ?? "",
+          intended_use: propertyData.details?.intended_use ?? "",
+          road_access: propertyData.details?.road_access ?? false,
+          water_supply: propertyData.details?.water_supply ?? "",
+          electricity_available: propertyData.details?.electricity_available ?? false,
+          fenced: propertyData.details?.fenced ?? false,
+          square_meters: propertyData.details?.square_meters?.toString() ?? "",
+          parking_spaces: propertyData.details?.parking_spaces?.toString() ?? "",
+          commercial_property_type: propertyData.details?.property_type ?? "",
+        });
         setExistingImages(propertyData.images || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Fetch error:", error);
-        Alert.alert("Error", "Failed to load property details");
+        Alert.alert("Error", `Failed to load property details: ${error.message}`);
         router.back();
       } finally {
         setLoading(false);
@@ -137,28 +127,25 @@ export default function EditPropertyScreen() {
     };
 
     fetchProperty();
-  }, [id]);
+  }, [propertyId, user, router]);
 
   const pickImage = async () => {
     if (newImages.length + existingImages.length >= 5) {
       Alert.alert("Limit Reached", "Maximum 5 images allowed");
       return;
     }
-
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permission Required", "Please grant permission to access photos");
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
       });
-
       if (!result.canceled && result.assets?.[0]?.uri) {
         setNewImages([...newImages, result.assets[0].uri]);
       }
@@ -172,19 +159,14 @@ export default function EditPropertyScreen() {
     if (isNew) {
       setNewImages(newImages.filter((_, i) => i !== index));
     } else {
-      setExistingImages(existingImages.filter((_, i) => i !== index));
-    }
-  };
+      const imageToRemoveUrl = existingImages[index];
+      const publicIdMatch = imageToRemoveUrl.match(/upload\/(?:v\d+\/)?([^\.]+)/);
+      const publicId = publicIdMatch ? publicIdMatch[1] : null;
 
-  const deleteImageFromStorage = async (imageUrl: string) => {
-    try {
-      const path = imageUrl.split('/').slice(-2).join('/');
-      const { error } = await supabase.storage
-        .from('property-images')
-        .remove([path]);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error deleting image from storage:', error);
+      if (publicId && !imagesToDeletePublicIds.includes(publicId)) {
+        setImagesToDeletePublicIds([...imagesToDeletePublicIds, publicId]);
+      }
+      setExistingImages(existingImages.filter((_, i) => i !== index));
     }
   };
 
@@ -204,27 +186,18 @@ export default function EditPropertyScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user) {
-      Alert.alert("Authentication Error", "You must be logged in");
+    if (!user || !propertyId) {
+      Alert.alert("Authentication Error", "You must be logged in or Property ID is missing");
       return;
     }
 
-    // Validation
     const validationErrors = [];
     if (!formData.title) validationErrors.push("Title");
     if (!formData.price) validationErrors.push("Price");
     if (!formData.location) validationErrors.push("Location");
     if (!formData.description) validationErrors.push("Description");
-    if (currentCategoryDetails?.hasBedBath) {
-      if (!formData.bedrooms) validationErrors.push("Bedrooms");
-      if (!formData.bathrooms) validationErrors.push("Bathrooms");
-    }
-    if (currentCategoryDetails?.hasLandDetails) {
-      if (!formData.size_sqm) validationErrors.push("Land Size (sqm)");
-      if (!formData.legal_status) validationErrors.push("Legal Status");
-      if (!formData.intended_use) validationErrors.push("Intended Use");
-      if (!formData.water_supply) validationErrors.push("Water Supply");
-    }
+    if (currentCategoryDetails?.hasBedBath) { if (!formData.bedrooms) validationErrors.push("Bedrooms"); if (!formData.bathrooms) validationErrors.push("Bathrooms"); }
+    if (currentCategoryDetails?.hasLandDetails) { if (!formData.size_sqm) validationErrors.push("Land Size (sqm)"); if (!formData.legal_status) validationErrors.push("Legal Status"); if (!formData.intended_use) validationErrors.push("Intended Use"); if (!formData.water_supply) validationErrors.push("Water Supply"); }
     if (currentCategoryDetails?.hasSquareMeters && !formData.square_meters) validationErrors.push("Square Meters");
     if (currentCategoryDetails?.hasCommercialDetails && !formData.commercial_property_type) validationErrors.push("Commercial Property Type");
     if (existingImages.length + newImages.length === 0) validationErrors.push("at least one Image");
@@ -234,127 +207,71 @@ export default function EditPropertyScreen() {
       return;
     }
 
+    setLoading(true);
+    const data = new FormData();
+
+    data.append('title', formData.title);
+    data.append('price', formData.price);
+    data.append('location', formData.location);
+    data.append('description', formData.description);
+    data.append('propertyType', formData.propertyType);
+    data.append('category', formData.category);
+    data.append('coordinates', JSON.stringify(formData.coordinates));
+
+    let detailsUpdate: any = {};
+    switch (formData.category) {
+      case 'house': detailsUpdate = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case 'apartment': detailsUpdate = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
+      case 'land': detailsUpdate = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
+      case 'commercial': detailsUpdate = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+    }
+    Object.keys(detailsUpdate).forEach(key => { if (detailsUpdate[key] == null || detailsUpdate[key] === '' || (Array.isArray(detailsUpdate[key]) && detailsUpdate[key].length === 0)) { delete detailsUpdate[key]; }});
+    if (Object.keys(detailsUpdate).length > 0) {
+        data.append('details', JSON.stringify(detailsUpdate));
+    }
+
+    newImages.forEach((uri, index) => {
+      const filename = uri.split('/').pop() || `new-image-${index}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      data.append('newImages', {
+        uri: uri,
+        name: filename,
+        type: type,
+      } as any);
+    });
+
+    data.append('existingImageUrls', JSON.stringify(existingImages));
+    data.append('deletedImagePublicIds', JSON.stringify(imagesToDeletePublicIds));
+
     try {
-      setLoading(true);
+      const token = useAuthStore.getState().session?.access_token;
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: data,
+      });
 
-      // Upload new images
-      const uploadedImages = await Promise.all(
-        newImages.map(async (uri, index) => {
-          try {
-            return await uploadImageToSupabase(
-              supabase,
-              uri,
-              user.id,
-              Date.now() + index,
-              'property-images'
-            );
-          } catch (error) {
-            console.error("Image upload failed:", error);
-            return null;
-          }
-        })
-      );
-
-      // Filter out failed uploads
-      const successfulUploads = uploadedImages.filter(url => url !== null) as string[];
-      
-      // Combine existing and new images
-      const allImages = [...existingImages, ...successfulUploads];
-      const removedImages = existingImages.filter(img => !allImages.includes(img));
-      await Promise.all(removedImages.map(deleteImageFromStorage));
-
-      if (allImages.length === 0) {
-        Alert.alert("Error", "At least one image is required");
-        return;
+      if (!response.ok) {
+        let errorMsg = `HTTP error! Status: ${response.status}`;
+        try { const ed = await response.json(); errorMsg = ed.message || JSON.stringify(ed) || errorMsg; } catch(e){}
+        throw new Error(`Failed to update property: ${errorMsg}`);
       }
-
-      // Prepare base update
-      const baseUpdate = {
-        title: formData.title,
-        price: parseFloat(formData.price),
-        location: formData.location,
-        description: formData.description,
-        property_type: formData.propertyType,
-        coordinates: formData.coordinates,
-        images: allImages,
-        category: formData.category
-      };
-
-      // Prepare details update
-      let detailsUpdate: any = {};
-      switch (formData.category) {
-        case 'house':
-          detailsUpdate = {
-            bedrooms: parseInt(formData.bedrooms || "0"),
-            bathrooms: parseInt(formData.bathrooms || "0"),
-            garages: parseInt(formData.garages || "0"),
-            parkings: parseInt(formData.parkings || "0"),
-            amenities: formData.amenities,
-            security_features: formData.security_features
-          };
-          break;
-        case 'land':
-          detailsUpdate = {
-            size_sqm: parseFloat(formData.size_sqm || "0"),
-            legal_status: formData.legal_status,
-            intended_use: formData.intended_use,
-            road_access: formData.road_access,
-            water_supply: formData.water_supply,
-            electricity_available: formData.electricity_available,
-            fenced: formData.fenced
-          };
-          break;
-        case 'apartment':
-          detailsUpdate = {
-            bedrooms: parseInt(formData.bedrooms || "0"),
-            bathrooms: parseInt(formData.bathrooms || "0"),
-            square_meters: parseFloat(formData.square_meters || "0"),
-            parking_spaces: parseInt(formData.parking_spaces || "0"),
-            amenities: formData.amenities,
-            security_features: formData.security_features
-          };
-          break;
-        case 'commercial':
-          detailsUpdate = {
-            property_type: formData.commercial_property_type,
-            square_meters: parseFloat(formData.square_meters || "0"),
-            parking_spaces: parseInt(formData.parking_spaces || "0"),
-            amenities: formData.amenities,
-            security_features: formData.security_features
-          };
-          break;
-      }
-
-      // Update base property
-      const { error: baseError } = await supabase
-        .from("properties")
-        .update(baseUpdate)
-        .eq("id", id)
-        .eq("user_id", user.id);
-
-      if (baseError) throw baseError;
-
-      // Update details
-      const detailTable = `property_details_${formData.category}`;
-      const { error: detailError } = await supabase
-        .from(detailTable)
-        .update(detailsUpdate)
-        .eq("property_id", id);
-
-      if (detailError) throw detailError;
 
       Alert.alert("Success", "Property updated successfully!", [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update error:", error);
-      Alert.alert("Error", "Failed to update property. Please try again.");
+      Alert.alert("Error", `Failed to update property. ${error.message || "Please try again."}`);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
+  if (loading && !formData.title) { // Show full screen loader only on initial load
     return (
       <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color="#4F46E5" />
@@ -372,7 +289,6 @@ export default function EditPropertyScreen() {
         <Text className="text-gray-500">Update your property details below</Text>
       </View>
 
-      {/* Image Upload Section */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Images (Max 5)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
@@ -410,7 +326,6 @@ export default function EditPropertyScreen() {
         </ScrollView>
       </View>
 
-      {/* Category Selection */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Category *</Text>
         <View className="border border-gray-300 rounded-lg bg-gray-50">
@@ -426,7 +341,6 @@ export default function EditPropertyScreen() {
         </View>
       </View>
 
-      {/* Property Type (Rent/Sale) */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Listing Type *</Text>
         <View className="flex-row space-x-3">
@@ -449,10 +363,8 @@ export default function EditPropertyScreen() {
         </View>
       </View>
 
-      {/* Property Details */}
       <Text className="text-lg font-semibold mb-3 mt-2">Property Details</Text>
 
-      {/* Base Fields */}
       <View className="mb-4">
         <Text className="text-sm text-gray-600 mb-1">Title *</Text>
         <TextInput
@@ -482,7 +394,6 @@ export default function EditPropertyScreen() {
         />
       </View>
 
-      {/* Bedrooms/Bathrooms */}
       {currentCategoryDetails?.hasBedBath && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -508,7 +419,6 @@ export default function EditPropertyScreen() {
         </View>
       )}
 
-      {/* Garages/House Parkings */}
       {currentCategoryDetails?.hasGaragesParkings && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -534,7 +444,6 @@ export default function EditPropertyScreen() {
         </View>
       )}
 
-      {/* Square Meters & Parking Spaces */}
       {currentCategoryDetails?.hasSquareMeters && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -560,7 +469,6 @@ export default function EditPropertyScreen() {
         </View>
       )}
 
-      {/* Land Details */}
       {currentCategoryDetails?.hasLandDetails && (
         <View className="mb-4">
           <Text className="text-base font-medium mb-3">Land Specifics</Text>
@@ -625,7 +533,6 @@ export default function EditPropertyScreen() {
         </View>
       )}
 
-      {/* Commercial Details */}
       {currentCategoryDetails?.hasCommercialDetails && (
         <View className="mb-4">
           <Text className="text-base font-medium mb-3">Commercial Specifics</Text>
@@ -639,7 +546,6 @@ export default function EditPropertyScreen() {
         </View>
       )}
 
-      {/* Amenities */}
       {availableAmenities.length > 0 && (
         <View className="mb-6">
           <Text className="text-base font-medium mb-2">Amenities</Text>
@@ -672,7 +578,6 @@ export default function EditPropertyScreen() {
         </View>
       )}
 
-      {/* Description */}
       <View className="mb-6">
         <Text className="text-sm text-gray-600 mb-1">Description *</Text>
         <TextInput
@@ -686,7 +591,6 @@ export default function EditPropertyScreen() {
         />
       </View>
 
-      {/* Map Section */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Location *</Text>
         <Text className="text-sm text-gray-500 mb-2">
@@ -701,7 +605,14 @@ export default function EditPropertyScreen() {
               latitudeDelta: 0.0922,
               longitudeDelta: 0.0421,
             }}
+            region={formData.coordinates.latitude !== -15.3875 ? { // Only set region if coordinates are valid
+                latitude: formData.coordinates.latitude,
+                longitude: formData.coordinates.longitude,
+                latitudeDelta: 0.02, // Zoom in a bit more
+                longitudeDelta: 0.01,
+            } : undefined}
             onPress={handleMapPress}
+            provider="google"
           >
             <Marker
               coordinate={formData.coordinates}
@@ -721,7 +632,6 @@ export default function EditPropertyScreen() {
         </View>
       </View>
 
-      {/* Submit Button */}
       <View className="my-6">
         <TouchableOpacity
           onPress={handleSubmit}

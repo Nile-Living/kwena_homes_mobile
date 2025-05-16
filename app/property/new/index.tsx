@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,26 +8,17 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  StyleSheet, // Import StyleSheet if you use it
-  Switch, // Import Switch
+  Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { supabase } from "@/supabaseClient";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore"; // Adjust path as needed
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
-import * as FileSystem from "expo-file-system";
-import {
-  PROPERTY_TYPES,
-  PropertyCategory,
-  getAllAmenities, // Import helper if needed for general amenities list
-} from "@/constants/propertyTypes"; // Import constants
-import { API_BASE_URL } from "@/constants/Config";
-import { uploadImageToSupabase } from "@/hooks/imageHelpers"; // Assuming this helper exists
-import { Picker } from "@react-native-picker/picker"; // Import Picker
+import { Picker } from "@react-native-picker/picker";
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes"; // Adjust path
+import { API_BASE_URL } from "@/constants/Config"; // Adjust path
 
-// Interface for form data - should align with CreatePropertyDto structure
 interface FormData {
   title: string;
   price: string;
@@ -38,66 +29,61 @@ interface FormData {
     latitude: number;
     longitude: number;
   };
-  category: PropertyCategory; // Now strongly typed
+  category: PropertyCategory;
   amenities: string[];
-  security_features?: string[]; // Optional base field? Or move to details?
-
-  // Detail fields - only relevant ones will be filled based on category
+  security_features?: string[];
   bedrooms?: string;
   bathrooms?: string;
   garages?: string;
-  parkings?: string; // For house
-  size_sqm?: string; // For land
+  parkings?: string;
+  size_sqm?: string;
   legal_status?: string;
   intended_use?: string;
-  road_access?: boolean; // Use boolean state if possible, or handle conversion
+  road_access?: boolean;
   water_supply?: string;
   electricity_available?: boolean;
   fenced?: boolean;
-  square_meters?: string; // For apt/comm
-  parking_spaces?: string; // For apt/comm
-  commercial_property_type?: string; // For comm
+  square_meters?: string;
+  parking_spaces?: string;
+  commercial_property_type?: string;
 }
 
 export default function AddPropertyScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>([]); // Local URIs from picker
   const mapRef = useRef<MapView>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formData, setFormData] = useState<FormData>({
     title: "",
     price: "",
     location: "",
-    bedrooms: "",
-    bathrooms: "",
     description: "",
     propertyType: "rent",
     coordinates: { latitude: -15.3875, longitude: 28.3228 },
-    category: "house", // Default category
+    category: "house",
     amenities: [],
+    security_features: [],
+    bedrooms: "",
+    bathrooms: "",
     garages: "",
-    parkings: "", // House parkings
-    size_sqm: "", // Land size
+    parkings: "",
+    size_sqm: "",
     legal_status: "",
     intended_use: "",
     road_access: false,
     water_supply: "",
     electricity_available: false,
     fenced: false,
-    square_meters: "", // Apt/Comm size
-    parking_spaces: "", // Apt/Comm parkings
+    square_meters: "",
+    parking_spaces: "",
     commercial_property_type: "",
-    security_features: [],
   });
 
-  // Get details for the currently selected category
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
   const availableAmenities = currentCategoryDetails?.amenities || [];
 
-  // --- Image Picker Logic ---
   const pickImage = async () => {
     if (images.length >= 5) { Alert.alert("Limit Reached", "Maximum 5 images allowed"); return; }
     try {
@@ -109,101 +95,98 @@ export default function AddPropertyScreen() {
   };
   const removeImage = (index: number) => { setImages(images.filter((_, i) => i !== index)); };
 
-  // --- Map Press Logic ---
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent;
     setFormData((prev) => ({ ...prev, coordinates: { latitude: coordinate.latitude, longitude: coordinate.longitude } }));
-    // Animate map to the selected coordinate
     mapRef.current?.animateToRegion({ ...coordinate, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
   };
 
-  // --- Form Update Logic ---
   const updateFormField = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // --- Submission Logic ---
   const handleSubmit = async () => {
     if (!user) { Alert.alert("Authentication Error", "You must be logged in to list a property"); return; }
 
-    // --- Validation ---
     const validationErrors = [];
     if (!formData.title) validationErrors.push("Title");
     if (!formData.price) validationErrors.push("Price");
     if (!formData.location) validationErrors.push("Location");
     if (!formData.description) validationErrors.push("Description");
     if (currentCategoryDetails?.hasBedBath) { if (!formData.bedrooms) validationErrors.push("Bedrooms"); if (!formData.bathrooms) validationErrors.push("Bathrooms"); }
-    if (currentCategoryDetails?.hasGaragesParkings) { /* Add validation if needed */ }
     if (currentCategoryDetails?.hasLandDetails) { if (!formData.size_sqm) validationErrors.push("Land Size (sqm)"); if (!formData.legal_status) validationErrors.push("Legal Status"); if (!formData.intended_use) validationErrors.push("Intended Use"); if (!formData.water_supply) validationErrors.push("Water Supply"); }
-    if (currentCategoryDetails?.hasSquareMeters) { if (!formData.square_meters) validationErrors.push("Square Meters"); }
-    if (currentCategoryDetails?.hasCommercialDetails) { if (!formData.commercial_property_type) validationErrors.push("Commercial Property Type"); }
+    if (currentCategoryDetails?.hasSquareMeters && !formData.square_meters) validationErrors.push("Square Meters");
+    if (currentCategoryDetails?.hasCommercialDetails && !formData.commercial_property_type) validationErrors.push("Commercial Property Type");
     if (images.length === 0) validationErrors.push("at least one Image");
 
     if (validationErrors.length > 0) { Alert.alert("Missing Information", `Please fill in: ${validationErrors.join(", ")}`); return; }
 
-    setLoading(true); setUploadProgress(0);
-    const uploadedImageUrls: string[] = []; const failedUploads: number[] = [];
+    setLoading(true);
 
-    // --- Step 1: Upload Images ---
-    try { /* ... (Alert upload started) ... */
-      for (let i = 0; i < images.length; i++) { /* ... (setUploadProgress, try/catch uploadImageToSupabase) ... */
-         try {
-            const imageUrl = await uploadImageToSupabase(supabase, images[i], user.id, i, "property-images", 3);
-            if (imageUrl) { uploadedImageUrls.push(imageUrl); } else { throw new Error("Upload helper returned no URL"); }
-         } catch (uploadError) { console.error(`Error uploading image ${i + 1}:`, uploadError); failedUploads.push(i + 1); }
+    const data = new FormData();
+
+    data.append('title', formData.title);
+    data.append('price', formData.price);
+    data.append('location', formData.location);
+    data.append('description', formData.description);
+    data.append('propertyType', formData.propertyType);
+    data.append('category', formData.category);
+    data.append('coordinates', JSON.stringify(formData.coordinates));
+    data.append('user_id', user.id);
+
+    let detailsPayload: any = {};
+    switch (formData.category) {
+      case 'house': detailsPayload = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case 'apartment': detailsPayload = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
+      case 'land': detailsPayload = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
+      case 'commercial': detailsPayload = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+    }
+    Object.keys(detailsPayload).forEach(key => { if (detailsPayload[key] == null || detailsPayload[key] === '' || (Array.isArray(detailsPayload[key]) && detailsPayload[key].length === 0)) { delete detailsPayload[key]; }});
+    if (Object.keys(detailsPayload).length > 0) {
+        data.append('details', JSON.stringify(detailsPayload));
+    }
+
+    images.forEach((uri, index) => {
+      const filename = uri.split('/').pop() || `image-${index}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      data.append('images', {
+        uri: uri,
+        name: filename,
+        type: type,
+      } as any);
+    });
+
+    try {
+      const token = useAuthStore.getState().session?.access_token;
+      const response = await fetch(`${API_BASE_URL}/properties`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: data,
+      });
+
+      if (!response.ok) {
+        let errorMsg = `HTTP error! Status: ${response.status}`;
+        try { const ed = await response.json(); errorMsg = ed.message || JSON.stringify(ed) || errorMsg; } catch(e){}
+        throw new Error(`Failed to create property: ${errorMsg}`);
       }
-      /* ... (Handle Upload Failures/Partial Upload Alert) ... */
-      if (uploadedImageUrls.length === 0) throw new Error("Failed to upload any images.");
-      if (failedUploads.length > 0) {
-        /* Partial Upload Alert logic */
-        const userConfirmed = await new Promise<boolean>((resolve) => {
-          Alert.alert(
-            "Partial Upload",
-            `Some images failed to upload. Do you want to proceed with the successfully uploaded images?`,
-            [
-              { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
-              { text: "Proceed", onPress: () => resolve(true) },
-            ]
-          );
-        });
-        if (!userConfirmed) {
-          setLoading(false);
-          setUploadProgress(0);
-          return;
-        }
-      }
-      setUploadProgress(100);
-
-      // --- Step 2: Prepare Payload ---
-      let detailsPayload: any = {};
-      switch (formData.category) { /* ... (Populate detailsPayload based on formData.category and relevant formData fields) ... */
-        case 'house': detailsPayload = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
-        case 'apartment': detailsPayload = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
-        case 'land': detailsPayload = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
-        case 'commercial': detailsPayload = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
-        // Add other categories
-      }
-      Object.keys(detailsPayload).forEach(key => { if (detailsPayload[key] == null || detailsPayload[key] === '' || (Array.isArray(detailsPayload[key]) && detailsPayload[key].length === 0)) { delete detailsPayload[key]; }}); // Clean empty details
-
-      const payload = { title: formData.title, price: parseFloat(formData.price) || 0, location: formData.location, images: uploadedImageUrls, coordinates: formData.coordinates, description: formData.description, user_id: user.id, property_type: formData.propertyType, category: formData.category, details: Object.keys(detailsPayload).length > 0 ? detailsPayload : undefined };
-
-      // --- Step 3: Send Data to Backend ---
-      const response = await fetch(`${API_BASE_URL}/properties`, { method: "POST", headers: { "Content-Type": "application/json", /* Add Auth header */ Authorization: `Bearer ${useAuthStore.getState().session?.access_token}` }, body: JSON.stringify(payload) });
-      if (!response.ok) { /* ... (Error handling) ... */ let errorMsg = `HTTP error! Status: ${response.status}`; try { const ed = await response.json(); errorMsg = ed.message || JSON.stringify(ed) || errorMsg; } catch(e){} throw new Error(`Failed to create property: ${errorMsg}`); }
-      /* ... (Success Alert and navigation) ... */ Alert.alert("Success", "Property listed successfully!", [{ text: "OK", onPress: () => router.replace("/") }]);
-    } catch (error: any) { /* ... (Error handling) ... */ console.error("Error submitting property:", error); Alert.alert("Error", `Error creating property: ${error.message || "Unknown error"}`);
-    } finally { setLoading(false); setUploadProgress(0); }
+      Alert.alert("Success", "Property listed successfully!", [{ text: "OK", onPress: () => router.replace("/") }]);
+    } catch (error: any) {
+      console.error("Error submitting property:", error);
+      Alert.alert("Error", `Error creating property: ${error.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // --- Render Logic ---
   return (
-    // Use ScrollView for the entire form content
     <ScrollView
-      className="flex-1 bg-white p-4" // Use NativeWind classes
+      className="flex-1 bg-white p-4"
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ paddingBottom: 40 }} // Add padding at the bottom
+      contentContainerStyle={{ paddingBottom: 40 }}
     >
-      {/* Header */}
       <View className="mb-6">
         <Text className="text-lg font-semibold mb-1">Add New Property</Text>
         <Text className="text-gray-500">
@@ -211,7 +194,6 @@ export default function AddPropertyScreen() {
         </Text>
       </View>
 
-      {/* Image Upload Section */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">
           Property Images (Max 5) *
@@ -234,14 +216,13 @@ export default function AddPropertyScreen() {
         </ScrollView>
       </View>
 
-      {/* Category Selection */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Category *</Text>
         <View className="border border-gray-300 rounded-lg bg-gray-50">
           <Picker
             selectedValue={formData.category}
             onValueChange={(itemValue) => updateFormField('category', itemValue as PropertyCategory)}
-            style={{ height: 50, width: '100%' }} // Basic styling for Picker
+            style={{ height: 50, width: '100%' }}
           >
             {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
               <Picker.Item key={key} label={value.label} value={key} />
@@ -250,7 +231,6 @@ export default function AddPropertyScreen() {
         </View>
       </View>
 
-      {/* Property Type (Rent/Sale) */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Listing Type *</Text>
         <View className="flex-row gap-2 space-x-3">
@@ -273,10 +253,8 @@ export default function AddPropertyScreen() {
         </View>
       </View>
 
-      {/* --- Property Details Header --- */}
       <Text className="text-lg font-semibold mb-3 mt-2">Property Details</Text>
 
-      {/* Base Fields */}
       <View className="mb-4">
         <Text className="text-sm text-gray-600 mb-1">Title *</Text>
         <TextInput value={formData.title} onChangeText={(v) => updateFormField('title', v)} placeholder="e.g. Modern 3-Bed House in Roma" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
@@ -290,9 +268,6 @@ export default function AddPropertyScreen() {
         <TextInput value={formData.location} onChangeText={(v) => updateFormField('location', v)} placeholder="e.g. Off Zambezi Rd, Lusaka" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
       </View>
 
-      {/* --- Conditionally Rendered Detail Fields --- */}
-
-      {/* Bedrooms/Bathrooms */}
       {currentCategoryDetails?.hasBedBath && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -306,7 +281,6 @@ export default function AddPropertyScreen() {
         </View>
       )}
 
-      {/* Garages/House Parkings */}
       {currentCategoryDetails?.hasGaragesParkings && (
          <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -320,7 +294,6 @@ export default function AddPropertyScreen() {
         </View>
       )}
 
-       {/* Square Meters & Apt/Comm Parking Spaces */}
       {currentCategoryDetails?.hasSquareMeters && (
          <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -334,7 +307,6 @@ export default function AddPropertyScreen() {
         </View>
       )}
 
-       {/* Land Details */}
       {currentCategoryDetails?.hasLandDetails && (
         <View className="mb-4">
             <Text className="text-base font-medium mb-3">Land Specifics</Text>
@@ -369,17 +341,14 @@ export default function AddPropertyScreen() {
         </View>
       )}
 
-       {/* Commercial Details */}
        {currentCategoryDetails?.hasCommercialDetails && (
            <View className="mb-4">
                 <Text className="text-base font-medium mb-3">Commercial Specifics</Text>
                 <Text className="text-sm text-gray-600 mb-1">Commercial Property Type *</Text>
-                {/* Use Picker or TextInput */}
                 <TextInput value={formData.commercial_property_type} onChangeText={(v) => updateFormField('commercial_property_type', v)} placeholder="e.g. Office, Retail, Warehouse" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
             </View>
        )}
 
-      {/* Amenities */}
       {availableAmenities.length > 0 && (
         <View className="mb-6">
           <Text className="text-base font-medium mb-2">Amenities</Text>
@@ -408,7 +377,6 @@ export default function AddPropertyScreen() {
         </View>
       )}
 
-      {/* Description */}
       <View className="mb-6">
         <Text className="text-sm text-gray-600 mb-1">Description *</Text>
         <TextInput
@@ -417,12 +385,11 @@ export default function AddPropertyScreen() {
           placeholder="Describe the property..."
           multiline
           numberOfLines={4}
-          textAlignVertical="top" // Important for multiline placeholder alignment
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base h-32" // Set height
+          textAlignVertical="top"
+          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base h-32"
         />
       </View>
 
-      {/* Map for Location Selection */}
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Location *</Text>
         <Text className="text-sm text-gray-500 mb-2">
@@ -439,14 +406,14 @@ export default function AddPropertyScreen() {
               longitudeDelta: 0.0421,
             }}
             onPress={handleMapPress}
-            provider="google" // Or remove for default provider
+            provider="google"
           >
             <Marker
               coordinate={formData.coordinates}
               title="Property Location"
               description="Drag to adjust"
-              draggable // Allow dragging the marker
-              onDragEnd={(e) => handleMapPress(e)} // Update on drag end
+              draggable
+              onDragEnd={(e) => handleMapPress(e)}
             />
           </MapView>
         </View>
@@ -456,21 +423,13 @@ export default function AddPropertyScreen() {
          </View>
       </View>
 
-      {/* Submit Button */}
       <View className="my-6">
         <TouchableOpacity
           onPress={handleSubmit}
           disabled={loading}
-          className={`rounded-lg py-4 px-6 items-center justify-center shadow-sm ${loading ? "bg-gray-400" : "bg-customgreen"}`} // Use consistent color
+          className={`rounded-lg py-4 px-6 items-center justify-center shadow-sm ${loading ? "bg-gray-400" : "bg-emerald-700"}`}
         >
-          {loading && uploadProgress < 100 ? ( // Show progress during upload
-             <View className="flex-row items-center">
-                <ActivityIndicator color="white" size="small" />
-                <Text className="text-white font-semibold text-base ml-2">
-                    Uploading Images ({uploadProgress}%)...
-                </Text>
-             </View>
-          ) : loading ? ( // Show generic loading otherwise
+          {loading ? (
              <ActivityIndicator color="white" />
           ) : (
             <Text className="text-white font-semibold text-base">
@@ -478,15 +437,7 @@ export default function AddPropertyScreen() {
             </Text>
           )}
         </TouchableOpacity>
-        {/* Optional: Show Upload Progress Text (already integrated into button) */}
-        {/* {loading && uploadProgress > 0 && uploadProgress < 100 && (
-          <View className="mt-2 items-center">
-            <Text className="text-sm text-gray-600">Uploading images: {uploadProgress}%</Text>
-          </View>
-        )} */}
       </View>
     </ScrollView>
   );
 }
-
-
