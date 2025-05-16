@@ -21,13 +21,12 @@ export default function SignUpScreen() {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false);
   const [userType, setUserType] = useState<UserRole>("user");
-  const { signUp, signInWithGoogle, loading, error } = useAuthStore();
+  const { signUp, signInWithGoogle, signInWithFacebook, loading, error } =
+    useAuthStore();
   const router = useRouter();
-
   const { redirectTo } = useLocalSearchParams();
 
   const handleSignUp = async () => {
-    // Keep existing validation logic
     if (!email || !password || !confirmPassword || !phone) {
       Alert.alert("Error", "Please fill in all fields");
       return;
@@ -39,38 +38,27 @@ export default function SignUpScreen() {
     if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
       Alert.alert(
         "Error",
-        "Please enter a valid phone number with the country code (e.g. +260...)"
+        "Please enter a valid phone number with the country code (e.g. +260...)",
       );
       return;
     }
 
     const success = await signUp(email, password, phone, userType);
 
-    // Keep existing navigation logic
-    if (success && !useAuthStore.getState().error) {
+    if (success) {
       if (useAuthStore.getState().user && useAuthStore.getState().session) {
-        router.replace("/");
+        const targetPath = (redirectTo as string) || "/";
+        router.replace(targetPath as any);
       }
     }
   };
 
-  // Google Sign-In/Sign-Up Handler (same as SignInScreen)
   const handleGoogleSignIn = async () => {
     await signInWithGoogle();
-    // Check error state after attempt
-    // Supabase handles creating the user if they don't exist
-    if (!useAuthStore.getState().error) {
-      if (redirectTo) {
-        router.replace(redirectTo as any);
-      } else {
-        router.replace("/");
-      }
-    }
   };
 
-  // Placeholder for Facebook Sign-In/Sign-Up
-  const handleFacebookSignIn = () => {
-    Alert.alert("Coming Soon", "Facebook Sign-Up is not yet implemented.");
+  const handleFacebookSignIn = async () => {
+    await signInWithFacebook();
   };
 
   return (
@@ -88,10 +76,11 @@ export default function SignUpScreen() {
       />
 
       <View className="px-6 py-10">
-        {/* Logo Placeholder */}
         <View className="items-center mb-8">
-                    <Image source={require('@/assets/images/icon.png')} className="h-20 w-20"/>
-          
+          <Image
+            source={require("@/assets/images/icon.png")}
+            className="h-20 w-20"
+          />
         </View>
 
         <Text className="text-2xl font-bold text-gray-800 mb-2 text-center">
@@ -154,7 +143,7 @@ export default function SignUpScreen() {
           <Text className="text-xs text-gray-500 mb-1 ml-1">Email</Text>
           <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center bg-white">
             <TextInput
-              placeholder="Enter your email address"
+              placeholder="example@email.com"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -228,7 +217,6 @@ export default function SignUpScreen() {
           </View>
         </View>
 
-        {/* Sign Up Button */}
         <TouchableOpacity
           onPress={handleSignUp}
           disabled={loading}
@@ -239,16 +227,13 @@ export default function SignUpScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Or continue with */}
         <Text className="text-sm text-gray-500 mb-6 text-center">
           Or continue with
         </Text>
 
-        {/* Social Logins */}
         <View className="w-full flex-row justify-between mb-10">
-          {/* Google Button */}
           <TouchableOpacity
-            onPress={handleGoogleSignIn} // Connect handler
+            onPress={handleGoogleSignIn}
             disabled={loading}
             className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
           >
@@ -263,10 +248,9 @@ export default function SignUpScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* Facebook Button */}
           <TouchableOpacity
-            onPress={handleFacebookSignIn} // Connect handler
-            disabled={loading} // Disable while loading
+            onPress={handleFacebookSignIn}
+            disabled={loading}
             className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
           >
             <Image
@@ -281,7 +265,6 @@ export default function SignUpScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Sign In Link */}
         <View className="flex-row justify-center items-center">
           <Text className="text-sm text-gray-500">
             Already have an account?{" "}
@@ -293,7 +276,6 @@ export default function SignUpScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Error Display */}
         {error && (
           <Text className="mt-4 text-red-600 text-center text-sm">{error}</Text>
         )}

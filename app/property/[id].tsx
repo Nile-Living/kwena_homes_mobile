@@ -1,253 +1,450 @@
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
-  Image,
   ScrollView,
-  TouchableOpacity,
   Linking,
   Dimensions,
   FlatList,
-  Modal,
   StatusBar,
-  StyleSheet,
-  Pressable,
+  ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, Stack, useNavigation } from "expo-router";
-import { useEffect, useState, useRef } from "react";
-import { FontAwesome, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import {
-  GestureHandlerRootView,
-  PinchGestureHandler,
-  State,
-} from "react-native-gesture-handler";
+import { Ionicons } from "@expo/vector-icons";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
-  Easing,
   interpolate,
   Extrapolate,
 } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+import { Property, useStore } from "@/store/useStore";
+import { API_BASE_URL } from "@/constants/Config";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { useAuthStore } from "@/store/authStore";
+import { styles, COLORS } from "@/styles/PropertyDetails.styles";
+import { useRouter } from "expo-router";
+import {
+  DisplayableFeature,
+  IconProps,
+  featureCategories as defaultFeatureCategories,
+} from "../../utils/propertyDetailsUtils";
+import PropertyImageCarousel from "@/components/propertyDetails/PropertyImageCarousel";
+import PropertyHeaderInfo from "@/components/propertyDetails/PropertyHeaderInfo";
+import AnimatedDetailHeader from "@/components/propertyDetails/AnimatedDetailHeader";
+import PropertyTabs from "@/components/propertyDetails/PropertyTabs";
+import PropertyOverviewContent from "@/components/propertyDetails/PropertyOverviewContent";
+import PropertyDetailsContent from "@/components/propertyDetails/PropertyDetailsContent";
+import PropertyNearbyContent from "@/components/propertyDetails/PropertyNearbyContent";
+import PropertyAgentCard from "@/components/propertyDetails/PropertyAgentCard";
+import PropertyContactBar from "@/components/propertyDetails/PropertyContactBar";
+import FullScreenImageModal from "@/components/propertyDetails/FullScreenImageModal";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
-// Theme colors
-const COLORS = {
-  primary: "#2A63E2",
-  secondary: "#8AA3F9",
-  accent: "#F9B16E",
-  background: "#F7F9FC",
-  white: "#FFFFFF",
-  text: "#1A2138",
-  textSecondary: "#5B6987",
-  lightGray: "#E8ECF4",
-  mediumGray: "#A9B4CC",
-  darkGray: "#667085",
-  green: "#27AE60",
-  red: "#FF5252",
-  yellow: "#FFBB0E",
-  shadow: "rgba(42, 99, 226, 0.08)",
-  backdrop: "rgba(26, 33, 56, 0.7)",
-  statusColor: {
-    forSale: "#27AE60",
-    forRent: "#2A63E2",
-    sold: "#FF5252",
-    premium: "#FFBB0E",
-  }
-};
-
-// Mock data for our beautiful UI
-const dummyProperty = {
+const originalMockProperty = {
   id: "property-123",
   title: "Luxurious Riverside Villa",
   subtitle: "Executive Home in Exclusive Neighborhood",
   price: 2750000,
   priceUnit: "K",
   location: "30 Leopards Hill, Lusaka",
-  coordinates: {
-    latitude: -15.3875,
-    longitude: 28.3228
-  },
+  coordinates: { latitude: -15.3875, longitude: 28.3228 },
   status: "premium" as keyof typeof COLORS.statusColor,
   listedDate: "3 weeks ago",
-  description: "This magnificent property offers a perfect blend of luxury and comfort. Nestled in a serene environment with panoramic views of the surrounding landscape, this villa features high-end finishes, spacious living areas, and state-of-the-art amenities. The property includes a large swimming pool, landscaped gardens, and a private gym. The open floor plan creates a seamless flow between indoor and outdoor living spaces, making it ideal for entertaining guests.",
+  description:
+    "This magnificent property offers a perfect blend of luxury and comfort. Nestled in a serene environment with panoramic views of the surrounding landscape, this villa features high-end finishes, spacious living areas, and state-of-the-art amenities. The property includes a large swimming pool, landscaped gardens, and a private gym. The open floor plan creates a seamless flow between indoor and outdoor living spaces, making it ideal for entertaining guests.",
   images: [
     "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2053&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1600585154363-67eb9e2e2099?q=80&w=2070&auto=format&fit=crop"
   ],
-  features: [
-    { name: "bedrooms", icon: "bed", value: "5 Bedrooms", category: "basic", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "bathrooms", icon: "bath", value: "4.5 Bathrooms", category: "basic", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "size", icon: "ruler", value: "450 sq.m", category: "basic", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "garage", icon: "car", value: "3 Car Garage", category: "outdoor", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "pool", icon: "swimming-pool", value: "Pool", category: "outdoor", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "garden", icon: "leaf", value: "Garden", category: "outdoor", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "security", icon: "shield-check", value: "24/7 Security", category: "amenities", iconLibrary: "MaterialCommunityIcons" as 'MaterialCommunityIcons' },
-    { name: "wifi", icon: "wifi", value: "High-speed Internet", category: "amenities", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "ac", icon: "snowflake-o", value: "Central AC", category: "amenities", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "furnished", icon: "chair", value: "Fully Furnished", category: "interior", iconLibrary: "MaterialCommunityIcons" as 'MaterialCommunityIcons' },
-    { name: "gym", icon: "dumbbell", value: "Private Gym", category: "amenities", iconLibrary: "FontAwesome" as 'FontAwesome' },
-    { name: "year", icon: "calendar", value: "Built 2021", category: "details", iconLibrary: "FontAwesome" as 'FontAwesome' }
-  ],
+  category: "house",
+  details: {
+    bedrooms: 5,
+    bathrooms: 4.5,
+    size_sqm: 450,
+    garages: 3,
+    pool: true,
+    garden: true,
+    security_details: "24/7 Security",
+    wifi_details: "High-speed Internet",
+    ac_details: "Central AC",
+    is_furnished: true,
+    gym_details: "Private Gym",
+    year_built: 2021,
+  },
   nearbyPlaces: [
     { name: "International School", distance: "0.5 km", icon: "school" },
     { name: "Shopping Mall", distance: "1.2 km", icon: "shopping-bag" },
     { name: "Hospital", distance: "3.5 km", icon: "hospital-o" },
-    { name: "Park", distance: "0.8 km", icon: "tree" }
+    { name: "Park", distance: "0.8 km", icon: "tree" },
   ],
   agent: {
     id: "agent-456",
     name: "Sarah Mwanza",
-    photo: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1974&auto=format&fit=crop",
+    photo:
+      "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1974&auto=format&fit=crop",
     rating: 4.9,
     reviewCount: 124,
     phone: "+260 97 1234567",
     email: "sarah.mwanza@kwenahomes.com",
-    experience: "8 years",
-    specialty: "Luxury Properties"
   },
   liked: true,
   propertyType: "Villa",
-  viewCount: 342
+  viewCount: 342,
 };
 
-// Feature categories for organization
-const featureCategories = [
-  { id: "basic", name: "Basic Information" },
-  { id: "interior", name: "Interior Features" },
-  { id: "outdoor", name: "Outdoor Features" },
-  { id: "amenities", name: "Amenities" },
-  { id: "details", name: "Additional Details" }
-];
+function generateDisplayableFeatures(
+  property: Property | null
+): DisplayableFeature[] {
+  if (!property) return [];
+  const features: DisplayableFeature[] = [];
+  const details = property.details || originalMockProperty.details;
+  const pCategory = property.category?.toLowerCase();
 
-// Helper function to get icon component based on library
-interface IconProps {
-  library: 'MaterialCommunityIcons' | 'MaterialIcons' | 'Ionicons' | 'FontAwesome';
-  name: string;
-  size: number;
-  color: string;
+  const addFeature = (
+    name: string,
+    icon: string,
+    value: any,
+    category: string,
+    iconLib: IconProps["library"],
+    condition: any = value
+  ) => {
+    if (
+      condition !== null &&
+      typeof condition !== "undefined" &&
+      condition !== ""
+    ) {
+      features.push({
+        name,
+        icon,
+        value: String(value),
+        category,
+        iconLibrary: iconLib,
+      });
+    }
+  };
+  const addFeatureFromBool = (
+    name: string,
+    icon: string,
+    displayValue: string,
+    category: string,
+    iconLib: IconProps["library"],
+    condition?: boolean
+  ) => {
+    if (condition === true) {
+      features.push({
+        name,
+        icon,
+        value: displayValue,
+        category,
+        iconLibrary: iconLib,
+      });
+    }
+  };
+  const addFeaturesFromArray = (
+    key: string,
+    icon: string,
+    category: string,
+    iconLib: IconProps["library"]
+  ) => {
+    if (details && details[key] && Array.isArray(details[key])) {
+      details[key].forEach((item: string) => {
+        addFeature(
+          `${key}_${item.toLowerCase().replace(/\s/g, "")}`,
+          icon,
+          item,
+          category,
+          iconLib
+        );
+      });
+    }
+  };
+
+  if (pCategory === "house") {
+    addFeature(
+      "bedrooms",
+      "bed",
+      details?.bedrooms ? `${details.bedrooms} Bedrooms` : null,
+      "basic",
+      "FontAwesome",
+      details?.bedrooms
+    );
+    addFeature(
+      "bathrooms",
+      "bath",
+      details?.bathrooms ? `${details.bathrooms} Bathrooms` : null,
+      "basic",
+      "FontAwesome",
+      details?.bathrooms
+    );
+    addFeature(
+      "garage",
+      "car",
+      details?.garages ? `${details.garages} Car Garage` : null,
+      "outdoor",
+      "FontAwesome",
+      details?.garages
+    );
+    addFeature(
+      "parking",
+      "parking",
+      details?.parkings ? `${details.parkings} Parking Spaces` : null,
+      "outdoor",
+      "FontAwesome",
+      details?.parkings
+    );
+    addFeaturesFromArray(
+      "amenities",
+      "check-circle-outline",
+      "amenities",
+      "MaterialCommunityIcons"
+    );
+    addFeaturesFromArray(
+      "security_features",
+      "shield-check",
+      "amenities",
+      "MaterialCommunityIcons"
+    );
+    addFeatureFromBool(
+      "pool",
+      "pool",
+      "Swimming Pool",
+      "outdoor",
+      "MaterialIcons",
+      originalMockProperty.details.pool
+    );
+    addFeatureFromBool(
+      "garden",
+      "leaf",
+      "Landscaped Garden",
+      "outdoor",
+      "FontAwesome",
+      originalMockProperty.details.garden
+    );
+  } else if (pCategory === "land") {
+    addFeature(
+      "size",
+      "texture-box",
+      details?.size_sqm ? `${details.size_sqm} sq.m` : null,
+      "basic",
+      "MaterialCommunityIcons",
+      details?.size_sqm
+    );
+    addFeature(
+      "legalStatus",
+      "file-document-outline",
+      details?.legal_status,
+      "details",
+      "MaterialCommunityIcons"
+    );
+    addFeature(
+      "intendedUse",
+      "lightbulb-on-outline",
+      details?.intended_use,
+      "details",
+      "MaterialCommunityIcons"
+    );
+    addFeatureFromBool(
+      "roadAccess",
+      "road-variant",
+      "Road Access",
+      "outdoor",
+      "MaterialCommunityIcons",
+      details?.road_access
+    );
+    addFeature(
+      "waterSupply",
+      "water",
+      details?.water_supply ? `Water: ${details.water_supply}` : null,
+      "amenities",
+      "MaterialCommunityIcons",
+      details?.water_supply
+    );
+    addFeatureFromBool(
+      "electricity",
+      "power-plug-outline",
+      "Electricity Available",
+      "amenities",
+      "MaterialCommunityIcons",
+      details?.electricity_available
+    );
+    addFeatureFromBool(
+      "fenced",
+      "fence",
+      "Fenced",
+      "outdoor",
+      "MaterialCommunityIcons",
+      details?.fenced
+    );
+  } else if (pCategory === "apartment") {
+    addFeature(
+      "bedrooms",
+      "bed",
+      details?.bedrooms ? `${details.bedrooms} Bedrooms` : null,
+      "basic",
+      "FontAwesome",
+      details?.bedrooms
+    );
+    addFeature(
+      "bathrooms",
+      "bath",
+      details?.bathrooms ? `${details.bathrooms} Bathrooms` : null,
+      "basic",
+      "FontAwesome",
+      details?.bathrooms
+    );
+    addFeature(
+      "size",
+      "ruler-combined",
+      details?.square_meters ? `${details.square_meters} sq.m` : null,
+      "basic",
+      "MaterialCommunityIcons",
+      details?.square_meters
+    );
+    addFeature(
+      "parking",
+      "parking",
+      details?.parking_spaces
+        ? `${details.parking_spaces} Parking Spaces`
+        : null,
+      "outdoor",
+      "FontAwesome",
+      details?.parking_spaces
+    );
+    addFeaturesFromArray(
+      "amenities",
+      "check-circle-outline",
+      "amenities",
+      "MaterialCommunityIcons"
+    );
+    addFeaturesFromArray(
+      "security_features",
+      "shield-check",
+      "amenities",
+      "MaterialCommunityIcons"
+    );
+  } else if (pCategory === "commercial") {
+    addFeature(
+      "commercialType",
+      "office-building",
+      details?.property_type,
+      "basic",
+      "MaterialCommunityIcons",
+      details?.property_type
+    );
+    addFeature(
+      "size",
+      "ruler-square",
+      details?.square_meters ? `${details.square_meters} sq.m` : null,
+      "basic",
+      "MaterialCommunityIcons",
+      details?.square_meters
+    );
+    addFeature(
+      "parking",
+      "parking",
+      details?.parking_spaces
+        ? `${details.parking_spaces} Parking Spaces`
+        : null,
+      "outdoor",
+      "FontAwesome",
+      details?.parking_spaces
+    );
+    addFeaturesFromArray(
+      "amenities",
+      "check-circle-outline",
+      "amenities",
+      "MaterialCommunityIcons"
+    );
+    addFeaturesFromArray(
+      "security_features",
+      "shield-check",
+      "amenities",
+      "MaterialCommunityIcons"
+    );
+  }
+
+  if (
+    originalMockProperty.details.year_built &&
+    !features.some((f) => f.name === "year")
+  ) {
+    addFeature(
+      "year",
+      "calendar",
+      `Built ${originalMockProperty.details.year_built}`,
+      "details",
+      "FontAwesome"
+    );
+  }
+  return features;
 }
 
-const getIconComponent = ({ library, name, size, color }: IconProps) => {
-  switch (library) {
-    case 'MaterialCommunityIcons':
-      return <MaterialCommunityIcons name={name as any} size={size} color={color} />;
-    case 'MaterialIcons':
-      return <MaterialIcons name={name as any} size={size} color={color} />;
-    case 'Ionicons':
-      return <Ionicons name={name as any} size={size} color={color} />;
-    case 'FontAwesome':
-    default:
-      return <FontAwesome name={name as any} size={size} color={color} />;
+const getKeyFeaturesForDisplay = (
+  allGeneratedFeatures: DisplayableFeature[],
+  pCategory: string | undefined
+): DisplayableFeature[] => {
+  let keys: DisplayableFeature[] = [];
+  const categoryLower = pCategory?.toLowerCase();
+
+  if (categoryLower === "house" || categoryLower === "apartment") {
+    keys = ["bedrooms", "bathrooms", "size", "parking", "garage"]
+      .map((name) => allGeneratedFeatures.find((f) => f.name === name))
+      .filter(Boolean) as DisplayableFeature[];
+  } else if (categoryLower === "land") {
+    keys = ["size", "roadAccess", "legalStatus"]
+      .map((name) => allGeneratedFeatures.find((f) => f.name === name))
+      .filter(Boolean) as DisplayableFeature[];
+  } else if (categoryLower === "commercial") {
+    keys = ["commercialType", "size", "parking"]
+      .map((name) => allGeneratedFeatures.find((f) => f.name === name))
+      .filter(Boolean) as DisplayableFeature[];
   }
+
+  if (keys.length < 3) {
+    const basicFeatures = allGeneratedFeatures.filter(
+      (f) => f.category === "basic"
+    );
+    keys = [
+      ...keys,
+      ...basicFeatures.filter((bf) => !keys.some((k) => k.name === bf.name)),
+    ];
+  }
+  if (keys.length < 3) {
+    keys = [
+      ...keys,
+      ...allGeneratedFeatures.filter(
+        (af) => !keys.some((k) => k.name === af.name)
+      ),
+    ];
+  }
+  return keys.slice(0, 3);
 };
 
 export default function PropertyDetails() {
-  // Keep track of image carousel
-  const [activeIndex, setActiveIndex] = useState(0);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const navigation = useNavigation();
+  const router = useRouter();
+  const { toggleSavedProperty, savedProperties } = useStore();
+  const { user } = useAuthStore();
+
+  const [propertyData, setPropertyData] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [carouselActiveIndex, setCarouselActiveIndex] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "details" | "nearby">(
+    "overview"
+  );
   const [showAllFeatures, setShowAllFeatures] = useState(false);
-  const flatListRef = useRef<FlatList<any>>(null);
-  
-  // Animation values
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const headerOpacity = useSharedValue(0);
+  const [currentFullScreenIndex, setCurrentFullScreenIndex] = useState(0);
+
+  const carouselFlatListRef = useRef<FlatList<string>>(null);
+  const fullScreenFlatListRef = useRef<FlatList<string>>(null);
   const scrollY = useSharedValue(0);
-  
-  // Simulating the property from params
-  const property = dummyProperty;
-  
-  const handleCallAgent = () => {
-    if (property?.agent?.phone) {
-      Linking.openURL(`tel:${property.agent.phone}`);
-    }
-  };
 
-  const handleWhatsAppAgent = () => {
-    if (property?.agent?.phone) {
-      const phoneNumber = property.agent.phone.replace(/\D/g, "");
-      Linking.openURL(`https://wa.me/${phoneNumber}?text=Hello, I'm interested in the ${encodeURIComponent(property.title)} property listed on Kwena Homes.`);
-    }
-  };
-
-  interface ScrollEvent {
-    nativeEvent: {
-      contentOffset: {
-        x: number;
-        y: number;
-      };
-    };
-  }
-
-  const handleScroll = (event: ScrollEvent) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(contentOffsetX / width);
-    if (newIndex !== activeIndex) {
-      setActiveIndex(newIndex);
-    }
-    
-    // For header transparency
-    const offsetY = event.nativeEvent.contentOffset.y;
-    scrollY.value = offsetY;
-  };
-
-  interface HandleDotPressParams {
-    index: number;
-  }
-
-  const handleDotPress = ({ index }: HandleDotPressParams) => {
-    setActiveIndex(index);
-    flatListRef.current?.scrollToIndex({ index, animated: true });
-  };
-
-  const onPinchGestureEvent = ({ nativeEvent }: { nativeEvent: { scale: number } }) => {
-    scale.value = savedScale.value * nativeEvent.scale;
-  };
-
-  const onPinchHandlerStateChange = ({ nativeEvent }: { nativeEvent: { oldState: number } }) => {
-    if (nativeEvent.oldState === State.ACTIVE) {
-      savedScale.value = scale.value;
-    }
-  };
-
-  interface ToggleFullScreenParams {
-    imageUri: string | null;
-  }
-
-  const toggleFullScreen = ({ imageUri }: ToggleFullScreenParams) => {
-    if (imageUri) {
-      setSelectedImage(imageUri);
-      setIsFullScreen(true);
-      scale.value = 1;
-      savedScale.value = 1;
-    } else {
-      setIsFullScreen(false);
-      setSelectedImage(null);
-    }
-  };
-
-  const exitFullScreen = () => {
-    scale.value = withTiming(1);
-    savedScale.value = 1;
-    setIsFullScreen(false);
-    setSelectedImage(null);
-  };
-
-  // Animation styles
-  const animatedImageStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-    };
-  });
-  
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
@@ -255,7 +452,6 @@ export default function PropertyDetails() {
       [0, 1],
       Extrapolate.CLAMP
     );
-    
     return {
       opacity,
       backgroundColor: `rgba(255, 255, 255, ${opacity})`,
@@ -263,922 +459,351 @@ export default function PropertyDetails() {
       borderBottomColor: COLORS.lightGray,
     };
   });
-  
-  const statusText = {
-    forSale: "For Sale",
-    forRent: "For Rent",
-    sold: "Sold",
-    premium: "Premium"
+
+  const isLiked = propertyData
+    ? savedProperties.includes(propertyData.id)
+    : false;
+
+  useEffect(() => {
+    const fetchProperty = async () => {
+      if (!id) {
+        setError("Property ID is missing.");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/properties/${id}`);
+        if (!response.ok) {
+          if (response.status === 404) throw new Error("Property not found.");
+          throw new Error(
+            `Failed to fetch property (status: ${response.status})`
+          );
+        }
+        const data: Property = await response.json();
+        setPropertyData(data);
+      } catch (err: any) {
+        setError(err.message || "Could not load property details.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProperty();
+  }, [id]);
+
+  const imagesFromProperty =
+    propertyData?.images && propertyData.images.length > 0
+      ? propertyData.images
+      : originalMockProperty.images;
+
+  useEffect(() => {
+    if (
+      isFullScreen &&
+      fullScreenFlatListRef.current &&
+      imagesFromProperty.length > 0 &&
+      currentFullScreenIndex >= 0 &&
+      currentFullScreenIndex < imagesFromProperty.length
+    ) {
+      setTimeout(() => {
+        fullScreenFlatListRef.current?.scrollToIndex({
+          index: currentFullScreenIndex,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [isFullScreen, currentFullScreenIndex, imagesFromProperty]);
+
+  const handleLikePress = () => {
+    if (!user) {
+      navigation.navigate("auth/signin" as never);
+      return;
+    }
+    if (propertyData) {
+      toggleSavedProperty(propertyData.id);
+    }
   };
 
-  // Group features by category
-  const groupedFeatures = property.features.reduce<Record<string, typeof property.features>>((acc, feature) => {
-      if (!acc[feature.category]) {
-        acc[feature.category] = [];
-      }
-      acc[feature.category].push(feature);
-      return acc;
-    }, {});
+  const handleCallAgent = () => {
+    if (originalMockProperty.agent?.phone) {
+      Linking.openURL(`tel:${originalMockProperty.agent.phone}`);
+    }
+  };
 
-  // Get visible features (limit to 6 unless showAllFeatures is true)
-  const visibleFeatures = showAllFeatures 
-    ? property.features
-    : property.features.slice(0, 6);
+  const handleViewOnMap = () => {
+    if (propertyData?.coordinates) {
+      router.push({
+        pathname: "/explore",
+        params: {
+          propertyId: propertyData.id,
+          latitude: propertyData.coordinates.latitude.toString(),
+          longitude: propertyData.coordinates.longitude.toString(),
+        },
+      });
+    }
+  };
+
+  const handleWhatsAppAgent = () => {
+    if (originalMockProperty.agent?.phone) {
+      const phoneNumber = originalMockProperty.agent.phone.replace(/\D/g, "");
+      const titleToUse = propertyData?.title || originalMockProperty.title;
+      Linking.openURL(
+        `https://wa.me/${phoneNumber}?text=Hello, I'm interested in the ${encodeURIComponent(
+          titleToUse
+        )} property listed on Kwena Properties.`
+      );
+    }
+  };
+
+  const handleCarouselScroll = (event: any) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const newIndex = Math.round(contentOffsetX / width);
+    if (newIndex !== carouselActiveIndex) {
+      setCarouselActiveIndex(newIndex);
+    }
+  };
+
+  const handleMainScroll = (event: any) => {
+    scrollY.value = event.nativeEvent.contentOffset.y;
+  };
+
+  const handleDotPress = ({ index }: { index: number }) => {
+    setCarouselActiveIndex(index);
+    carouselFlatListRef.current?.scrollToIndex({ index, animated: true });
+  };
+
+  const toggleFullScreen = ({
+    imageUri,
+    index,
+  }: {
+    imageUri: string | null;
+    index: number;
+  }) => {
+    if (imageUri) {
+      setCurrentFullScreenIndex(index);
+      setIsFullScreen(true);
+    }
+  };
+
+  const exitFullScreen = () => setIsFullScreen(false);
+
+  const handleFullScreenScroll = (event: any) => {
+    const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+    if (newIndex !== currentFullScreenIndex) {
+      setCurrentFullScreenIndex(newIndex);
+    }
+  };
+
+  const handleShare = () => {
+    console.log("Share pressed");
+  };
+
+  const handleViewAgentProfile = () => {
+    console.log("View agent profile");
+  };
+
+  const handleMessageAgent = () => {
+    console.log("Message agent");
+  };
+
+  const statusTextMap: { [key: string]: string } = {
+    available: "Available",
+    occupied: "Occupied",
+    rented: "Rented",
+    "off-market": "Off Market",
+    "under-maintenance": "Maintenance",
+    "pending-approval": "Pending",
+    premium: "Premium",
+  };
+
+  const getFormattedDate = (dateString?: string) => {
+    if (!dateString) return originalMockProperty.listedDate;
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch (e) {
+      return "Invalid date";
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading Property...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.red} />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!propertyData) {
+    return (
+      <View style={styles.centered}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Ionicons name="home-outline" size={60} color={COLORS.mediumGray} />
+        <Text style={styles.errorText}>Property data could not be loaded.</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const title = propertyData.title || originalMockProperty.title;
+  const subtitle = originalMockProperty.subtitle;
+  const price = propertyData.price ?? originalMockProperty.price;
+  const location = propertyData.location || originalMockProperty.location;
+  const description =
+    propertyData.description || originalMockProperty.description;
+  const propertyStatus = propertyData.status || originalMockProperty.status;
+  const statusColor =
+    COLORS.statusColor[propertyStatus as keyof typeof COLORS.statusColor] ||
+    COLORS.mediumGray;
+  const statusText = statusTextMap[propertyStatus] || "Status Unknown";
+  const listedDate = getFormattedDate(propertyData.created_at);
+
+  const displayableFeatures = generateDisplayableFeatures(propertyData);
+  const keyFeaturesToDisplay = getKeyFeaturesForDisplay(
+    displayableFeatures,
+    propertyData.category
+  );
+  const groupedFeatures = displayableFeatures.reduce<
+    Record<string, DisplayableFeature[]>
+  >((acc, feature) => {
+    if (!acc[feature.category]) acc[feature.category] = [];
+    acc[feature.category].push(feature);
+    return acc;
+  }, {});
+  const visibleFeatures = showAllFeatures
+    ? displayableFeatures
+    : displayableFeatures.slice(0, 6);
+
+  console.log("Active Tab:", activeTab);
+  if (activeTab === "details") {
+    console.log("Displayable Features for Details:", displayableFeatures);
+    console.log("Grouped Features for Details:", groupedFeatures);
+  }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-      
-      {/* Custom animated header */}
-      <Animated.View style={[styles.animatedHeader, headerAnimatedStyle]}>
-        <Pressable style={styles.headerButton} onPress={() => useNavigation().goBack()}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.text} />
-        </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {property.title}
-        </Text>
-        <View style={styles.headerActions}>
-          <Pressable style={styles.headerButton}>
-            <Ionicons name={property.liked ? "heart" : "heart-outline"} size={24} color={property.liked ? COLORS.red : COLORS.text} />
-          </Pressable>
-          <Pressable style={styles.headerButton}>
-            <Ionicons name="share-social-outline" size={24} color={COLORS.text} />
-          </Pressable>
-        </View>
-      </Animated.View>
-      
+    <GestureHandlerRootView
+      style={{ flex: 1, backgroundColor: COLORS.background }}
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle="dark-content"
+      />
+
+      <AnimatedDetailHeader
+        title={title}
+        isLiked={isLiked}
+        animatedStyle={headerAnimatedStyle}
+        onBackPress={() => navigation.goBack()}
+        onLikePress={handleLikePress}
+        onSharePress={handleShare}
+      />
+
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        onScroll={handleMainScroll}
         scrollEventThrottle={16}
       >
-        {/* Image Carousel with Status Tag and Actions */}
-        <View style={styles.carouselContainer}>
-          <FlatList
-            ref={flatListRef}
-            data={property.images}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={(e) => {
-              const contentOffsetX = e.nativeEvent.contentOffset.x;
-              const newIndex = Math.round(contentOffsetX / width);
-              if (newIndex !== activeIndex) {
-                setActiveIndex(newIndex);
-              }
-            }}
-            scrollEventThrottle={16}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => toggleFullScreen(item)}
-              >
-                <Image
-                  source={{ uri: item }}
-                  style={styles.carouselImage}
-                  resizeMode="cover"
-                />
-                
-                {/* Overlay gradient for readability */}
-                <LinearGradient
-                  colors={['rgba(0,0,0,0.4)', 'transparent', 'transparent', 'rgba(0,0,0,0.5)']}
-                  style={styles.imageGradient}
-                />
-              </TouchableOpacity>
-            )}
-            keyExtractor={(_, index) => index.toString()}
-          />
-          
-          {/* Back button for images */}
-          <Pressable 
-            style={[styles.floatingButton, styles.backButton]} 
-            onPress={() => useNavigation().goBack()}
-          >
-            <Ionicons name="chevron-back" size={24} color={COLORS.white} />
-          </Pressable>
-          
-          {/* Action buttons (like, share) */}
-          <View style={styles.actionButtons}>
-            <Pressable style={styles.actionButton}>
-              <Ionicons 
-                name={property.liked ? "heart" : "heart-outline"} 
-                size={24} 
-                color={property.liked ? COLORS.red : COLORS.white} 
-              />
-            </Pressable>
-            <Pressable style={styles.actionButton}>
-              <Ionicons name="share-social-outline" size={24} color={COLORS.white} />
-            </Pressable>
-          </View>
-          
-          {/* Status tag */}
-          <View 
-            style={[
-              styles.statusTag, 
-              { backgroundColor: COLORS.statusColor[property.status as keyof typeof COLORS.statusColor] }
-            ]}
-          >
-            <Text style={styles.statusText}>{statusText[property.status]}</Text>
-          </View>
-          
-          {/* Listed date */}
-          <View style={styles.listedDateTag}>
-            <Ionicons name="time-outline" size={14} color={COLORS.white} />
-            <Text style={styles.listedDateText}>{property.listedDate}</Text>
-          </View>
-          
-          {/* Image counter */}
-          <View style={styles.imageCounter}>
-            <Text style={styles.imageCounterText}>
-              {activeIndex + 1}/{property.images.length}
-            </Text>
-          </View>
-          
-          {/* Pagination dots */}
-          <View style={styles.pagination}>
-            {property.images.map((_, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.paginationDot,
-                  index === activeIndex ? styles.paginationDotActive : {},
-                ]}
-                onPress={() => handleDotPress({ index })}
-              />
-            ))}
-          </View>
-        </View>
-        
+        <PropertyImageCarousel
+          images={imagesFromProperty}
+          isLiked={isLiked}
+          statusText={statusText}
+          statusColor={statusColor}
+          listedDate={listedDate}
+          activeIndex={carouselActiveIndex}
+          flatListRef={carouselFlatListRef}
+          onImagePress={toggleFullScreen}
+          onLikePress={handleLikePress}
+          onSharePress={handleShare}
+          onBackPress={() => navigation.goBack()}
+          onScroll={handleCarouselScroll}
+          onDotPress={handleDotPress}
+        />
+
         <View style={styles.contentWrapper}>
-          {/* Property header info */}
-          <View style={styles.propertyHeader}>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>
-                {property.priceUnit}{property.price.toLocaleString()}
-              </Text>
-              <View style={styles.propertyTypeTag}>
-                <Text style={styles.propertyTypeText}>{property.propertyType}</Text>
-              </View>
-            </View>
-            
-            <Text style={styles.title}>{property.title}</Text>
-            <Text style={styles.subtitle}>{property.subtitle}</Text>
-            
-            <View style={styles.locationRow}>
-              <Ionicons name="location" size={20} color={COLORS.primary} />
-              <Text style={styles.location}>{property.location}</Text>
-              <TouchableOpacity style={styles.mapButton}>
-                <Text style={styles.mapButtonText}>View on Map</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.viewCountRow}>
-              <Ionicons name="eye-outline" size={16} color={COLORS.darkGray} />
-              <Text style={styles.viewCountText}>{property.viewCount} views</Text>
-            </View>
-            
-            {/* Tab navigation */}
-            <View style={styles.tabContainer}>
-              <TouchableOpacity 
-                style={[styles.tab, activeTab === "overview" && styles.activeTab]} 
-                onPress={() => setActiveTab("overview")}
-              >
-                <Text style={[styles.tabText, activeTab === "overview" && styles.activeTabText]}>
-                  Overview
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.tab, activeTab === "details" && styles.activeTab]} 
-                onPress={() => setActiveTab("details")}
-              >
-                <Text style={[styles.tabText, activeTab === "details" && styles.activeTabText]}>
-                  Details
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.tab, activeTab === "nearby" && styles.activeTab]} 
-                onPress={() => setActiveTab("nearby")}
-              >
-                <Text style={[styles.tabText, activeTab === "nearby" && styles.activeTabText]}>
-                  Nearby
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Main content based on active tab */}
+          <PropertyHeaderInfo
+            price={price}
+            priceUnit={originalMockProperty.priceUnit}
+            propertyTypeDisplay={originalMockProperty.propertyType}
+            title={title}
+            subtitle={subtitle}
+            location={location}
+            onViewOnMap={handleViewOnMap}
+            viewCount={originalMockProperty.viewCount}
+          />
+          <PropertyTabs activeTab={activeTab} onTabPress={setActiveTab} />
+
           {activeTab === "overview" && (
-            <View style={styles.overviewContainer}>
-              {/* Key Features Cards - Top 3 */}
-              <View style={styles.keyFeaturesContainer}>
-                {property.features.slice(0, 3).map((feature, index) => (
-                  <View key={index} style={styles.keyFeatureCard}>
-                    {getIconComponent({
-                      library: feature.iconLibrary, 
-                      name: feature.icon, 
-                      size: 24, 
-                      color: COLORS.primary
-                    })}
-                    <Text style={styles.keyFeatureValue}>{feature.value}</Text>
-                  </View>
-                ))}
-              </View>
-              
-              {/* Description */}
-              <View style={styles.descriptionContainer}>
-                <Text style={styles.sectionTitle}>Description</Text>
-                <Text style={styles.description}>{property.description}</Text>
-              </View>
-              
-              {/* All Features */}
-              <View style={styles.featuresSection}>
-                <Text style={styles.sectionTitle}>Property Features</Text>
-                <View style={styles.featuresGrid}>
-                  {visibleFeatures.map((feature, index) => (
-                    <View key={index} style={styles.featureItem}>
-                      {getIconComponent({
-                        library: feature.iconLibrary, 
-                        name: feature.icon, 
-                        size: 18, 
-                        color: COLORS.primary
-                      })}
-                      <Text style={styles.featureText}>{feature.value}</Text>
-                    </View>
-                  ))}
-                </View>
-                
-                {property.features.length > 6 && (
-                  <TouchableOpacity 
-                    style={styles.showMoreButton}
-                    onPress={() => setShowAllFeatures(!showAllFeatures)}
-                  >
-                    <Text style={styles.showMoreText}>
-                      {showAllFeatures ? "Show Less" : "Show All Features"}
-                    </Text>
-                    <Ionicons 
-                      name={showAllFeatures ? "chevron-up" : "chevron-down"} 
-                      size={20} 
-                      color={COLORS.primary} 
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
+            <PropertyOverviewContent
+              keyFeaturesToDisplay={keyFeaturesToDisplay}
+            />
           )}
-          
           {activeTab === "details" && (
-            <View style={styles.detailsContainer}>
-              {featureCategories.map(category => {
-                const features = groupedFeatures[category.id];
-                if (!features || features.length === 0) return null;
-                
-                return (
-                  <View key={category.id} style={styles.featureCategory}>
-                    <Text style={styles.categoryTitle}>{category.name}</Text>
-                    <View style={styles.categoryFeaturesGrid}>
-                      {features.map((feature, index) => (
-                        <View key={index} style={styles.detailFeatureItem}>
-                          {getIconComponent({
-                            library: feature.iconLibrary, 
-                            name: feature.icon, 
-                            size: 18, 
-                            color: COLORS.primary
-                          })}
-                          <Text style={styles.featureText}>{feature.value}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+            <PropertyDetailsContent
+              description={description}
+              displayableFeatures={displayableFeatures}
+              visibleFeatures={visibleFeatures}
+              showAllFeatures={showAllFeatures}
+              onShowAllFeaturesToggle={() =>
+                setShowAllFeatures(!showAllFeatures)
+              }
+              featureCategories={defaultFeatureCategories}
+              groupedFeatures={groupedFeatures}
+            />
           )}
-          
           {activeTab === "nearby" && (
-            <View style={styles.nearbyContainer}>
-              <Text style={styles.sectionTitle}>Nearby Places</Text>
-              
-              {property.nearbyPlaces.map((place, index) => (
-                <View key={index} style={styles.nearbyPlaceItem}>
-                  <View style={styles.nearbyIconContainer}>
-                    <FontAwesome name={place.icon as keyof typeof FontAwesome.glyphMap} size={20} color={COLORS.primary} />
-                  </View>
-                  <View style={styles.nearbyPlaceInfo}>
-                    <Text style={styles.nearbyPlaceName}>{place.name}</Text>
-                    <Text style={styles.nearbyPlaceDistance}>{place.distance}</Text>
-                  </View>
-                </View>
-              ))}
-              
-              <TouchableOpacity style={styles.viewMapButton}>
-                <Ionicons name="map-outline" size={20} color={COLORS.white} />
-                <Text style={styles.viewMapButtonText}>View All on Map</Text>
-              </TouchableOpacity>
-            </View>
+            <PropertyNearbyContent
+              nearbyPlaces={originalMockProperty.nearbyPlaces}
+              onViewAllOnMap={handleViewOnMap}
+            />
           )}
-          
-          {/* Agent information */}
-          <View style={styles.agentCard}>
-            <View style={styles.agentHeader}>
-              <Text style={styles.sectionTitle}>Listed by</Text>
-              <TouchableOpacity style={styles.viewProfileButton}>
-                <Text style={styles.viewProfileText}>View Profile</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.agentInfo}>
-              <Image source={{ uri: property.agent.photo }} style={styles.agentPhoto} />
-              <View style={styles.agentDetails}>
-                <Text style={styles.agentName}>{property.agent.name}</Text>
-                <View style={styles.ratingContainer}>
-                  <Ionicons name="star" size={16} color={COLORS.yellow} />
-                  <Text style={styles.ratingText}>
-                    {property.agent.rating} ({property.agent.reviewCount} reviews)
-                  </Text>
-                </View>
-                <Text style={styles.agentSpecialty}>{property.agent.specialty}</Text>
-              </View>
-            </View>
-          </View>
+          <PropertyAgentCard
+            agent={originalMockProperty.agent}
+            onViewProfile={handleViewAgentProfile}
+          />
         </View>
       </ScrollView>
-      
-      {/* Contact Agent fixed bottom bar */}
-      <View style={styles.contactBar}>
-        <TouchableOpacity style={styles.contactButton}>
-          <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
-          <Text style={styles.contactButtonText}>Message</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.contactButton, styles.callButton]}
-          onPress={handleCallAgent}
-        >
-          <Ionicons name="call-outline" size={20} color={COLORS.white} />
-          <Text style={styles.callButtonText}>Call Agent</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.contactButton, styles.whatsappButton]}
-          onPress={handleWhatsAppAgent}
-        >
-          <Ionicons name="logo-whatsapp" size={22} color={COLORS.white} />
-        </TouchableOpacity>
-      </View>
-      
-      {/* Full screen image modal with pinch-to-zoom */}
-      <Modal
+
+      <PropertyContactBar
+        agentPhone={originalMockProperty.agent.phone}
+        onMessageAgent={handleMessageAgent}
+        onCallAgent={handleCallAgent}
+        onWhatsAppAgent={handleWhatsAppAgent}
+      />
+
+      <FullScreenImageModal
         visible={isFullScreen}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={exitFullScreen}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={exitFullScreen}>
-            <Ionicons name="close-circle" size={36} color={COLORS.white} />
-          </TouchableOpacity>
-
-          <PinchGestureHandler
-            onGestureEvent={onPinchGestureEvent}
-            onHandlerStateChange={onPinchHandlerStateChange}
-          >
-            <Animated.View style={styles.pinchContainer}>
-              <Animated.Image
-                source={{ uri: selectedImage || "" }}
-                style={[styles.fullScreenImage, animatedImageStyle]}
-                resizeMode="contain"
-              />
-            </Animated.View>
-          </PinchGestureHandler>
-
-          {/* Image counter in full screen mode */}
-          <View style={styles.fullScreenImageCounter}>
-            <Text style={styles.imageCounterText}>
-              {activeIndex + 1}/{property.images.length}
-            </Text>
-          </View>
-        </View>
-      </Modal>
+        images={imagesFromProperty}
+        initialIndex={currentFullScreenIndex}
+        currentFullScreenIndex={currentFullScreenIndex}
+        flatListRef={fullScreenFlatListRef}
+        onClose={exitFullScreen}
+        onMomentumScrollEnd={handleFullScreenScroll}
+      />
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 90,
-    paddingTop: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    zIndex: 100,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginHorizontal: 10,
-    textAlign: 'center',
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  carouselContainer: {
-    position: 'relative',
-    height: height * 0.45,
-    width: width,
-  },
-  carouselImage: {
-    width: width,
-    height: height * 0.45,
-  },
-  imageGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  floatingButton: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButton: {
-    top: 50,
-    left: 16,
-    zIndex: 10,
-  },
-  actionButtons: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    flexDirection: 'row',
-    zIndex: 10,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  statusTag: {
-    position: 'absolute',
-    top: 100,
-    left: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-  },
-  statusText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  listedDateTag: {
-    position: 'absolute',
-    top: 100,
-    right: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  listedDateText: {
-    color: COLORS.white,
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  imageCounter: {
-    position: 'absolute',
-    bottom: 80,
-    right: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  imageCounterText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  pagination: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.white,
-    marginHorizontal: 4,
-    opacity: 0.4,
-  },
-  paginationDotActive: {
-    opacity: 1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  contentWrapper: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -24,
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 100, // Extra padding for the bottom contact bar
-  },
-  propertyHeader: {
-    marginBottom: 24,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  price: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  propertyTypeTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: COLORS.lightGray,
-  },
-  propertyTypeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.darkGray,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  location: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginLeft: 8,
-  },
-  mapButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: COLORS.lightGray,
-  },
-  mapButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  viewCountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  viewCountText: {
-    fontSize: 12,
-    color: COLORS.darkGray,
-    marginLeft: 6,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-    marginBottom: 16,
-  },
-  tab: {
-    paddingVertical: 12,
-    marginRight: 24,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  activeTab: {
-    borderBottomColor: COLORS.primary,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  activeTabText: {
-    color: COLORS.primary,
-  },
-  overviewContainer: {
-    marginBottom: 24,
-  },
-  keyFeaturesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  keyFeatureCard: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginHorizontal: 4,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  keyFeatureValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  descriptionContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: COLORS.textSecondary,
-  },
-  featuresSection: {
-    marginBottom: 24,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '50%',
-    marginBottom: 16,
-  },
-  featureText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginLeft: 8,
-  },
-  showMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  showMoreText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginRight: 4,
-  },
-  detailsContainer: {
-    marginBottom: 24,
-  },
-  featureCategory: {
-    marginBottom: 24,
-  },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  categoryFeaturesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  detailFeatureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '50%',
-    marginBottom: 12,
-  },
-  nearbyContainer: {
-    marginBottom: 24,
-  },
-  nearbyPlaceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  nearbyIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  nearbyPlaceInfo: {
-    flex: 1,
-  },
-  nearbyPlaceName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  nearbyPlaceDistance: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  viewMapButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  viewMapButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginLeft: 8,
-  },
-  agentCard: {
-    padding: 16,
-    backgroundColor: COLORS.background,
-    borderRadius: 16,
-    marginBottom: 24,
-  },
-  agentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  viewProfileButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: COLORS.lightGray,
-  },
-  viewProfileText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  agentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  agentPhoto: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-  },
-  agentDetails: {
-    flex: 1,
-  },
-  agentName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  ratingText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginLeft: 4,
-  },
-  agentSpecialty: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  contactBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    flexDirection: 'row',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-  },
-  contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    flex: 1,
-    marginHorizontal: 4,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  contactButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginLeft: 8,
-  },
-  callButton: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  callButtonText: {
-    color: COLORS.white,
-    marginLeft: 8,
-  },
-  whatsappButton: {
-    backgroundColor: '#25D366', // WhatsApp color
-    borderColor: '#25D366',
-    width: 50,
-    flex: 0,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    zIndex: 10,
-  },
-  pinchContainer: {
-    width: width,
-    height: height,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullScreenImage: {
-    width: width,
-    height: height * 0.8,
-  },
-  fullScreenImageCounter: {
-    position: 'absolute',
-    bottom: 40,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  }
-});

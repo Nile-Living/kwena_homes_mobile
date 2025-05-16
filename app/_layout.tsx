@@ -1,3 +1,4 @@
+// app/_layout.tsx
 import React, { useState, useEffect } from "react";
 import {
   DarkTheme,
@@ -16,11 +17,10 @@ import OnboardingScreen from "@/components/OnboardingScreen";
 import { View, ActivityIndicator } from "react-native";
 import { Colors } from "@/constants/Colors";
 import HeaderAddButton from "@/components/HeaderAddButton";
-
 import { useColorScheme } from "@/hooks/useColorScheme";
-
 import "../global.css";
-
+import * as Linking from 'expo-linking';
+import { getSupabase } from "@/supabaseClient";
 SplashScreen.preventAutoHideAsync();
 
 const ONBOARDING_STORAGE_KEY = "@app_onboarding_completed_v1";
@@ -28,46 +28,72 @@ const ONBOARDING_STORAGE_KEY = "@app_onboarding_completed_v1";
 export default function RootLayout() {
   const router = useRouter();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
-  const checkAuth = useAuthStore((state) => state.checkAuth);
   const colorScheme = useColorScheme();
   const [loaded, fontError] = useFonts({
-    // Capture font error
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
+
+    
+    getSupabase();
+
     const initializeApp = async () => {
       try {
         const onboardingStatus = await AsyncStorage.getItem(
-          ONBOARDING_STORAGE_KEY
+          ONBOARDING_STORAGE_KEY,
         );
         setShowOnboarding(onboardingStatus !== "true");
-
-        await checkAuth();
       } catch (e) {
-        console.error("Initialization error:", e);
-        // Decide fallback behavior if storage/auth check fails
-        setShowOnboarding(true); // Default to showing onboarding on error
+        console.error("Initialization error (onboarding):", e);
+        setShowOnboarding(true);
       }
     };
 
     initializeApp();
-  }, [checkAuth]); // checkAuth dependency
+
+    // --- Linking Event Listener for Debugging OAuth Callback ---
+    const handleDeepLink = (event: { url: string }) => {
+      console.log("[_layout.tsx] Deep link event received (addEventListener):", event.url);
+      // Supabase client should also be listening to this if detectSessionInUrl is true.
+      // No need to manually pass it to Supabase here.
+    };
+
+    // Subscribe to incoming links
+    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check initial URL (if app was opened via a deep link)
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        console.log("[_layout.tsx] Initial URL received (getInitialURL):", url);
+        // Supabase client should also process this if detectSessionInUrl is true.
+      }
+    }).catch(err => console.warn("[_layout.tsx] Error getting initial URL:", err));
+    // --- End Linking Event Listener ---
+
+
+    // Initialize Supabase auth listener from your store
+    const unsubscribeAuth = useAuthStore.getState().initAuthListener();
+
+    // Cleanup function
+    return () => {
+      unsubscribeAuth();
+      linkingSubscription.remove(); // Don't forget to remove your custom listener
+    };
+  }, []); // Empty dependency array ensures this runs once on mount
 
   useEffect(() => {
-    // Hide splash screen once fonts are loaded AND onboarding status is determined
     if ((loaded || fontError) && showOnboarding !== null) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, fontError, showOnboarding]); // Add showOnboarding to dependencies
+  }, [loaded, fontError, showOnboarding]);
 
   const handleOnboardingDone = async () => {
     try {
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setShowOnboarding(false); // Hide onboarding screen
+      setShowOnboarding(false);
     } catch (e) {
       console.error("Failed to save onboarding status:", e);
-      // Still hide onboarding even if saving fails?
       setShowOnboarding(false);
     }
   };
@@ -87,14 +113,10 @@ export default function RootLayout() {
         </View>
       );
     }
-    // If fonts aren't loaded yet but onboarding status *is* known,
-    // returning null might be okay as the splash screen is still visible.
     return null;
   }
 
-  // Show Onboarding if needed
   if (showOnboarding) {
-    // Pass the function to call when onboarding is done/skipped
     return <OnboardingScreen onDone={handleOnboardingDone} />;
   }
 
@@ -102,10 +124,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
-          {/* Main Tab Navigator */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-          {/* Modal Screens (Example) */}
           <Stack.Screen
             name="auth/signin"
             options={{ presentation: "modal", title: "Sign In" }}
@@ -114,8 +133,6 @@ export default function RootLayout() {
             name="auth/signup"
             options={{ presentation: "modal", title: "Sign Up" }}
           />
-
-          {/* Other Full Screens */}
           <Stack.Screen
             name="property/new/index"
             options={{ title: "Add New Property" }}
@@ -128,21 +145,19 @@ export default function RootLayout() {
                 <HeaderAddButton
                   onPress={() => {
                     console.log(
-                      "Add button pressed: Navigating via router from RootLayout"
+                      "Add button pressed: Navigating via router from RootLayout",
                     );
                     router.push("/property/new");
                   }}
                   tintColor="#4F46E5"
                 />
               ),
-            })} // Updated title
+            })}
           />
           <Stack.Screen
             name="payments/promote"
             options={{ title: "Promote Listing", headerShown: true }}
           />
-
-          {/* Not Found Screen */}
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />

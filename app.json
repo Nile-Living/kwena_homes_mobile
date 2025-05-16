@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow app to access your location to show nearby properties"
-      }
+      },
+      "bundleIdentifier": "com.chimwemwe_m.kwena_properties_mobile"
     },
     "android": {
       "permissions": [
@@ -23,7 +24,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.chimwemwe_m.kwena_homes_mobile",
+      "package": "com.chimwemwe_m.kwena_properties_mobile",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCsGaVhJ_9Gd8ORYV_Px2NiYWD4vSclRFk"

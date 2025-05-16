@@ -1,4 +1,4 @@
-package com.chimwemwe_m.kwena_homes_mobile
+package com.chimwemwe_m.kwena_properties_mobile
 
 import android.app.Application
 import android.content.res.Configuration

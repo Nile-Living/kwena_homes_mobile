@@ -1,5 +1,6 @@
+// store/authStore.ts
 import { create } from "zustand";
-import { supabase } from "@/supabaseClient";
+import { getSupabase, redirectUri, supabase } from "@/supabaseClient";
 import { Session, User } from "@supabase/supabase-js";
 import { useStore } from "@/store/useStore";
 import { API_BASE_URL } from "@/constants/Config";
@@ -11,25 +12,27 @@ export type UserRole = "user" | "agent";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectUrl = Linking.createURL("auth/callback");
-console.log("OAuth Redirect URL:", redirectUrl);
-
 interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
   error: string | null;
-
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (
     email: string,
     password: string,
     phone: string,
-    role: UserRole
+    role: UserRole,
   ) => Promise<boolean>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  initAuthListener: () => () => void;
+  updateUserProfile: (profileData: {
+    phone: string;
+    role: UserRole;
+  }) => Promise<boolean>;
 }
 
 const constructSession = (data: any): Session | null => {
@@ -40,7 +43,7 @@ const constructSession = (data: any): Session | null => {
     refresh_token: data.refreshToken || "",
     token_type: "bearer",
     expires_in: data.expiresIn || 3600,
-    expires_at: data.expriesIn
+    expires_at: data.expiresIn
       ? Date.now() / 1000 + data.expiresIn
       : Date.now() / 1000 + 3600,
     user: data.user as User,
@@ -59,16 +62,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const {
         data: { session },
         error,
-      } = await supabase.auth.getSession();
+      } = await getSupabase().auth.getSession();
       if (error) throw error;
 
       const currentUser = session?.user ?? null;
-
       set({ session, user: currentUser, loading: false, error: null });
 
       if (currentUser) {
         console.log(
-          "checkAuth: User session found, fetching saved properties."
+          "checkAuth: User session found, fetching saved properties.",
         );
         useStore.getState().fetchSavedProperties();
       } else {
@@ -125,6 +127,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async (email, password, phone, role) => {
+    const supabase = getSupabase();
+
     set({ loading: true, error: null });
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
@@ -136,7 +140,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = await response.json();
       if (!response.ok) {
         throw new Error(
-          data.message || `Sign up failed (status: ${response.status})`
+          data.message || `Sign up failed (status: ${response.status})`,
         );
       }
 
@@ -155,10 +159,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ user: null, session: null, loading: false, error: null });
         Alert.alert(
           "Sign Up Pending",
-          data.message || "Please check your email to confirm your account."
+          data.message || "Please check your email to confirm your account.",
         );
       }
-
       return true;
     } catch (error: any) {
       console.error("signUp error:", error);
@@ -168,6 +171,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    const supabase = getSupabase();
+
     set({ loading: true });
     try {
       const { error } = await supabase.auth.signOut();
@@ -180,48 +185,90 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithGoogle: async () => {
-    try {
-      set({ loading: true, error: null });
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-        },
-      });
-      if (error) throw error;
+// store/authStore.ts
+// ... (other imports and code remain the same)
 
-      if (data.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl
-        );
+// ...
+signInWithGoogle: async () => {
+  const supabase = getSupabase();
+  // ... (your console logs for crypto and redirectUri) ...
+  try {
+    set({ loading: true, error: null });
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true, // Keep this true for openAuthSessionAsync
+      },
+    });
 
-        if (result.type !== "success") {
-          set({ loading: false, error: "Google Sign-In cancelled." });
-          return;
+    if (oauthError) throw oauthError;
+
+    if (data.url) {
+      console.log("[authStore.ts] Opening auth session with URL:", data.url);
+      console.log("[authStore.ts] Expecting redirect back to:", redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectUri, // This is the scheme your app will respond to
+      );
+      console.log("[authStore.ts] WebBrowser.openAuthSessionAsync result:", JSON.stringify(result, null, 2));
+
+      if (result.type === 'success' && result.url) {
+        console.log("[authStore.ts] Auth session success, URL returned:", result.url);
+
+        // Extract the authorization code from the returned URL
+        // The code is usually in a query parameter named 'code'
+        const { queryParams } = Linking.parse(result.url);
+        const code = queryParams?.code;
+
+        if (typeof code === 'string' && code) {
+          console.log("[authStore.ts] Authorization code extracted:", code);
+
+          // Exchange the code for a session
+          const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            console.error("[authStore.ts] Error exchanging code for session:", exchangeError);
+            set({ error: exchangeError.message, loading: false });
+            return;
+          }
+
+          if (sessionData && sessionData.session && sessionData.user) {
+            console.log("[authStore.ts] Session successfully obtained after exchange:", JSON.stringify(sessionData.session, null, 2));
+
+          } else {
+            console.error("[authStore.ts] No session data returned from exchangeCodeForSession.");
+            set({ error: "Failed to obtain session after exchanging code.", loading: false });
+          }
+        } else {
+          console.error("[authStore.ts] Authorization code not found in callback URL.", result.url);
+          set({ error: "Authorization code missing in callback.", loading: false });
         }
-
-        await get().checkAuth();
-      } else {
-        throw new Error("Could not get Google 0Auth URL from Supabase.");
+      } else if (result.type !== 'success') {
+        set({ loading: false, error: `Google Sign-In failed or cancelled. Result type: ${result.type}` });
+        return;
       }
-
-      set({ loading: false });
-    } catch (error: any) {
-      console.error("signInWithGoogle error:", error);
-      set({ error: error.message || "Google Sign-In failed.", loading: false });
+    } else {
+      throw new Error("Could not get Google OAuth URL from Supabase.");
     }
-  },
+
+  } catch (error: any) {
+    console.error("[authStore.ts] signInWithGoogle error:", error);
+    set({ error: error.message || "Google Sign-In failed.", loading: false });
+  }
+},
 
   signInWithFacebook: async () => {
+    const supabase = getSupabase();
+
+    set({ loading: true, error: null });
+    console.log("signInWithFacebook - Using Redirect URI from supabaseClient:", redirectUri);
     set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "facebook",
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: redirectUri, // USE THE IMPORTED URI
           skipBrowserRedirect: true,
         },
       });
@@ -231,17 +278,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (data.url) {
         const result = await WebBrowser.openAuthSessionAsync(
           data.url,
-          redirectUrl
+          redirectUri,
         );
-
         if (result.type !== "success") {
           set({ loading: false, error: "Facebook Sign-In cancelled." });
           return;
         }
-        await get().checkAuth();
       } else {
         throw new Error("Could not get Facebook OAuth URL from Supabase.");
       }
+      set({ loading: false });
     } catch (error: any) {
       console.error("signInWithFacebook error:", error);
       set({
@@ -252,29 +298,45 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initAuthListener: () => {
+    const supabase = getSupabase();
+
+    set({ loading: true });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("onAuthStateChange Event:", _event, "Session:", !!session);
+      console.log("onAuthStateChange --- Event:", _event);
+      console.log("onAuthStateChange --- Received Session:", JSON.stringify(session, null, 2));
+      console.log("onAuthStateChange --- Session User:", JSON.stringify(session?.user, null, 2));
       const currentUser = session?.user ?? null;
       const currentSession = session ?? null;
 
+      const previousUserId = get().user?.id;
+      const previousAccessToken = get().session?.access_token;
+
+      console.log("onAuthStateChange --- Previous User ID:", previousUserId);
+      console.log("onAuthStateChange --- Current User ID:", currentUser?.id);
+      console.log("onAuthStateChange --- Previous Access Token (exists):", !!previousAccessToken);
+      console.log("onAuthStateChange --- Current Access Token (exists):", !!currentSession?.access_token);
+
       if (
-        currentUser?.id !== get().user?.id ||
-        currentSession?.access_token !== get().session?.access_token
+        currentUser?.id !== previousUserId ||
+        currentSession?.access_token !== previousAccessToken
       ) {
-        set({ session: currentSession, user: currentUser, error: null }); 
+        console.log("onAuthStateChange --- State change detected. Updating store.");
+        set({ session: currentSession, user: currentUser, error: null, loading: false }); // Ensure loading is also set false here
         if (currentUser) {
           console.log(
-            "onAuthStateChange: User detected, fetching saved properties."
+            "onAuthStateChange: User detected, fetching saved properties.",
           );
           useStore.getState().fetchSavedProperties();
         } else {
-          console.log("onAuthStateChange: No user detected.");
-          useStore.getState().setSavedProperties([]); 
+          console.log("onAuthStateChange: No user detected. Clearing saved properties.");
+          useStore.getState().setSavedProperties([]);
         }
+      } else {
+        console.log("onAuthStateChange --- No significant state change detected. Not updating store.");
+        set({ loading: false });
       }
-      set({ loading: false });
     });
 
     get().checkAuth();
@@ -283,4 +345,81 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       subscription?.unsubscribe();
     };
   },
+
+  updateUserProfile: async (profileData) => {
+    set({ loading: true, error: null });
+    const token = get().session?.access_token;
+    const userId = get().user?.id;
+
+    if (!token || !userId) {
+      set({
+        error: "Authentication required to update profile.",
+        loading: false,
+      });
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/profiles/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          responseData.message ||
+            `Failed to update profile (status: ${response.status})`,
+        );
+      }
+
+
+      const { data: updatedUserData, error: userUpdateError } =
+        await supabase.auth.updateUser({
+          data: { role: profileData.role },
+          phone: profileData.phone,
+        });
+
+      if (userUpdateError) {
+        console.warn("authStore:updateUserProfile - Failed to update local Supabase user object:", userUpdateError.message);
+      }
+
+      const currentUser = get().user;
+      const currentSession = get().session;
+
+      if (currentUser && currentSession) {
+        const updatedUser = {
+          ...currentUser,
+          phone: profileData.phone, // Directly update phone
+          user_metadata: {
+            ...currentUser.user_metadata,
+            role: profileData.role, // Directly update role in metadata
+          },
+        };
+        const updatedSession = {
+            ...currentSession,
+            user: updatedUser,
+        };
+        set({ user: updatedUser, session: updatedSession, loading: false, error: null });
+      } else {
+         set({ loading: false, error: null }); // Should not happen if token exists
+      }
+
+
+      console.log("updateUserProfile: Profile update successful.");
+      return true;
+    } catch (error: any) {
+      console.error("updateUserProfile error:", error);
+      set({ error: error.message, loading: false });
+      return false;
+    }
+  },
 }));
+
+
+

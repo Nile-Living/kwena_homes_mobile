@@ -455,12 +455,11 @@ export default function ProfileScreen() {
   );
 }
 
-// StyleSheet for things difficult with NativeWind (like modal overlay)
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent background
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
 });
