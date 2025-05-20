@@ -280,7 +280,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.accent,
   },
   propertyTypeText: {
     fontSize: 12,

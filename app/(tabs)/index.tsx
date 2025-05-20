@@ -302,7 +302,7 @@ export default function HomeScreen() {
   );
 }
 
-// --- Styles (Keep as is) ---
+
 const styles = StyleSheet.create({
   flexContainer: { flex: 1 },
   headerContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 3, gap: 8, marginTop: 16, alignItems: 'center' },
