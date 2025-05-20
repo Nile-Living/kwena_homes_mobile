@@ -10,7 +10,7 @@ export default function PrivacyPolicyScreen() {
           Privacy Policy
         </Text>
         <Text className="text-lg text-gray-600 mb-1">
-          Kwena Homes by Ngawa Ventures
+          Kwena Properties by Ngawa Ventures
         </Text>
         <Text className="text-sm text-gray-500 mb-6">
           Effective Date: 29 April 2025
@@ -18,7 +18,7 @@ export default function PrivacyPolicyScreen() {
         {/* Content Sections */}
         <Section title="Introduction">
           <BodyText>
-            At Kwena Homes, your privacy matters to us. Operated by Ngawa
+            At Kwena Properties, your privacy matters to us. Operated by Ngawa
             Ventures, our app is designed to help you easily find accommodation
             in Lusaka, Zambia. This Privacy Policy outlines how we collect, use,
             protect, and share your information.

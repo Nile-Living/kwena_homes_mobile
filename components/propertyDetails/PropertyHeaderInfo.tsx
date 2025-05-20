@@ -11,7 +11,7 @@ interface PropertyHeaderInfoProps {
   subtitle: string;
   location: string;
   onViewOnMap: () => void;
-  viewCount: number;
+  // viewCount: number;
 }
 
 const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
@@ -22,7 +22,7 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
   subtitle,
   location,
   onViewOnMap,
-  viewCount,
+  // viewCount,
 }) => {
   return (
     <View style={styles.propertyHeader}>
@@ -47,10 +47,10 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.viewCountRow}>
+      {/* <View style={styles.viewCountRow}>
         <Ionicons name="eye-outline" size={16} color={COLORS.darkGray} />
         <Text style={styles.viewCountText}>{viewCount} views</Text>
-      </View>
+      </View> */}
     </View>
   );
 };

@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
+  Share,
 } from "react-native";
 import { useLocalSearchParams, Stack, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,7 +28,6 @@ import { styles, COLORS } from "@/styles/PropertyDetails.styles";
 import { useRouter } from "expo-router";
 import {
   DisplayableFeature,
-  IconProps,
   featureCategories as defaultFeatureCategories,
 } from "../../utils/propertyDetailsUtils";
 import PropertyImageCarousel from "@/components/propertyDetails/PropertyImageCarousel";
@@ -40,394 +40,19 @@ import PropertyNearbyContent from "@/components/propertyDetails/PropertyNearbyCo
 import PropertyAgentCard from "@/components/propertyDetails/PropertyAgentCard";
 import PropertyContactBar from "@/components/propertyDetails/PropertyContactBar";
 import FullScreenImageModal from "@/components/propertyDetails/FullScreenImageModal";
+import {
+  originalMockProperty,
+  generateDisplayableFeatures,
+  getKeyFeaturesForDisplay,
+} from "@/components/propertyDetails/MockPropertyData";
 
 const { width } = Dimensions.get("window");
-
-const originalMockProperty = {
-  id: "property-123",
-  title: "Luxurious Riverside Villa",
-  subtitle: "Executive Home in Exclusive Neighborhood",
-  price: 2750000,
-  priceUnit: "K",
-  location: "30 Leopards Hill, Lusaka",
-  coordinates: { latitude: -15.3875, longitude: 28.3228 },
-  status: "premium" as keyof typeof COLORS.statusColor,
-  listedDate: "3 weeks ago",
-  description:
-    "This magnificent property offers a perfect blend of luxury and comfort. Nestled in a serene environment with panoramic views of the surrounding landscape, this villa features high-end finishes, spacious living areas, and state-of-the-art amenities. The property includes a large swimming pool, landscaped gardens, and a private gym. The open floor plan creates a seamless flow between indoor and outdoor living spaces, making it ideal for entertaining guests.",
-  images: [
-    "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2053&auto=format&fit=crop",
-  ],
-  category: "house",
-  details: {
-    bedrooms: 5,
-    bathrooms: 4.5,
-    size_sqm: 450,
-    garages: 3,
-    pool: true,
-    garden: true,
-    security_details: "24/7 Security",
-    wifi_details: "High-speed Internet",
-    ac_details: "Central AC",
-    is_furnished: true,
-    gym_details: "Private Gym",
-    year_built: 2021,
-  },
-  nearbyPlaces: [
-    { name: "International School", distance: "0.5 km", icon: "school" },
-    { name: "Shopping Mall", distance: "1.2 km", icon: "shopping-bag" },
-    { name: "Hospital", distance: "3.5 km", icon: "hospital-o" },
-    { name: "Park", distance: "0.8 km", icon: "tree" },
-  ],
-  agent: {
-    id: "agent-456",
-    name: "Sarah Mwanza",
-    photo:
-      "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1974&auto=format&fit=crop",
-    rating: 4.9,
-    reviewCount: 124,
-    phone: "+260 97 1234567",
-    email: "sarah.mwanza@kwenahomes.com",
-  },
-  liked: true,
-  propertyType: "Villa",
-  viewCount: 342,
-};
-
-function generateDisplayableFeatures(
-  property: Property | null
-): DisplayableFeature[] {
-  if (!property) return [];
-  const features: DisplayableFeature[] = [];
-  const details = property.details || originalMockProperty.details;
-  const pCategory = property.category?.toLowerCase();
-
-  const addFeature = (
-    name: string,
-    icon: string,
-    value: any,
-    category: string,
-    iconLib: IconProps["library"],
-    condition: any = value
-  ) => {
-    if (
-      condition !== null &&
-      typeof condition !== "undefined" &&
-      condition !== ""
-    ) {
-      features.push({
-        name,
-        icon,
-        value: String(value),
-        category,
-        iconLibrary: iconLib,
-      });
-    }
-  };
-  const addFeatureFromBool = (
-    name: string,
-    icon: string,
-    displayValue: string,
-    category: string,
-    iconLib: IconProps["library"],
-    condition?: boolean
-  ) => {
-    if (condition === true) {
-      features.push({
-        name,
-        icon,
-        value: displayValue,
-        category,
-        iconLibrary: iconLib,
-      });
-    }
-  };
-  const addFeaturesFromArray = (
-    key: string,
-    icon: string,
-    category: string,
-    iconLib: IconProps["library"]
-  ) => {
-    if (details && details[key] && Array.isArray(details[key])) {
-      details[key].forEach((item: string) => {
-        addFeature(
-          `${key}_${item.toLowerCase().replace(/\s/g, "")}`,
-          icon,
-          item,
-          category,
-          iconLib
-        );
-      });
-    }
-  };
-
-  if (pCategory === "house") {
-    addFeature(
-      "bedrooms",
-      "bed",
-      details?.bedrooms ? `${details.bedrooms} Bedrooms` : null,
-      "basic",
-      "FontAwesome",
-      details?.bedrooms
-    );
-    addFeature(
-      "bathrooms",
-      "bath",
-      details?.bathrooms ? `${details.bathrooms} Bathrooms` : null,
-      "basic",
-      "FontAwesome",
-      details?.bathrooms
-    );
-    addFeature(
-      "garage",
-      "car",
-      details?.garages ? `${details.garages} Car Garage` : null,
-      "outdoor",
-      "FontAwesome",
-      details?.garages
-    );
-    addFeature(
-      "parking",
-      "parking",
-      details?.parkings ? `${details.parkings} Parking Spaces` : null,
-      "outdoor",
-      "FontAwesome",
-      details?.parkings
-    );
-    addFeaturesFromArray(
-      "amenities",
-      "check-circle-outline",
-      "amenities",
-      "MaterialCommunityIcons"
-    );
-    addFeaturesFromArray(
-      "security_features",
-      "shield-check",
-      "amenities",
-      "MaterialCommunityIcons"
-    );
-    addFeatureFromBool(
-      "pool",
-      "pool",
-      "Swimming Pool",
-      "outdoor",
-      "MaterialIcons",
-      originalMockProperty.details.pool
-    );
-    addFeatureFromBool(
-      "garden",
-      "leaf",
-      "Landscaped Garden",
-      "outdoor",
-      "FontAwesome",
-      originalMockProperty.details.garden
-    );
-  } else if (pCategory === "land") {
-    addFeature(
-      "size",
-      "texture-box",
-      details?.size_sqm ? `${details.size_sqm} sq.m` : null,
-      "basic",
-      "MaterialCommunityIcons",
-      details?.size_sqm
-    );
-    addFeature(
-      "legalStatus",
-      "file-document-outline",
-      details?.legal_status,
-      "details",
-      "MaterialCommunityIcons"
-    );
-    addFeature(
-      "intendedUse",
-      "lightbulb-on-outline",
-      details?.intended_use,
-      "details",
-      "MaterialCommunityIcons"
-    );
-    addFeatureFromBool(
-      "roadAccess",
-      "road-variant",
-      "Road Access",
-      "outdoor",
-      "MaterialCommunityIcons",
-      details?.road_access
-    );
-    addFeature(
-      "waterSupply",
-      "water",
-      details?.water_supply ? `Water: ${details.water_supply}` : null,
-      "amenities",
-      "MaterialCommunityIcons",
-      details?.water_supply
-    );
-    addFeatureFromBool(
-      "electricity",
-      "power-plug-outline",
-      "Electricity Available",
-      "amenities",
-      "MaterialCommunityIcons",
-      details?.electricity_available
-    );
-    addFeatureFromBool(
-      "fenced",
-      "fence",
-      "Fenced",
-      "outdoor",
-      "MaterialCommunityIcons",
-      details?.fenced
-    );
-  } else if (pCategory === "apartment") {
-    addFeature(
-      "bedrooms",
-      "bed",
-      details?.bedrooms ? `${details.bedrooms} Bedrooms` : null,
-      "basic",
-      "FontAwesome",
-      details?.bedrooms
-    );
-    addFeature(
-      "bathrooms",
-      "bath",
-      details?.bathrooms ? `${details.bathrooms} Bathrooms` : null,
-      "basic",
-      "FontAwesome",
-      details?.bathrooms
-    );
-    addFeature(
-      "size",
-      "ruler-combined",
-      details?.square_meters ? `${details.square_meters} sq.m` : null,
-      "basic",
-      "MaterialCommunityIcons",
-      details?.square_meters
-    );
-    addFeature(
-      "parking",
-      "parking",
-      details?.parking_spaces
-        ? `${details.parking_spaces} Parking Spaces`
-        : null,
-      "outdoor",
-      "FontAwesome",
-      details?.parking_spaces
-    );
-    addFeaturesFromArray(
-      "amenities",
-      "check-circle-outline",
-      "amenities",
-      "MaterialCommunityIcons"
-    );
-    addFeaturesFromArray(
-      "security_features",
-      "shield-check",
-      "amenities",
-      "MaterialCommunityIcons"
-    );
-  } else if (pCategory === "commercial") {
-    addFeature(
-      "commercialType",
-      "office-building",
-      details?.property_type,
-      "basic",
-      "MaterialCommunityIcons",
-      details?.property_type
-    );
-    addFeature(
-      "size",
-      "ruler-square",
-      details?.square_meters ? `${details.square_meters} sq.m` : null,
-      "basic",
-      "MaterialCommunityIcons",
-      details?.square_meters
-    );
-    addFeature(
-      "parking",
-      "parking",
-      details?.parking_spaces
-        ? `${details.parking_spaces} Parking Spaces`
-        : null,
-      "outdoor",
-      "FontAwesome",
-      details?.parking_spaces
-    );
-    addFeaturesFromArray(
-      "amenities",
-      "check-circle-outline",
-      "amenities",
-      "MaterialCommunityIcons"
-    );
-    addFeaturesFromArray(
-      "security_features",
-      "shield-check",
-      "amenities",
-      "MaterialCommunityIcons"
-    );
-  }
-
-  if (
-    originalMockProperty.details.year_built &&
-    !features.some((f) => f.name === "year")
-  ) {
-    addFeature(
-      "year",
-      "calendar",
-      `Built ${originalMockProperty.details.year_built}`,
-      "details",
-      "FontAwesome"
-    );
-  }
-  return features;
-}
-
-const getKeyFeaturesForDisplay = (
-  allGeneratedFeatures: DisplayableFeature[],
-  pCategory: string | undefined
-): DisplayableFeature[] => {
-  let keys: DisplayableFeature[] = [];
-  const categoryLower = pCategory?.toLowerCase();
-
-  if (categoryLower === "house" || categoryLower === "apartment") {
-    keys = ["bedrooms", "bathrooms", "size", "parking", "garage"]
-      .map((name) => allGeneratedFeatures.find((f) => f.name === name))
-      .filter(Boolean) as DisplayableFeature[];
-  } else if (categoryLower === "land") {
-    keys = ["size", "roadAccess", "legalStatus"]
-      .map((name) => allGeneratedFeatures.find((f) => f.name === name))
-      .filter(Boolean) as DisplayableFeature[];
-  } else if (categoryLower === "commercial") {
-    keys = ["commercialType", "size", "parking"]
-      .map((name) => allGeneratedFeatures.find((f) => f.name === name))
-      .filter(Boolean) as DisplayableFeature[];
-  }
-
-  if (keys.length < 3) {
-    const basicFeatures = allGeneratedFeatures.filter(
-      (f) => f.category === "basic"
-    );
-    keys = [
-      ...keys,
-      ...basicFeatures.filter((bf) => !keys.some((k) => k.name === bf.name)),
-    ];
-  }
-  if (keys.length < 3) {
-    keys = [
-      ...keys,
-      ...allGeneratedFeatures.filter(
-        (af) => !keys.some((k) => k.name === af.name)
-      ),
-    ];
-  }
-  return keys.slice(0, 3);
-};
 
 export default function PropertyDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
   const router = useRouter();
-  const { toggleSavedProperty, savedProperties } = useStore();
+  const { toggleSavedProperty, savedProperties, getPropertyById } = useStore();
   const { user } = useAuthStore();
 
   const [propertyData, setPropertyData] = useState<Property | null>(null);
@@ -445,18 +70,22 @@ export default function PropertyDetails() {
   const fullScreenFlatListRef = useRef<FlatList<string>>(null);
   const scrollY = useSharedValue(0);
 
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
+  const headerContainerAnimatedStyle = useAnimatedStyle(() => {
+    const interpolatedScrollOpacity = interpolate(
       scrollY.value,
-      [0, 100],
-      [0, 1],
+      [0, 50, 100],
+      [0, 0.5, 1],
       Extrapolate.CLAMP
     );
+
+    const newZIndex = interpolatedScrollOpacity < 0.05 ? -1 : 100;
+
     return {
-      opacity,
-      backgroundColor: `rgba(255, 255, 255, ${opacity})`,
-      borderBottomWidth: opacity > 0.7 ? 1 : 0,
+      backgroundColor: `rgba(255, 255, 255, ${interpolatedScrollOpacity})`,
+      borderBottomWidth: interpolatedScrollOpacity > 0.7 ? 1 : 0,
       borderBottomColor: COLORS.lightGray,
+      contentOpacity: interpolatedScrollOpacity,
+      zIndex: newZIndex,
     };
   });
 
@@ -465,32 +94,42 @@ export default function PropertyDetails() {
     : false;
 
   useEffect(() => {
-    const fetchProperty = async () => {
+    const loadPropertyDetails = async () => {
       if (!id) {
         setError("Property ID is missing.");
         setLoading(false);
         return;
       }
+
       setLoading(true);
       setError(null);
-      try {
-        const response = await fetch(`${API_BASE_URL}/properties/${id}`);
-        if (!response.ok) {
-          if (response.status === 404) throw new Error("Property not found.");
-          throw new Error(
-            `Failed to fetch property (status: ${response.status})`
-          );
-        }
-        const data: Property = await response.json();
-        setPropertyData(data);
-      } catch (err: any) {
-        setError(err.message || "Could not load property details.");
-      } finally {
+
+      const storeProperty = getPropertyById(id);
+
+      if (storeProperty) {
+        setPropertyData(storeProperty);
         setLoading(false);
+      } else {
+        try {
+          const response = await fetch(`${API_BASE_URL}/properties/${id}`);
+          if (!response.ok) {
+            if (response.status === 404) throw new Error("Property not found.");
+            throw new Error(
+              `Failed to fetch property (status: ${response.status})`
+            );
+          }
+          const data: Property = await response.json();
+          setPropertyData(data);
+        } catch (err: any) {
+          setError(err.message || "Could not load property details.");
+        } finally {
+          setLoading(false);
+        }
       }
     };
-    fetchProperty();
-  }, [id]);
+
+    loadPropertyDetails();
+  }, [id, getPropertyById]);
 
   const imagesFromProperty =
     propertyData?.images && propertyData.images.length > 0
@@ -594,17 +233,45 @@ export default function PropertyDetails() {
     }
   };
 
-  const handleShare = () => {
-    console.log("Share pressed");
+  const handleShare = async () => {
+    if (!propertyData) {
+      return;
+    }
+
+    const propertyUrl = `https://www.kwenaproperties.com/property/${propertyData.id}`;
+    const titleToShare = propertyData.title || originalMockProperty.title;
+    const message = `Check out this property: ${titleToShare}\n\nLocation: ${
+      propertyData.location || originalMockProperty.location
+    }\nPrice: K${(
+      propertyData.price ?? originalMockProperty.price
+    ).toLocaleString()}\n\nView more details here: ${propertyUrl}`;
+
+    try {
+      const result = await Share.share(
+        {
+          message: message,
+          url: propertyUrl,
+          title: `Check out: ${titleToShare}`,
+        },
+        {
+          dialogTitle: `Share ${titleToShare}`,
+        }
+      );
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+        } else {
+        }
+      } else if (result.action === Share.dismissedAction) {
+      }
+    } catch (error: any) {
+      console.error("Error sharing property:", error.message);
+    }
   };
 
-  const handleViewAgentProfile = () => {
-    console.log("View agent profile");
-  };
+  const handleViewAgentProfile = () => {};
 
-  const handleMessageAgent = () => {
-    console.log("Message agent");
-  };
+  const handleMessageAgent = () => {};
 
   const statusTextMap: { [key: string]: string } = {
     available: "Available",
@@ -673,12 +340,42 @@ export default function PropertyDetails() {
   const location = propertyData.location || originalMockProperty.location;
   const description =
     propertyData.description || originalMockProperty.description;
-  const propertyStatus = propertyData.status || originalMockProperty.status;
-  const statusColor =
-    COLORS.statusColor[propertyStatus as keyof typeof COLORS.statusColor] ||
-    COLORS.mediumGray;
-  const statusText = statusTextMap[propertyStatus] || "Status Unknown";
+  let statusTagText: string | null = null;
+  let statusTagColor: string = COLORS.mediumGray;
+
+  if (propertyData.is_promoted === true) {
+    statusTagText = "Premium";
+    statusTagColor = COLORS.statusColor.premium;
+  } else if (propertyData.status && statusTextMap[propertyData.status]) {
+    statusTagText = statusTextMap[propertyData.status];
+    statusTagColor =
+      COLORS.statusColor[
+        propertyData.status as keyof typeof COLORS.statusColor
+      ] || COLORS.mediumGray;
+  } else if (propertyData.status) {
+    statusTagText =
+      propertyData.status.charAt(0).toUpperCase() +
+      propertyData.status.slice(1);
+    statusTagColor = COLORS.mediumGray;
+  }
   const listedDate = getFormattedDate(propertyData.created_at);
+
+  const getDisplayCategory = (category?: string) => {
+    if (!category) return originalMockProperty.propertyType;
+    switch (category.toLowerCase()) {
+      case "house":
+        return "House";
+      case "apartment":
+        return "Apartment";
+      case "land":
+        return "Land";
+      case "commercial":
+        return "Commercial";
+      default:
+        return category.charAt(0).toUpperCase() + category.slice(1);
+    }
+  };
+  const propertyTypeForDisplay = getDisplayCategory(propertyData.category);
 
   const displayableFeatures = generateDisplayableFeatures(propertyData);
   const keyFeaturesToDisplay = getKeyFeaturesForDisplay(
@@ -696,12 +393,6 @@ export default function PropertyDetails() {
     ? displayableFeatures
     : displayableFeatures.slice(0, 6);
 
-  console.log("Active Tab:", activeTab);
-  if (activeTab === "details") {
-    console.log("Displayable Features for Details:", displayableFeatures);
-    console.log("Grouped Features for Details:", groupedFeatures);
-  }
-
   return (
     <GestureHandlerRootView
       style={{ flex: 1, backgroundColor: COLORS.background }}
@@ -716,7 +407,7 @@ export default function PropertyDetails() {
       <AnimatedDetailHeader
         title={title}
         isLiked={isLiked}
-        animatedStyle={headerAnimatedStyle}
+        animatedProperties={headerContainerAnimatedStyle}
         onBackPress={() => navigation.goBack()}
         onLikePress={handleLikePress}
         onSharePress={handleShare}
@@ -731,8 +422,8 @@ export default function PropertyDetails() {
         <PropertyImageCarousel
           images={imagesFromProperty}
           isLiked={isLiked}
-          statusText={statusText}
-          statusColor={statusColor}
+          statusText={statusTagText || ""}
+          statusColor={statusTagColor}
           listedDate={listedDate}
           activeIndex={carouselActiveIndex}
           flatListRef={carouselFlatListRef}
@@ -748,21 +439,20 @@ export default function PropertyDetails() {
           <PropertyHeaderInfo
             price={price}
             priceUnit={originalMockProperty.priceUnit}
-            propertyTypeDisplay={originalMockProperty.propertyType}
+            propertyTypeDisplay={propertyTypeForDisplay}
             title={title}
             subtitle={subtitle}
             location={location}
             onViewOnMap={handleViewOnMap}
-            viewCount={originalMockProperty.viewCount}
           />
           <PropertyTabs activeTab={activeTab} onTabPress={setActiveTab} />
 
-          {activeTab === "overview" && (
+          <View style={{ display: activeTab === "overview" ? "flex" : "none" }}>
             <PropertyOverviewContent
               keyFeaturesToDisplay={keyFeaturesToDisplay}
             />
-          )}
-          {activeTab === "details" && (
+          </View>
+          <View style={{ display: activeTab === "details" ? "flex" : "none" }}>
             <PropertyDetailsContent
               description={description}
               displayableFeatures={displayableFeatures}
@@ -774,13 +464,14 @@ export default function PropertyDetails() {
               featureCategories={defaultFeatureCategories}
               groupedFeatures={groupedFeatures}
             />
-          )}
-          {activeTab === "nearby" && (
+          </View>
+          <View style={{ display: activeTab === "nearby" ? "flex" : "none" }}>
             <PropertyNearbyContent
               nearbyPlaces={originalMockProperty.nearbyPlaces}
               onViewAllOnMap={handleViewOnMap}
             />
-          )}
+          </View>
+
           <PropertyAgentCard
             agent={originalMockProperty.agent}
             onViewProfile={handleViewAgentProfile}
@@ -790,7 +481,6 @@ export default function PropertyDetails() {
 
       <PropertyContactBar
         agentPhone={originalMockProperty.agent.phone}
-        onMessageAgent={handleMessageAgent}
         onCallAgent={handleCallAgent}
         onWhatsAppAgent={handleWhatsAppAgent}
       />

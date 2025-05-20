@@ -1,4 +1,3 @@
-// store/useStore.ts
 import { create } from "zustand";
 import { useAuthStore } from "./authStore";
 import { API_BASE_URL } from "@/constants/Config";
@@ -11,6 +10,25 @@ export type PropertyStatus =
   | "under-maintenance"
   | "pending-approval";
 
+export interface PropertyDetails {
+  bedrooms?: number;
+  bathrooms?: number;
+  garages?: number;
+  parkings?: number;
+  amenities?: string[];
+  size_sqm?: number;
+  legal_status?: string;
+  intended_use?: string;
+  road_access?: boolean;
+  water_supply?: string;
+  electricity_available?: boolean;
+  fenced?: boolean;
+  square_meters?: number;
+  parking_spaces?: number;
+  security_features?: string[];
+  property_type?: string; // For commercial
+}
+
 export interface Property {
   id: string;
   title: string;
@@ -22,11 +40,13 @@ export interface Property {
   property_type: "rent" | "sale";
   category: string;
   created_at: string;
-  status?: string;
-  last_updated?: string;
-  details?: any;
+  status?: string | null;
+  last_updated?: string | null;
+  details?: PropertyDetails | any; // Make sure this can hold all detail variants
   liked?: boolean;
-  is_promoted?: boolean;
+  is_promoted?: boolean | null;
+  user_id?: string | null;
+  agent_id?: string | null;
 }
 
 export interface PropertyResponseDto {
@@ -65,6 +85,7 @@ interface PropertyState {
   fetchSavedProperties: () => Promise<void>;
   toggleSavedProperty: (propertyId: string) => Promise<void>;
   deleteProperty: (propertyId: string) => Promise<void>;
+  getPropertyById: (id: string) => Property | undefined;
 }
 
 export const useStore = create<PropertyState>((set, get) => ({
@@ -206,11 +227,11 @@ export const useStore = create<PropertyState>((set, get) => ({
             get().featuredProperties.find((p) => p.id === propertyId) || {
               id: propertyId,
             },
-        ].filter((p) => p?.id);
+        ].filter((p): p is Property => p?.id !== undefined);
 
     set({
       savedProperties: newSavedIds,
-      savedPropertyDetails: newSavedDetails as Property[],
+      savedPropertyDetails: newSavedDetails,
     });
     get().setSavedProperties(newSavedIds);
     set({ error: null, errorSaved: null });
@@ -221,17 +242,20 @@ export const useStore = create<PropertyState>((set, get) => ({
         ? `${API_BASE_URL}/users/me/saved-properties/${propertyId}`
         : `${API_BASE_URL}/users/me/saved-properties`;
       const body = isLiked ? undefined : JSON.stringify({ propertyId });
+
       const headers: HeadersInit = {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       };
+      if (!isLiked) {
+        headers["Content-Type"] = "application/json";
+      }
+
       const response = await fetch(url, { method, headers, body });
 
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Status: ${response.status}, Response: ${errorText}`);
       }
-      console.log(`Property ${propertyId} ${isLiked ? "unsaved" : "saved"}`);
       await get().fetchSavedProperties();
     } catch (error: any) {
       console.error("Error toggling saved property:", error);
@@ -283,7 +307,6 @@ export const useStore = create<PropertyState>((set, get) => ({
           `Failed to delete property (status: ${response.status})`,
         );
       }
-      console.log(`Property ${propertyId} deleted successfully.`);
     } catch (err: any) {
       console.error("Error deleting property:", err);
       set({
@@ -292,4 +315,8 @@ export const useStore = create<PropertyState>((set, get) => ({
       });
     }
   },
+  getPropertyById: (id: string): Property | undefined => {
+    const allProps = [...get().properties, ...get().featuredProperties];
+    return allProps.find(p => p.id === id);
+  }
 }));

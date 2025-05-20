@@ -104,9 +104,11 @@ const PropertyImageCarousel: React.FC<PropertyImageCarouselProps> = ({
         </Pressable>
       </View>
 
-      <View style={[styles.statusTag, { backgroundColor: statusColor }]}>
-        <Text style={styles.statusText}>{statusText}</Text>
-      </View>
+      {statusText && (
+        <View style={[styles.statusTag, { backgroundColor: statusColor }]}>
+          <Text style={styles.statusText}>{statusText}</Text>
+        </View>
+      )}
 
       <View style={styles.listedDateTag}>
         <Ionicons name="time-outline" size={14} color={COLORS.white} />

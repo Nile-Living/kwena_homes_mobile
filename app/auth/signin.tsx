@@ -149,7 +149,7 @@ export default function SignInScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={handleFacebookSignIn}
             disabled={loading}
             className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
@@ -163,7 +163,7 @@ export default function SignInScreen() {
             <Text className="text-gray-700 font-semibold text-base">
               Facebook
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         <View className="flex-row justify-center items-center">

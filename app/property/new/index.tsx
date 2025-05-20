@@ -1,3 +1,4 @@
+// ... (all your existing imports for AddPropertyScreen)
 import React, { useState, useRef } from "react";
 import {
   View,
@@ -11,14 +12,15 @@ import {
   Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/store/authStore"; // Adjust path as needed
+import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
 import { Picker } from "@react-native-picker/picker";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes"; // Adjust path
-import { API_BASE_URL } from "@/constants/Config"; // Adjust path
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
+import { API_BASE_URL } from "@/constants/Config";
 
+// ... (your FormData interface)
 interface FormData {
   title: string;
   price: string;
@@ -47,6 +49,7 @@ interface FormData {
   parking_spaces?: string;
   commercial_property_type?: string;
 }
+
 
 export default function AddPropertyScreen() {
   const router = useRouter();
@@ -89,11 +92,16 @@ export default function AddPropertyScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") { Alert.alert("Permission Required", "Please grant permission to access your photos"); return; }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 0.8 });
-      if (!result.canceled && result.assets && result.assets.length > 0) { setImages([...images, result.assets[0].uri]); }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        setImages([...images, result.assets[0].uri]);
+      }
     } catch (error) { console.error("Error picking image:", error); Alert.alert("Image Selection Error", "There was a problem selecting your image. Please try again."); }
   };
-  const removeImage = (index: number) => { setImages(images.filter((_, i) => i !== index)); };
+
+  const removeImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
 
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent;
@@ -106,56 +114,79 @@ export default function AddPropertyScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user) { Alert.alert("Authentication Error", "You must be logged in to list a property"); return; }
+    if (!user) {
+      Alert.alert("Authentication Error", "You must be logged in to list a property");
+      return;
+    }
 
-    const validationErrors = [];
-    if (!formData.title) validationErrors.push("Title");
-    if (!formData.price) validationErrors.push("Price");
-    if (!formData.location) validationErrors.push("Location");
-    if (!formData.description) validationErrors.push("Description");
-    if (currentCategoryDetails?.hasBedBath) { if (!formData.bedrooms) validationErrors.push("Bedrooms"); if (!formData.bathrooms) validationErrors.push("Bathrooms"); }
-    if (currentCategoryDetails?.hasLandDetails) { if (!formData.size_sqm) validationErrors.push("Land Size (sqm)"); if (!formData.legal_status) validationErrors.push("Legal Status"); if (!formData.intended_use) validationErrors.push("Intended Use"); if (!formData.water_supply) validationErrors.push("Water Supply"); }
-    if (currentCategoryDetails?.hasSquareMeters && !formData.square_meters) validationErrors.push("Square Meters");
-    if (currentCategoryDetails?.hasCommercialDetails && !formData.commercial_property_type) validationErrors.push("Commercial Property Type");
-    if (images.length === 0) validationErrors.push("at least one Image");
+    const clientSideValidationErrors = [];
+    if (!formData.title.trim()) clientSideValidationErrors.push("Title");
+    if (!formData.price.trim() || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) < 0) clientSideValidationErrors.push("Valid Price");
+    if (!formData.location.trim()) clientSideValidationErrors.push("Location");
+    if (!formData.description.trim()) clientSideValidationErrors.push("Description");
+    if (!formData.propertyType) clientSideValidationErrors.push("Listing Type (Rent/Sale)");
+    if (!formData.category) clientSideValidationErrors.push("Property Category");
+    if (images.length === 0) clientSideValidationErrors.push("at least one Image");
+    // Add more client-side checks for category-specific fields if needed
 
-    if (validationErrors.length > 0) { Alert.alert("Missing Information", `Please fill in: ${validationErrors.join(", ")}`); return; }
+    if (clientSideValidationErrors.length > 0) {
+      Alert.alert("Missing Information on Client", `Please fill in: ${clientSideValidationErrors.join(", ")}`);
+      return;
+    }
 
     setLoading(true);
+    const dataPayload = new FormData();
 
-    const data = new FormData();
+    dataPayload.append('title', formData.title.trim());
+    dataPayload.append('price', formData.price.trim());
+    dataPayload.append('location', formData.location.trim());
+    dataPayload.append('description', formData.description.trim());
+    dataPayload.append('property_type', formData.propertyType);
+    dataPayload.append('category', formData.category);
+    dataPayload.append('coordinates', JSON.stringify(formData.coordinates));
+    dataPayload.append('user_id', user.id);
 
-    data.append('title', formData.title);
-    data.append('price', formData.price);
-    data.append('location', formData.location);
-    data.append('description', formData.description);
-    data.append('propertyType', formData.propertyType);
-    data.append('category', formData.category);
-    data.append('coordinates', JSON.stringify(formData.coordinates));
-    data.append('user_id', user.id);
-
-    let detailsPayload: any = {};
+    let detailsObject: any = {};
     switch (formData.category) {
-      case 'house': detailsPayload = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
-      case 'apartment': detailsPayload = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
-      case 'land': detailsPayload = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
-      case 'commercial': detailsPayload = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case 'house': detailsObject = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case 'apartment': detailsObject = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
+      case 'land': detailsObject = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
+      case 'commercial': detailsObject = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
     }
-    Object.keys(detailsPayload).forEach(key => { if (detailsPayload[key] == null || detailsPayload[key] === '' || (Array.isArray(detailsPayload[key]) && detailsPayload[key].length === 0)) { delete detailsPayload[key]; }});
-    if (Object.keys(detailsPayload).length > 0) {
-        data.append('details', JSON.stringify(detailsPayload));
+    Object.keys(detailsObject).forEach(key => { if (detailsObject[key] == null || detailsObject[key] === '' || (Array.isArray(detailsObject[key]) && detailsObject[key].length === 0)) { delete detailsObject[key]; }});
+
+    if (Object.keys(detailsObject).length > 0) {
+        dataPayload.append('details', JSON.stringify(detailsObject));
     }
 
     images.forEach((uri, index) => {
       const filename = uri.split('/').pop() || `image-${index}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
-      data.append('images', {
+      dataPayload.append('images', {
         uri: uri,
         name: filename,
         type: type,
       } as any);
     });
+
+    console.log("--- FormData being sent (Client-Side Log) ---");
+    console.log("Title:", dataPayload.get('title'));
+    console.log("Price:", dataPayload.get('price'));
+    console.log("Location:", dataPayload.get('location'));
+    console.log("Description:", dataPayload.get('description'));
+    console.log("Property Type:", dataPayload.get('propertyType'));
+    console.log("Category:", dataPayload.get('category'));
+    console.log("User ID:", dataPayload.get('user_id'));
+    console.log("Coordinates:", dataPayload.get('coordinates'));
+    console.log("Details:", dataPayload.get('details'));
+    // For files, FormData.get('images') will return the first file.
+    // To check all files, you'd use FormData.getAll('images').
+    // console.log("First image object (client):", dataPayload.get('images'));
+    // console.log("All image objects (client):", dataPayload.getAll('images'));
+    console.log("Number of images appended (client):", images.length);
+    console.log("--- End of FormData Log ---");
+
 
     try {
       const token = useAuthStore.getState().session?.access_token;
@@ -164,18 +195,34 @@ export default function AddPropertyScreen() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        body: data,
+        body: dataPayload,
       });
 
+      const responseBodyText = await response.text();
+      console.log("--- Backend Response (Client-Side Log) ---");
+      console.log("Status:", response.status);
+      console.log("Status Text:", response.statusText);
+      console.log("Body:", responseBodyText);
+      console.log("--- End of Backend Response Log ---");
+
       if (!response.ok) {
-        let errorMsg = `HTTP error! Status: ${response.status}`;
-        try { const ed = await response.json(); errorMsg = ed.message || JSON.stringify(ed) || errorMsg; } catch(e){}
+        let errorMsg = `Status: ${response.status}.`;
+        try {
+            const errorJson = JSON.parse(responseBodyText);
+            if (errorJson.message) {
+                errorMsg += ` Message: ${Array.isArray(errorJson.message) ? errorJson.message.join(', ') : errorJson.message}`;
+            } else {
+                errorMsg += ` Body: ${responseBodyText}`;
+            }
+        } catch(e){
+            errorMsg += ` Body: ${responseBodyText}`;
+        }
         throw new Error(`Failed to create property: ${errorMsg}`);
       }
       Alert.alert("Success", "Property listed successfully!", [{ text: "OK", onPress: () => router.replace("/") }]);
     } catch (error: any) {
-      console.error("Error submitting property:", error);
-      Alert.alert("Error", `Error creating property: ${error.message || "Unknown error"}`);
+      console.error("Error submitting property (raw error object):", error);
+      Alert.alert("Submission Error", `${error.message || "An unknown error occurred."}`);
     } finally {
       setLoading(false);
     }

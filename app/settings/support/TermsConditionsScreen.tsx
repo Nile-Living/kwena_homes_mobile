@@ -10,7 +10,7 @@ export default function TermsConditionsScreen() {
           Terms and Conditions
         </Text>
         <Text className="text-lg text-gray-600 mb-1">
-          Kwena Homes – A Service by Ngawa Ventures
+          Kwena Properties – A Service by Ngawa Ventures
         </Text>
         <Text className="text-sm text-gray-500 mb-6">
           Effective Date: 29 April 2025
@@ -18,7 +18,7 @@ export default function TermsConditionsScreen() {
         {/* Content Sections */}
         <Section title="Introduction">
           <BodyText>
-            Welcome to Kwena Homes, your trusted platform to find and list
+            Welcome to Kwena Properties, your trusted platform to find and list
             accommodation in Lusaka. These Terms and Conditions govern your use
             of our app and services. By using the app, you agree to be bound by
             these terms.
@@ -26,12 +26,12 @@ export default function TermsConditionsScreen() {
         </Section>
         <Section title="Who Can Use the App">
           <BodyText>
-            Anyone 18 years and older can use Kwena Homes. By registering, you
+            Anyone 18 years and older can use Kwena Properties. By registering, you
             confirm that all information you provide is accurate and lawful.
           </BodyText>
         </Section>
         <Section title="User Responsibilities">
-          <BodyText>When using Kwena Homes, you agree to:</BodyText>
+          <BodyText>When using Kwena Properties, you agree to:</BodyText>
           <BulletPoint text="Use the app only for lawful purposes" />
           <BulletPoint text="Not misrepresent property listings or contact information" />
           <BulletPoint text="Keep your account credentials confidential" />
@@ -39,7 +39,7 @@ export default function TermsConditionsScreen() {
         </Section>
         <Section title="Listings and Transactions">
           <BodyText>
-            Kwena Homes provides a platform for connecting renters and property
+            Kwena Properties provides a platform for connecting renters and property
             owners. Ngawa Ventures is not a real estate agent and is not
             responsible for the accuracy of listings or the outcome of any
             transaction.

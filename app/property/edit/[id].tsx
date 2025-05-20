@@ -1,3 +1,4 @@
+// ... (all your existing imports for EditPropertyScreen)
 import React, { useState, useEffect } from "react";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import {
@@ -11,15 +12,17 @@ import {
   Alert,
   Switch,
 } from "react-native";
-import { supabase } from "@/supabaseClient"; // Adjust path
-import { useAuthStore } from "@/store/authStore"; // Adjust path
+// REMOVE: import { supabase } from "@/supabaseClient"; // No direct Supabase calls for property data here
+import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
+// REMOVE: import { uploadImageToSupabase } from "@/hooks/imageHelpers"; // Not used
 import { Picker } from "@react-native-picker/picker";
-import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes"; // Adjust path
-import { API_BASE_URL } from "@/constants/Config"; // Adjust path
+import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
+import { API_BASE_URL } from "@/constants/Config";
 
+// ... (your FormData interface)
 interface FormData {
   title: string;
   price: string;
@@ -49,22 +52,18 @@ interface FormData {
 export default function EditPropertyScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const propertyId = Array.isArray(id) ? id[0] : id;
+  const propertyId = Array.isArray(id) ? id[0] : id; // Ensure propertyId is a string
   const { user } = useAuthStore();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // For initial data load
+  const [formSubmitting, setFormSubmitting] = useState(false); // For submit button
   const [formData, setFormData] = useState<FormData>({
-    title: "",
-    price: "",
-    location: "",
-    description: "",
+    title: "", price: "", location: "", description: "",
     propertyType: "rent",
     coordinates: { latitude: -15.3875, longitude: 28.3228 },
-    category: "house",
-    amenities: [],
-    security_features: [],
+    category: "house", amenities: [], security_features: [],
   });
-  const [existingImages, setExistingImages] = useState<string[]>([]);
-  const [newImages, setNewImages] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]); // Cloudinary URLs from DB
+  const [newImages, setNewImages] = useState<string[]>([]); // Local URIs of newly picked images
   const [imagesToDeletePublicIds, setImagesToDeletePublicIds] = useState<string[]>([]);
 
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
@@ -73,21 +72,19 @@ export default function EditPropertyScreen() {
   useEffect(() => {
     const fetchProperty = async () => {
       if (!user || !propertyId) {
-        Alert.alert("Error", "User not authenticated or Property ID missing");
+        Alert.alert("Error", "User not authenticated or Property ID missing.");
         router.back();
         return;
       }
-      
+      setLoading(true);
       try {
-        setLoading(true);
         const token = useAuthStore.getState().session?.access_token;
         const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
-            headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to fetch property: ${response.status} ${errorText}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch property: ${response.status} ${errorText}`);
         }
         const propertyData = await response.json();
 
@@ -125,34 +122,23 @@ export default function EditPropertyScreen() {
         setLoading(false);
       }
     };
-
     fetchProperty();
   }, [propertyId, user, router]);
 
   const pickImage = async () => {
     if (newImages.length + existingImages.length >= 5) {
-      Alert.alert("Limit Reached", "Maximum 5 images allowed");
-      return;
+      Alert.alert("Limit Reached", "Maximum 5 images allowed"); return;
     }
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission Required", "Please grant permission to access photos");
-        return;
-      }
+      if (status !== "granted") { Alert.alert("Permission Required", "Please grant permission"); return; }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 0.8,
       });
       if (!result.canceled && result.assets?.[0]?.uri) {
         setNewImages([...newImages, result.assets[0].uri]);
       }
-    } catch (error) {
-      console.error("Image picker error:", error);
-      Alert.alert("Error", "Failed to select image");
-    }
+    } catch (error) { console.error("Image picker error:", error); Alert.alert("Error", "Failed to select image"); }
   };
 
   const removeImage = (index: number, isNew: boolean) => {
@@ -160,25 +146,20 @@ export default function EditPropertyScreen() {
       setNewImages(newImages.filter((_, i) => i !== index));
     } else {
       const imageToRemoveUrl = existingImages[index];
+      // Basic public ID extraction (improve if needed for complex Cloudinary URLs)
       const publicIdMatch = imageToRemoveUrl.match(/upload\/(?:v\d+\/)?([^\.]+)/);
       const publicId = publicIdMatch ? publicIdMatch[1] : null;
 
       if (publicId && !imagesToDeletePublicIds.includes(publicId)) {
         setImagesToDeletePublicIds([...imagesToDeletePublicIds, publicId]);
       }
-      setExistingImages(existingImages.filter((_, i) => i !== index));
+      setExistingImages(existingImages.filter((url) => url !== imageToRemoveUrl));
     }
   };
 
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent;
-    setFormData(prev => ({
-      ...prev,
-      coordinates: {
-        latitude: coordinate.latitude,
-        longitude: coordinate.longitude,
-      },
-    }));
+    setFormData(prev => ({ ...prev, coordinates: { latitude: coordinate.latitude, longitude: coordinate.longitude } }));
   };
 
   const updateFormField = (field: keyof FormData, value: any) => {
@@ -186,10 +167,7 @@ export default function EditPropertyScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user || !propertyId) {
-      Alert.alert("Authentication Error", "You must be logged in or Property ID is missing");
-      return;
-    }
+    if (!user || !propertyId) { Alert.alert("Authentication Error", "Login or Property ID missing"); return; }
 
     const validationErrors = [];
     if (!formData.title) validationErrors.push("Title");
@@ -202,56 +180,55 @@ export default function EditPropertyScreen() {
     if (currentCategoryDetails?.hasCommercialDetails && !formData.commercial_property_type) validationErrors.push("Commercial Property Type");
     if (existingImages.length + newImages.length === 0) validationErrors.push("at least one Image");
 
-    if (validationErrors.length > 0) {
-      Alert.alert("Missing Information", `Please fill in: ${validationErrors.join(", ")}`);
-      return;
-    }
 
-    setLoading(true);
-    const data = new FormData();
+    if (validationErrors.length > 0) { Alert.alert("Missing Information", `Please fill in: ${validationErrors.join(", ")}`); return; }
 
-    data.append('title', formData.title);
-    data.append('price', formData.price);
-    data.append('location', formData.location);
-    data.append('description', formData.description);
-    data.append('propertyType', formData.propertyType);
-    data.append('category', formData.category);
-    data.append('coordinates', JSON.stringify(formData.coordinates));
+    setFormSubmitting(true);
+    const dataPayload = new FormData();
 
-    let detailsUpdate: any = {};
+    dataPayload.append('title', formData.title);
+    dataPayload.append('price', formData.price);
+    dataPayload.append('location', formData.location);
+    dataPayload.append('description', formData.description);
+    dataPayload.append('propertyType', formData.propertyType);
+    dataPayload.append('category', formData.category); // Send category in case it changed
+    dataPayload.append('coordinates', JSON.stringify(formData.coordinates));
+
+    let detailsObject: any = {};
     switch (formData.category) {
-      case 'house': detailsUpdate = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
-      case 'apartment': detailsUpdate = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
-      case 'land': detailsUpdate = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
-      case 'commercial': detailsUpdate = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case 'house': detailsObject = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case 'apartment': detailsObject = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
+      case 'land': detailsObject = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
+      case 'commercial': detailsObject = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
     }
-    Object.keys(detailsUpdate).forEach(key => { if (detailsUpdate[key] == null || detailsUpdate[key] === '' || (Array.isArray(detailsUpdate[key]) && detailsUpdate[key].length === 0)) { delete detailsUpdate[key]; }});
-    if (Object.keys(detailsUpdate).length > 0) {
-        data.append('details', JSON.stringify(detailsUpdate));
+    Object.keys(detailsObject).forEach(key => { if (detailsObject[key] == null || detailsObject[key] === '' || (Array.isArray(detailsObject[key]) && detailsObject[key].length === 0)) { delete detailsObject[key]; }});
+    if (Object.keys(detailsObject).length > 0) {
+        dataPayload.append('details', JSON.stringify(detailsObject));
     }
 
+    // Append new image files
     newImages.forEach((uri, index) => {
       const filename = uri.split('/').pop() || `new-image-${index}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
-      data.append('newImages', {
+      dataPayload.append('newImages', { // Field name 'newImages' must match FilesInterceptor in NestJS
         uri: uri,
         name: filename,
         type: type,
       } as any);
     });
 
-    data.append('existingImageUrls', JSON.stringify(existingImages));
-    data.append('deletedImagePublicIds', JSON.stringify(imagesToDeletePublicIds));
+    // Append existing Cloudinary URLs (images that are kept)
+    dataPayload.append('existingImageUrls', JSON.stringify(existingImages));
+    // Append public IDs of images to be deleted from Cloudinary
+    dataPayload.append('deletedImagePublicIds', JSON.stringify(imagesToDeletePublicIds));
 
     try {
       const token = useAuthStore.getState().session?.access_token;
       const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: data,
+        headers: { Authorization: `Bearer ${token}` },
+        body: dataPayload,
       });
 
       if (!response.ok) {
@@ -259,19 +236,16 @@ export default function EditPropertyScreen() {
         try { const ed = await response.json(); errorMsg = ed.message || JSON.stringify(ed) || errorMsg; } catch(e){}
         throw new Error(`Failed to update property: ${errorMsg}`);
       }
-
-      Alert.alert("Success", "Property updated successfully!", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      Alert.alert("Success", "Property updated successfully!", [{ text: "OK", onPress: () => router.back() }]);
     } catch (error: any) {
       console.error("Update error:", error);
       Alert.alert("Error", `Failed to update property. ${error.message || "Please try again."}`);
     } finally {
-      setLoading(false);
+      setFormSubmitting(false);
     }
   };
 
-  if (loading && !formData.title) { // Show full screen loader only on initial load
+  if (loading) { // Show full screen loader only on initial data load
     return (
       <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color="#4F46E5" />
@@ -280,6 +254,7 @@ export default function EditPropertyScreen() {
     );
   }
 
+  // ... (rest of your EditPropertyScreen JSX: ScrollView, TextInputs, Pickers, MapView, etc.)
   return (
     <ScrollView className="flex-1 bg-white p-4">
       <Stack.Screen options={{ title: "Edit Property", headerTitle: "Edit Property" }} />
@@ -293,7 +268,7 @@ export default function EditPropertyScreen() {
         <Text className="text-base font-medium mb-2">Property Images (Max 5)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
           {existingImages.map((image, index) => (
-            <View key={`existing-${index}`} className="relative mr-3">
+            <View key={`existing-${index}-${image}`} className="relative mr-3">
               <Image source={{ uri: image }} className="w-24 h-24 rounded-lg" />
               <TouchableOpacity
                 onPress={() => removeImage(index, false)}
@@ -605,10 +580,10 @@ export default function EditPropertyScreen() {
               latitudeDelta: 0.0922,
               longitudeDelta: 0.0421,
             }}
-            region={formData.coordinates.latitude !== -15.3875 ? { // Only set region if coordinates are valid
+            region={formData.coordinates.latitude !== -15.3875 ? {
                 latitude: formData.coordinates.latitude,
                 longitude: formData.coordinates.longitude,
-                latitudeDelta: 0.02, // Zoom in a bit more
+                latitudeDelta: 0.02,
                 longitudeDelta: 0.01,
             } : undefined}
             onPress={handleMapPress}
@@ -635,12 +610,12 @@ export default function EditPropertyScreen() {
       <View className="my-6">
         <TouchableOpacity
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={formSubmitting}
           className={`rounded-lg py-4 px-6 items-center justify-center ${
-            loading ? "bg-gray-400" : "bg-emerald-700"
+            formSubmitting ? "bg-gray-400" : "bg-emerald-700"
           }`}
         >
-          {loading ? (
+          {formSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-white font-semibold text-base">Update Property</Text>
