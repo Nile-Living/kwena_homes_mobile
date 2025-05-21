@@ -1,101 +1,101 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet } from "react-native";
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/styles/PropertyDetails.styles';
 
 interface PropertyContactBarProps {
-  agentPhone?: string;
+  agentPhone: string | null | undefined;
+  agentWhatsApp: string | null | undefined;
   onCallAgent: () => void;
   onWhatsAppAgent: () => void;
 }
 
 const PropertyContactBar: React.FC<PropertyContactBarProps> = ({
   agentPhone,
+  agentWhatsApp,
   onCallAgent,
   onWhatsAppAgent,
 }) => {
-  const isPhoneAvailable = !!agentPhone;
-
   return (
-    <View style={styles.contactBarContainer}>
-      <TouchableOpacity
-        style={[
-          styles.callButton,
-          !isPhoneAvailable && styles.disabledButton,
-        ]}
-        onPress={onCallAgent}
-        disabled={!isPhoneAvailable}
-        accessibilityLabel="Call agent"
-        accessibilityRole="button"
-      >
-        <Ionicons name="call-outline" size={22} color="#FFFFFF" />
-        <Text style={styles.buttonText}>Call Agent</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.whatsappButton,
-          !isPhoneAvailable && styles.disabledButton,
-        ]}
-        onPress={onWhatsAppAgent}
-        disabled={!isPhoneAvailable}
-        accessibilityLabel="Contact agent via WhatsApp"
-        accessibilityRole="button"
-      >
-        <Ionicons name="logo-whatsapp" size={22} color="#FFFFFF" />
-        <Text style={styles.buttonText}>WhatsApp</Text>
-      </TouchableOpacity>
+    <View style={styles.contactBar}>
+      {agentPhone && (
+        <TouchableOpacity
+          style={[styles.contactButton, styles.callButton]}
+          onPress={onCallAgent}
+        >
+          <Ionicons name="call" size={20} color="white" style={styles.icon} />
+          <Text style={styles.contactButtonText}>Call Agent</Text>
+        </TouchableOpacity>
+      )}
+      {agentWhatsApp && (
+        <TouchableOpacity
+          style={[
+            styles.contactButton,
+            styles.whatsappButton,
+            !agentPhone ? { flex: 1 } : {}, // Take full width if call button is not there
+          ]}
+          onPress={onWhatsAppAgent}
+        >
+          <Ionicons name="logo-whatsapp" size={20} color="white" style={styles.icon} />
+          <Text style={styles.contactButtonText}>WhatsApp</Text>
+        </TouchableOpacity>
+      )}
+      {!agentPhone && !agentWhatsApp && (
+        <View style={styles.noContactContainer}>
+            <Text style={styles.noContactText}>Contact information not available.</Text>
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  contactBarContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  contactBar: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.background, // Or your theme's bar color
     borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 4,
+    borderTopColor: COLORS.lightGray,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  contactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 4,
   },
   callButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#244835", // Primary action color
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    flex: 1,
-    marginRight: 10,
+    backgroundColor: COLORS.primary,
   },
   whatsappButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#25D366", // WhatsApp brand color
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    flex: 1,
-    marginLeft: 10,
+    backgroundColor: '#25D366', // WhatsApp green
   },
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+  contactButtonText: {
+    color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
     marginLeft: 8,
   },
-  disabledButton: {
-    opacity: 0.5,
-    backgroundColor: "#AAAAAA",
+  icon: {
+    marginRight: 0, // Adjust if needed
   },
+  noContactContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  noContactText: {
+    fontSize: 16,
+    color: COLORS.mediumGray,
+  }
 });
 
 export default PropertyContactBar;

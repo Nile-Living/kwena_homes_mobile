@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/constants/Config';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 // Removed Reanimated imports
 
@@ -164,7 +164,7 @@ const PromoteScreenEnhanced: React.FC = () => {
       setCurrentPaymentReference(data.paymentReference);
 
       // --- Handle final status from backend ---
-      if (data.status === 'success') {
+      if (data.status === 'successful') {
         Alert.alert(
           'Promotion Activated!',
           data.message || 'Your listing promotion is now active.',
@@ -584,6 +584,7 @@ const PromoteScreenEnhanced: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ title: "Promote Listing", headerShown: false }} />
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>

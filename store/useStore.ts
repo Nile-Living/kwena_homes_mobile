@@ -26,7 +26,7 @@ export interface PropertyDetails {
   square_meters?: number;
   parking_spaces?: number;
   security_features?: string[];
-  property_type?: string; // For commercial
+  property_type?: string;
 }
 
 export interface Property {
@@ -42,11 +42,15 @@ export interface Property {
   created_at: string;
   status?: string | null;
   last_updated?: string | null;
-  details?: PropertyDetails | any; // Make sure this can hold all detail variants
+  details?: PropertyDetails | any;
   liked?: boolean;
   is_promoted?: boolean | null;
   user_id?: string | null;
   agent_id?: string | null;
+  contact_phone_number?: string;
+  contact_whatsapp_number?: string;
+  use_phone_for_call?: boolean;
+  use_whatsapp_for_message?: boolean;
 }
 
 export interface PropertyResponseDto {
@@ -57,8 +61,8 @@ export interface PropertyResponseDto {
 }
 
 interface PropertyState {
-  properties: Property[];
-  featuredProperties: Property[];
+  properties: Property[]; // Changed back to array
+  featuredProperties: Property[]; // Changed back to array
   savedPropertyDetails: Property[];
   savedProperties: string[];
   searchQuery: string;
@@ -86,6 +90,7 @@ interface PropertyState {
   toggleSavedProperty: (propertyId: string) => Promise<void>;
   deleteProperty: (propertyId: string) => Promise<void>;
   getPropertyById: (id: string) => Property | undefined;
+  updatePropertyInStore: (propertyId: string, updatedPropertyData: Partial<Property>) => void;
 }
 
 export const useStore = create<PropertyState>((set, get) => ({
@@ -109,22 +114,22 @@ export const useStore = create<PropertyState>((set, get) => ({
       ...p,
       liked: savedIds.includes(p.id),
     }));
+
     const combinedProperties: Property[] =
       pageNumber === 1
         ? newPropertiesWithLiked
         : [...currentProperties, ...newPropertiesWithLiked];
+
     const uniquePropertiesMap: Map<string, Property> = new Map();
     combinedProperties.forEach((p) => {
       uniquePropertiesMap.set(p.id, p);
     });
-    const uniquePropertiesArray: Property[] = Array.from(
-      uniquePropertiesMap.values(),
-    );
+    const uniquePropertiesArray: Property[] = Array.from(uniquePropertiesMap.values());
     set({ properties: uniquePropertiesArray, error: null });
   },
-  setFeaturedProperties: (properties) => {
+  setFeaturedProperties: (propertiesToSet) => {
     const savedIds = get().savedProperties;
-    const propertiesWithLiked = properties.map((p) => ({
+    const propertiesWithLiked = propertiesToSet.map((p) => ({
       ...p,
       liked: savedIds.includes(p.id),
     }));
@@ -139,6 +144,7 @@ export const useStore = create<PropertyState>((set, get) => ({
     const currentProps = get().properties;
     const currentFeatured = get().featuredProperties;
     const currentSavedDetails = get().savedPropertyDetails;
+
     set({
       properties: currentProps.map((p) => ({
         ...p,
@@ -219,14 +225,16 @@ export const useStore = create<PropertyState>((set, get) => ({
     const newSavedIds = isLiked
       ? currentSavedIds.filter((id) => id !== propertyId)
       : [...currentSavedIds, propertyId];
+
+    let propertyToAddToDetails: Property | undefined =
+      get().properties.find((p) => p.id === propertyId) ||
+      get().featuredProperties.find((p) => p.id === propertyId);
+
     const newSavedDetails = isLiked
       ? currentSavedDetails.filter((p) => p.id !== propertyId)
       : [
           ...currentSavedDetails,
-          get().properties.find((p) => p.id === propertyId) ||
-            get().featuredProperties.find((p) => p.id === propertyId) || {
-              id: propertyId,
-            },
+          propertyToAddToDetails || { id: propertyId },
         ].filter((p): p is Property => p?.id !== undefined);
 
     set({
@@ -275,12 +283,10 @@ export const useStore = create<PropertyState>((set, get) => ({
       return;
     }
 
-    const originalState = {
-      properties: [...get().properties],
-      featuredProperties: [...get().featuredProperties],
-      savedPropertyDetails: [...get().savedPropertyDetails],
-      savedProperties: [...get().savedProperties],
-    };
+    const originalProperties = [...get().properties];
+    const originalFeaturedProperties = [...get().featuredProperties];
+    const originalSavedDetails = [...get().savedPropertyDetails];
+    const originalSavedIds = [...get().savedProperties];
 
     set((state) => ({
       properties: state.properties.filter((p) => p.id !== propertyId),
@@ -310,13 +316,28 @@ export const useStore = create<PropertyState>((set, get) => ({
     } catch (err: any) {
       console.error("Error deleting property:", err);
       set({
-        ...originalState,
+        properties: originalProperties,
+        featuredProperties: originalFeaturedProperties,
+        savedPropertyDetails: originalSavedDetails,
+        savedProperties: originalSavedIds,
         error: "Failed to delete property. Please try again.",
       });
     }
   },
   getPropertyById: (id: string): Property | undefined => {
-    const allProps = [...get().properties, ...get().featuredProperties];
-    return allProps.find(p => p.id === id);
+    return get().properties.find(p => p.id === id) || get().featuredProperties.find(p => p.id === id);
+  },
+  updatePropertyInStore: (propertyId: string, updatedPropertyData: Partial<Property>) => {
+    set((state) => ({
+      properties: state.properties.map((p) =>
+        p.id === propertyId ? { ...p, ...updatedPropertyData } : p
+      ),
+      featuredProperties: state.featuredProperties.map((p) =>
+        p.id === propertyId ? { ...p, ...updatedPropertyData } : p
+      ),
+      savedPropertyDetails: state.savedPropertyDetails.map((p) =>
+        p.id === propertyId ? { ...p, ...updatedPropertyData, liked: true } : p // Ensure liked is true for saved details
+      ),
+    }));
   }
 }));

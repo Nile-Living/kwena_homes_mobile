@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, useColorScheme } from 'react-native';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { useNavigation } from 'expo-router';
-import Constants from 'expo-constants'; // Import Constants
+import Constants from 'expo-constants';
 import HeaderSearchBar from './HeaderSearchBar';
 import HeaderAddButton from './HeaderAddButton';
 
@@ -16,6 +16,18 @@ interface MyPropertiesHeaderProps {
   backButtonTintColor?: string;
 }
 
+const slateColors = {
+  100: '#f1f5f9',
+  200: '#e2e8f0',
+  300: '#cbd5e1',
+  400: '#94a3b8',
+  500: '#64748b',
+  600: '#475569',
+  700: '#334155',
+  800: '#1e293b',
+  900: '#0f172a',
+};
+
 const MyPropertiesHeader: React.FC<MyPropertiesHeaderProps> = ({
   searchQuery,
   onSearchChange,
@@ -26,15 +38,22 @@ const MyPropertiesHeader: React.FC<MyPropertiesHeaderProps> = ({
   backButtonTintColor,
 }) => {
   const navigation = useNavigation();
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+
+  const defaultBackButtonTint = Platform.OS === 'ios' ? '#007AFF' : (isDarkMode ? slateColors[200] : '#000000');
+  const finalBackButtonTintColor = backButtonTintColor || defaultBackButtonTint;
+  const finalAddTintColor = addTintColor || (isDarkMode ? slateColors[200] : '#007AFF');
+
 
   return (
-    <View style={styles.outerContainer}>
+    <View style={[styles.outerContainer, isDarkMode && styles.outerContainerDark]}>
       <View style={styles.innerContainer}>
         {navigation.canGoBack() && (
           <View style={styles.backButtonContainer}>
             <HeaderBackButton
               onPress={() => navigation.goBack()}
-              tintColor={backButtonTintColor || (Platform.OS === 'ios' ? '#007AFF' : '#000000')}
+              tintColor={finalBackButtonTintColor}
               style={styles.backButton}
             />
           </View>
@@ -48,7 +67,7 @@ const MyPropertiesHeader: React.FC<MyPropertiesHeaderProps> = ({
           />
         </View>
         <View style={styles.addContainer}>
-          <HeaderAddButton onPress={onAddPress} tintColor={addTintColor} />
+          <HeaderAddButton onPress={onAddPress} tintColor={finalAddTintColor} />
         </View>
       </View>
     </View>
@@ -57,17 +76,20 @@ const MyPropertiesHeader: React.FC<MyPropertiesHeaderProps> = ({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    backgroundColor: 'white', // Or your desired header background color
-    paddingTop: Constants.statusBarHeight, // Add padding for the status bar
+    backgroundColor: 'white',
+    paddingTop: Constants.statusBarHeight,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#A7A7AA',
+  },
+  outerContainerDark: {
+    backgroundColor: slateColors[800],
+    borderBottomColor: slateColors[700],
   },
   innerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: Platform.OS === 'ios' ? 44 : 56, // This is the height of the interactive part
+    height: Platform.OS === 'ios' ? 44 : 56,
     paddingHorizontal: 8,
-    // backgroundColor: 'white', // Moved to outerContainer
   },
   backButtonContainer: {
     justifyContent: 'center',

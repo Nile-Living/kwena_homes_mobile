@@ -1,5 +1,4 @@
-// ... (all your existing imports for EditPropertyScreen)
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import {
   View,
@@ -11,18 +10,17 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  StyleSheet,
 } from "react-native";
-// REMOVE: import { supabase } from "@/supabaseClient"; // No direct Supabase calls for property data here
 import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
-// REMOVE: import { uploadImageToSupabase } from "@/hooks/imageHelpers"; // Not used
 import { Picker } from "@react-native-picker/picker";
 import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 import { API_BASE_URL } from "@/constants/Config";
+import { useStore as usePropertyStore } from "@/store/useStore";
 
-// ... (your FormData interface)
 interface FormData {
   title: string;
   price: string;
@@ -47,24 +45,41 @@ interface FormData {
   square_meters?: string;
   parking_spaces?: string;
   commercial_property_type?: string;
+  contact_phone_number?: string;
+  contact_whatsapp_number?: string;
+  use_phone_for_call: boolean;
+  use_whatsapp_for_message: boolean;
 }
 
 export default function EditPropertyScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const propertyId = Array.isArray(id) ? id[0] : id; // Ensure propertyId is a string
+  const propertyId = Array.isArray(id) ? id[0] : id;
   const { user } = useAuthStore();
-  const [loading, setLoading] = useState(true); // For initial data load
-  const [formSubmitting, setFormSubmitting] = useState(false); // For submit button
+  const { updatePropertyInStore } = usePropertyStore();
+  const [loading, setLoading] = useState(true);
+  const [formSubmitting, setFormSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    title: "", price: "", location: "", description: "",
+    title: "",
+    price: "",
+    location: "",
+    description: "",
     propertyType: "rent",
     coordinates: { latitude: -15.3875, longitude: 28.3228 },
-    category: "house", amenities: [], security_features: [],
+    category: "house",
+    amenities: [],
+    security_features: [],
+    contact_phone_number: "",
+    contact_whatsapp_number: "",
+    use_phone_for_call: true,
+    use_whatsapp_for_message: true,
   });
-  const [existingImages, setExistingImages] = useState<string[]>([]); // Cloudinary URLs from DB
-  const [newImages, setNewImages] = useState<string[]>([]); // Local URIs of newly picked images
-  const [imagesToDeletePublicIds, setImagesToDeletePublicIds] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [newImages, setNewImages] = useState<string[]>([]);
+  const [imagesToDeletePublicIds, setImagesToDeletePublicIds] = useState<
+    string[]
+  >([]);
+  const mapRef = useRef<MapView>(null);
 
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
   const availableAmenities = currentCategoryDetails?.amenities || [];
@@ -79,12 +94,15 @@ export default function EditPropertyScreen() {
       setLoading(true);
       try {
         const token = useAuthStore.getState().session?.access_token;
-        const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch(
+          `${API_BASE_URL}/properties/${propertyId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to fetch property: ${response.status} ${errorText}`);
+          throw new Error(
+            `Failed to fetch property: ${response.status} ${errorText}`
+          );
         }
         const propertyData = await response.json();
 
@@ -94,7 +112,10 @@ export default function EditPropertyScreen() {
           location: propertyData.location || "",
           description: propertyData.description || "",
           propertyType: propertyData.property_type || "rent",
-          coordinates: propertyData.coordinates || { latitude: -15.3875, longitude: 28.3228 },
+          coordinates: propertyData.coordinates || {
+            latitude: -15.3875,
+            longitude: 28.3228,
+          },
           category: propertyData.category || "house",
           amenities: propertyData.details?.amenities || [],
           security_features: propertyData.details?.security_features || [],
@@ -107,38 +128,67 @@ export default function EditPropertyScreen() {
           intended_use: propertyData.details?.intended_use ?? "",
           road_access: propertyData.details?.road_access ?? false,
           water_supply: propertyData.details?.water_supply ?? "",
-          electricity_available: propertyData.details?.electricity_available ?? false,
+          electricity_available:
+            propertyData.details?.electricity_available ?? false,
           fenced: propertyData.details?.fenced ?? false,
           square_meters: propertyData.details?.square_meters?.toString() ?? "",
-          parking_spaces: propertyData.details?.parking_spaces?.toString() ?? "",
+          parking_spaces:
+            propertyData.details?.parking_spaces?.toString() ?? "",
           commercial_property_type: propertyData.details?.property_type ?? "",
+          contact_phone_number: propertyData.contact_phone_number || "",
+          contact_whatsapp_number: propertyData.contact_whatsapp_number || "",
+          use_phone_for_call:
+            propertyData.use_phone_for_call !== undefined
+              ? propertyData.use_phone_for_call
+              : true,
+          use_whatsapp_for_message:
+            propertyData.use_whatsapp_for_message !== undefined
+              ? propertyData.use_whatsapp_for_message
+              : true,
         });
         setExistingImages(propertyData.images || []);
       } catch (error: any) {
-        console.error("Fetch error:", error);
-        Alert.alert("Error", `Failed to load property details: ${error.message}`);
+        Alert.alert(
+          "Error",
+          `Failed to load property details: ${error.message}`
+        );
         router.back();
       } finally {
         setLoading(false);
       }
     };
-    fetchProperty();
+    if (propertyId) fetchProperty();
+    else {
+      setLoading(false);
+      Alert.alert("Error", "Property ID is missing.");
+      router.back();
+    }
   }, [propertyId, user, router]);
 
   const pickImage = async () => {
     if (newImages.length + existingImages.length >= 5) {
-      Alert.alert("Limit Reached", "Maximum 5 images allowed"); return;
+      Alert.alert("Limit Reached", "Maximum 5 images allowed");
+      return;
     }
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") { Alert.alert("Permission Required", "Please grant permission"); return; }
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Please grant permission");
+        return;
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 0.8,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
       });
       if (!result.canceled && result.assets?.[0]?.uri) {
         setNewImages([...newImages, result.assets[0].uri]);
       }
-    } catch (error) { console.error("Image picker error:", error); Alert.alert("Error", "Failed to select image"); }
+    } catch (error) {
+      Alert.alert("Error", "Failed to select image");
+    }
   };
 
   const removeImage = (index: number, isNew: boolean) => {
@@ -146,82 +196,168 @@ export default function EditPropertyScreen() {
       setNewImages(newImages.filter((_, i) => i !== index));
     } else {
       const imageToRemoveUrl = existingImages[index];
-      // Basic public ID extraction (improve if needed for complex Cloudinary URLs)
-      const publicIdMatch = imageToRemoveUrl.match(/upload\/(?:v\d+\/)?([^\.]+)/);
+      const publicIdMatch = imageToRemoveUrl.match(
+        /upload\/(?:v\d+\/)?([^\.]+)/
+      );
       const publicId = publicIdMatch ? publicIdMatch[1] : null;
-
       if (publicId && !imagesToDeletePublicIds.includes(publicId)) {
         setImagesToDeletePublicIds([...imagesToDeletePublicIds, publicId]);
       }
-      setExistingImages(existingImages.filter((url) => url !== imageToRemoveUrl));
+      setExistingImages(
+        existingImages.filter((url) => url !== imageToRemoveUrl)
+      );
     }
   };
 
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent;
-    setFormData(prev => ({ ...prev, coordinates: { latitude: coordinate.latitude, longitude: coordinate.longitude } }));
+    setFormData((prev) => ({
+      ...prev,
+      coordinates: {
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      },
+    }));
+    mapRef.current?.animateToRegion(
+      { ...coordinate, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+      500
+    );
   };
 
   const updateFormField = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
-    if (!user || !propertyId) { Alert.alert("Authentication Error", "Login or Property ID missing"); return; }
+    if (!user || !propertyId) {
+      Alert.alert("Authentication Error", "Login or Property ID missing");
+      return;
+    }
 
     const validationErrors = [];
     if (!formData.title) validationErrors.push("Title");
     if (!formData.price) validationErrors.push("Price");
     if (!formData.location) validationErrors.push("Location");
     if (!formData.description) validationErrors.push("Description");
-    if (currentCategoryDetails?.hasBedBath) { if (!formData.bedrooms) validationErrors.push("Bedrooms"); if (!formData.bathrooms) validationErrors.push("Bathrooms"); }
-    if (currentCategoryDetails?.hasLandDetails) { if (!formData.size_sqm) validationErrors.push("Land Size (sqm)"); if (!formData.legal_status) validationErrors.push("Legal Status"); if (!formData.intended_use) validationErrors.push("Intended Use"); if (!formData.water_supply) validationErrors.push("Water Supply"); }
-    if (currentCategoryDetails?.hasSquareMeters && !formData.square_meters) validationErrors.push("Square Meters");
-    if (currentCategoryDetails?.hasCommercialDetails && !formData.commercial_property_type) validationErrors.push("Commercial Property Type");
-    if (existingImages.length + newImages.length === 0) validationErrors.push("at least one Image");
+    if (existingImages.length + newImages.length === 0)
+      validationErrors.push("at least one Image");
+    if (formData.use_phone_for_call && !formData.contact_phone_number?.trim())
+      validationErrors.push("Phone Number (for calls)");
+    if (
+      formData.use_whatsapp_for_message &&
+      !formData.contact_whatsapp_number?.trim()
+    )
+      validationErrors.push("WhatsApp Number (for messages)");
 
-
-    if (validationErrors.length > 0) { Alert.alert("Missing Information", `Please fill in: ${validationErrors.join(", ")}`); return; }
+    if (validationErrors.length > 0) {
+      Alert.alert(
+        "Missing Information",
+        `Please fill in: ${validationErrors.join(", ")}`
+      );
+      return;
+    }
 
     setFormSubmitting(true);
     const dataPayload = new FormData();
 
-    dataPayload.append('title', formData.title);
-    dataPayload.append('price', formData.price);
-    dataPayload.append('location', formData.location);
-    dataPayload.append('description', formData.description);
-    dataPayload.append('propertyType', formData.propertyType);
-    dataPayload.append('category', formData.category); // Send category in case it changed
-    dataPayload.append('coordinates', JSON.stringify(formData.coordinates));
+    dataPayload.append("title", formData.title);
+    dataPayload.append("price", formData.price);
+    dataPayload.append("location", formData.location);
+    dataPayload.append("description", formData.description);
+    dataPayload.append("propertyType", formData.propertyType);
+    dataPayload.append("category", formData.category);
+    dataPayload.append("coordinates", JSON.stringify(formData.coordinates));
+
+    if (formData.contact_phone_number?.trim())
+      dataPayload.append(
+        "contact_phone_number",
+        formData.contact_phone_number.trim()
+      );
+    if (formData.contact_whatsapp_number?.trim())
+      dataPayload.append(
+        "contact_whatsapp_number",
+        formData.contact_whatsapp_number.trim()
+      );
+    dataPayload.append(
+      "use_phone_for_call",
+      String(formData.use_phone_for_call)
+    );
+    dataPayload.append(
+      "use_whatsapp_for_message",
+      String(formData.use_whatsapp_for_message)
+    );
 
     let detailsObject: any = {};
     switch (formData.category) {
-      case 'house': detailsObject = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, garages: parseInt(formData.garages || "0") || undefined, parkings: parseInt(formData.parkings || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
-      case 'apartment': detailsObject = { bedrooms: parseInt(formData.bedrooms || "0") || undefined, bathrooms: parseInt(formData.bathrooms || "0") || undefined, square_meters: parseFloat(formData.square_meters || "0") || undefined, amenities: formData.amenities, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, security_features: formData.security_features }; break;
-      case 'land': detailsObject = { size_sqm: parseFloat(formData.size_sqm || "0") || undefined, legal_status: formData.legal_status, intended_use: formData.intended_use, road_access: formData.road_access, water_supply: formData.water_supply, electricity_available: formData.electricity_available, fenced: formData.fenced }; break;
-      case 'commercial': detailsObject = { property_type: formData.commercial_property_type, square_meters: parseFloat(formData.square_meters || "0") || undefined, parking_spaces: parseInt(formData.parking_spaces || "0") || undefined, amenities: formData.amenities, security_features: formData.security_features }; break;
+      case "house":
+        detailsObject = {
+          bedrooms: parseInt(formData.bedrooms || "0") || undefined,
+          bathrooms: parseInt(formData.bathrooms || "0") || undefined,
+          garages: parseInt(formData.garages || "0") || undefined,
+          parkings: parseInt(formData.parkings || "0") || undefined,
+          amenities: formData.amenities,
+          security_features: formData.security_features,
+        };
+        break;
+      case "apartment":
+        detailsObject = {
+          bedrooms: parseInt(formData.bedrooms || "0") || undefined,
+          bathrooms: parseInt(formData.bathrooms || "0") || undefined,
+          square_meters: parseFloat(formData.square_meters || "0") || undefined,
+          amenities: formData.amenities,
+          parking_spaces: parseInt(formData.parking_spaces || "0") || undefined,
+          security_features: formData.security_features,
+        };
+        break;
+      case "land":
+        detailsObject = {
+          size_sqm: parseFloat(formData.size_sqm || "0") || undefined,
+          legal_status: formData.legal_status,
+          intended_use: formData.intended_use,
+          road_access: formData.road_access,
+          water_supply: formData.water_supply,
+          electricity_available: formData.electricity_available,
+          fenced: formData.fenced,
+        };
+        break;
+      case "commercial":
+        detailsObject = {
+          property_type: formData.commercial_property_type,
+          square_meters: parseFloat(formData.square_meters || "0") || undefined,
+          parking_spaces: parseInt(formData.parking_spaces || "0") || undefined,
+          amenities: formData.amenities,
+          security_features: formData.security_features,
+        };
+        break;
     }
-    Object.keys(detailsObject).forEach(key => { if (detailsObject[key] == null || detailsObject[key] === '' || (Array.isArray(detailsObject[key]) && detailsObject[key].length === 0)) { delete detailsObject[key]; }});
+    Object.keys(detailsObject).forEach((key) => {
+      if (
+        detailsObject[key] == null ||
+        detailsObject[key] === "" ||
+        (Array.isArray(detailsObject[key]) && detailsObject[key].length === 0)
+      ) {
+        delete detailsObject[key];
+      }
+    });
     if (Object.keys(detailsObject).length > 0) {
-        dataPayload.append('details', JSON.stringify(detailsObject));
+      dataPayload.append("details", JSON.stringify(detailsObject));
     }
 
-    // Append new image files
     newImages.forEach((uri, index) => {
-      const filename = uri.split('/').pop() || `new-image-${index}.jpg`;
+      const filename = uri.split("/").pop() || `new-image-${index}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
-      dataPayload.append('newImages', { // Field name 'newImages' must match FilesInterceptor in NestJS
+      dataPayload.append("newImages", {
         uri: uri,
         name: filename,
         type: type,
       } as any);
     });
-
-    // Append existing Cloudinary URLs (images that are kept)
-    dataPayload.append('existingImageUrls', JSON.stringify(existingImages));
-    // Append public IDs of images to be deleted from Cloudinary
-    dataPayload.append('deletedImagePublicIds', JSON.stringify(imagesToDeletePublicIds));
+    dataPayload.append("existingImageUrls", JSON.stringify(existingImages));
+    dataPayload.append(
+      "deletedImagePublicIds",
+      JSON.stringify(imagesToDeletePublicIds)
+    );
 
     try {
       const token = useAuthStore.getState().session?.access_token;
@@ -230,49 +366,68 @@ export default function EditPropertyScreen() {
         headers: { Authorization: `Bearer ${token}` },
         body: dataPayload,
       });
-
+      const responseBodyText = await response.text();
       if (!response.ok) {
         let errorMsg = `HTTP error! Status: ${response.status}`;
-        try { const ed = await response.json(); errorMsg = ed.message || JSON.stringify(ed) || errorMsg; } catch(e){}
+        try {
+          const ed = JSON.parse(responseBodyText);
+          errorMsg = ed.message || JSON.stringify(ed) || errorMsg;
+        } catch (e) {}
         throw new Error(`Failed to update property: ${errorMsg}`);
       }
-      Alert.alert("Success", "Property updated successfully!", [{ text: "OK", onPress: () => router.back() }]);
+      const updatedPropertyData = JSON.parse(responseBodyText);
+      updatePropertyInStore(propertyId as string, updatedPropertyData);
+
+      Alert.alert("Success", "Property updated successfully!", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
     } catch (error: any) {
-      console.error("Update error:", error);
-      Alert.alert("Error", `Failed to update property. ${error.message || "Please try again."}`);
+      Alert.alert(
+        "Error",
+        `Failed to update property. ${error.message || "Please try again."}`
+      );
     } finally {
       setFormSubmitting(false);
     }
   };
 
-  if (loading) { // Show full screen loader only on initial data load
+  if (loading) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 justify-center items-center bg-white">
         <ActivityIndicator size="large" color="#4F46E5" />
         <Text className="mt-4 text-gray-600">Loading property details...</Text>
       </View>
     );
   }
 
-  // ... (rest of your EditPropertyScreen JSX: ScrollView, TextInputs, Pickers, MapView, etc.)
   return (
-    <ScrollView className="flex-1 bg-white p-4">
-      <Stack.Screen options={{ title: "Edit Property", headerTitle: "Edit Property" }} />
-      
+    <ScrollView
+      className="flex-1 bg-white p-4"
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ paddingBottom: 40 }}
+    >
+      <Stack.Screen options={{ title: "Edit Property" }} />
       <View className="mb-6">
         <Text className="text-lg font-semibold mb-1">Edit Property</Text>
-        <Text className="text-gray-500">Update your property details below</Text>
+        <Text className="text-gray-500">
+          Update your property details below
+        </Text>
       </View>
-
       <View className="mb-6">
-        <Text className="text-base font-medium mb-2">Property Images (Max 5)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+        <Text className="text-base font-medium mb-2">
+          Property Images (Max 5)
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-3"
+        >
           {existingImages.map((image, index) => (
             <View key={`existing-${index}-${image}`} className="relative mr-3">
               <Image source={{ uri: image }} className="w-24 h-24 rounded-lg" />
               <TouchableOpacity
                 onPress={() => removeImage(index, false)}
-                className="absolute top-1 right-1 bg-white rounded-full p-1"
+                className="absolute top-1 right-1 bg-white rounded-full p-1 shadow"
               >
                 <Ionicons name="close-circle" size={20} color="red" />
               </TouchableOpacity>
@@ -283,13 +438,13 @@ export default function EditPropertyScreen() {
               <Image source={{ uri: image }} className="w-24 h-24 rounded-lg" />
               <TouchableOpacity
                 onPress={() => removeImage(index, true)}
-                className="absolute top-1 right-1 bg-white rounded-full p-1"
+                className="absolute top-1 right-1 bg-white rounded-full p-1 shadow"
               >
                 <Ionicons name="close-circle" size={20} color="red" />
               </TouchableOpacity>
             </View>
           ))}
-          {(existingImages.length + newImages.length) < 5 && (
+          {existingImages.length + newImages.length < 5 && (
             <TouchableOpacity
               onPress={pickImage}
               className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg items-center justify-center bg-gray-50"
@@ -300,14 +455,15 @@ export default function EditPropertyScreen() {
           )}
         </ScrollView>
       </View>
-
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Category *</Text>
         <View className="border border-gray-300 rounded-lg bg-gray-50">
           <Picker
             selectedValue={formData.category}
-            onValueChange={(itemValue) => updateFormField('category', itemValue as PropertyCategory)}
-            style={{ height: 50, width: '100%' }}
+            onValueChange={(itemValue) =>
+              updateFormField("category", itemValue as PropertyCategory)
+            }
+            style={{ height: 50, width: "100%" }}
           >
             {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
               <Picker.Item key={key} label={value.label} value={key} />
@@ -315,36 +471,53 @@ export default function EditPropertyScreen() {
           </Picker>
         </View>
       </View>
-
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Listing Type *</Text>
         <View className="flex-row space-x-3">
           <TouchableOpacity
-            onPress={() => updateFormField('propertyType', 'rent')}
-            className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'rent' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}
+            onPress={() => updateFormField("propertyType", "rent")}
+            className={`flex-1 border rounded-lg p-3 items-center ${
+              formData.propertyType === "rent"
+                ? "bg-blue-100 border-blue-500"
+                : "border-gray-300 bg-gray-50"
+            }`}
           >
-            <Text className={`font-medium ${formData.propertyType === 'rent' ? 'text-blue-600' : 'text-gray-700'}`}>
+            <Text
+              className={`font-medium ${
+                formData.propertyType === "rent"
+                  ? "text-blue-600"
+                  : "text-gray-700"
+              }`}
+            >
               For Rent
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => updateFormField('propertyType', 'sale')}
-            className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'sale' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}
+            onPress={() => updateFormField("propertyType", "sale")}
+            className={`flex-1 border rounded-lg p-3 items-center ${
+              formData.propertyType === "sale"
+                ? "bg-blue-100 border-blue-500"
+                : "border-gray-300 bg-gray-50"
+            }`}
           >
-            <Text className={`font-medium ${formData.propertyType === 'sale' ? 'text-blue-600' : 'text-gray-700'}`}>
+            <Text
+              className={`font-medium ${
+                formData.propertyType === "sale"
+                  ? "text-blue-600"
+                  : "text-gray-700"
+              }`}
+            >
               For Sale
             </Text>
           </TouchableOpacity>
         </View>
       </View>
-
       <Text className="text-lg font-semibold mb-3 mt-2">Property Details</Text>
-
       <View className="mb-4">
         <Text className="text-sm text-gray-600 mb-1">Title *</Text>
         <TextInput
           value={formData.title}
-          onChangeText={(v) => updateFormField('title', v)}
+          onChangeText={(v) => updateFormField("title", v)}
           placeholder="e.g. Modern 3-Bed House"
           className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
         />
@@ -353,29 +526,32 @@ export default function EditPropertyScreen() {
         <Text className="text-sm text-gray-600 mb-1">Price (K) *</Text>
         <TextInput
           value={formData.price}
-          onChangeText={(v) => updateFormField('price', v)}
-          placeholder={formData.propertyType === 'rent' ? "e.g. 15000" : "e.g. 2500000"}
+          onChangeText={(v) => updateFormField("price", v)}
+          placeholder={
+            formData.propertyType === "rent" ? "e.g. 15000" : "e.g. 2500000"
+          }
           keyboardType="numeric"
           className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
         />
       </View>
       <View className="mb-4">
-        <Text className="text-sm text-gray-600 mb-1">Location Description *</Text>
+        <Text className="text-sm text-gray-600 mb-1">
+          Location Description *
+        </Text>
         <TextInput
           value={formData.location}
-          onChangeText={(v) => updateFormField('location', v)}
+          onChangeText={(v) => updateFormField("location", v)}
           placeholder="e.g. Off Zambezi Rd, Lusaka"
           className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
         />
       </View>
-
       {currentCategoryDetails?.hasBedBath && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
             <Text className="text-sm text-gray-600 mb-1">Bedrooms *</Text>
             <TextInput
               value={formData.bedrooms}
-              onChangeText={(v) => updateFormField('bedrooms', v)}
+              onChangeText={(v) => updateFormField("bedrooms", v)}
               keyboardType="numeric"
               placeholder="e.g. 3"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -385,7 +561,7 @@ export default function EditPropertyScreen() {
             <Text className="text-sm text-gray-600 mb-1">Bathrooms *</Text>
             <TextInput
               value={formData.bathrooms}
-              onChangeText={(v) => updateFormField('bathrooms', v)}
+              onChangeText={(v) => updateFormField("bathrooms", v)}
               keyboardType="numeric"
               placeholder="e.g. 2"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -393,14 +569,13 @@ export default function EditPropertyScreen() {
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasGaragesParkings && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
             <Text className="text-sm text-gray-600 mb-1">Garages</Text>
             <TextInput
               value={formData.garages}
-              onChangeText={(v) => updateFormField('garages', v)}
+              onChangeText={(v) => updateFormField("garages", v)}
               keyboardType="numeric"
               placeholder="e.g. 1"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -410,7 +585,7 @@ export default function EditPropertyScreen() {
             <Text className="text-sm text-gray-600 mb-1">Parkings (House)</Text>
             <TextInput
               value={formData.parkings}
-              onChangeText={(v) => updateFormField('parkings', v)}
+              onChangeText={(v) => updateFormField("parkings", v)}
               keyboardType="numeric"
               placeholder="e.g. 2"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -418,14 +593,13 @@ export default function EditPropertyScreen() {
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasSquareMeters && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
             <Text className="text-sm text-gray-600 mb-1">Area (sqm) *</Text>
             <TextInput
               value={formData.square_meters}
-              onChangeText={(v) => updateFormField('square_meters', v)}
+              onChangeText={(v) => updateFormField("square_meters", v)}
               keyboardType="numeric"
               placeholder="e.g. 120"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -435,7 +609,7 @@ export default function EditPropertyScreen() {
             <Text className="text-sm text-gray-600 mb-1">Parking Spaces</Text>
             <TextInput
               value={formData.parking_spaces}
-              onChangeText={(v) => updateFormField('parking_spaces', v)}
+              onChangeText={(v) => updateFormField("parking_spaces", v)}
               keyboardType="numeric"
               placeholder="e.g. 1"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -443,15 +617,16 @@ export default function EditPropertyScreen() {
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasLandDetails && (
         <View className="mb-4">
           <Text className="text-base font-medium mb-3">Land Specifics</Text>
           <View className="mb-4">
-            <Text className="text-sm text-gray-600 mb-1">Land Size (sqm) *</Text>
+            <Text className="text-sm text-gray-600 mb-1">
+              Land Size (sqm) *
+            </Text>
             <TextInput
               value={formData.size_sqm}
-              onChangeText={(v) => updateFormField('size_sqm', v)}
+              onChangeText={(v) => updateFormField("size_sqm", v)}
               keyboardType="numeric"
               placeholder="e.g. 4000"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
@@ -461,7 +636,7 @@ export default function EditPropertyScreen() {
             <Text className="text-sm text-gray-600 mb-1">Legal Status *</Text>
             <TextInput
               value={formData.legal_status}
-              onChangeText={(v) => updateFormField('legal_status', v)}
+              onChangeText={(v) => updateFormField("legal_status", v)}
               placeholder="e.g. Title Deed, Customary"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
             />
@@ -470,7 +645,7 @@ export default function EditPropertyScreen() {
             <Text className="text-sm text-gray-600 mb-1">Intended Use *</Text>
             <TextInput
               value={formData.intended_use}
-              onChangeText={(v) => updateFormField('intended_use', v)}
+              onChangeText={(v) => updateFormField("intended_use", v)}
               placeholder="e.g. Residential, Agricultural"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
             />
@@ -479,7 +654,7 @@ export default function EditPropertyScreen() {
             <Text className="text-sm text-gray-600 mb-1">Water Supply *</Text>
             <TextInput
               value={formData.water_supply}
-              onChangeText={(v) => updateFormField('water_supply', v)}
+              onChangeText={(v) => updateFormField("water_supply", v)}
               placeholder="e.g. Borehole, Municipal"
               className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
             />
@@ -488,38 +663,89 @@ export default function EditPropertyScreen() {
             <Text className="text-base text-gray-700">Road Access</Text>
             <Switch
               value={formData.road_access}
-              onValueChange={(v) => updateFormField('road_access', v)}
+              onValueChange={(v) => updateFormField("road_access", v)}
             />
           </View>
           <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-            <Text className="text-base text-gray-700">Electricity Available</Text>
+            <Text className="text-base text-gray-700">
+              Electricity Available
+            </Text>
             <Switch
               value={formData.electricity_available}
-              onValueChange={(v) => updateFormField('electricity_available', v)}
+              onValueChange={(v) => updateFormField("electricity_available", v)}
             />
           </View>
           <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
             <Text className="text-base text-gray-700">Fenced</Text>
             <Switch
               value={formData.fenced}
-              onValueChange={(v) => updateFormField('fenced', v)}
+              onValueChange={(v) => updateFormField("fenced", v)}
             />
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasCommercialDetails && (
         <View className="mb-4">
-          <Text className="text-base font-medium mb-3">Commercial Specifics</Text>
-          <Text className="text-sm text-gray-600 mb-1">Commercial Property Type *</Text>
+          <Text className="text-base font-medium mb-3">
+            Commercial Specifics
+          </Text>
+          <Text className="text-sm text-gray-600 mb-1">
+            Commercial Property Type *
+          </Text>
           <TextInput
             value={formData.commercial_property_type}
-            onChangeText={(v) => updateFormField('commercial_property_type', v)}
+            onChangeText={(v) => updateFormField("commercial_property_type", v)}
             placeholder="e.g. Office, Retail, Warehouse"
             className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
           />
         </View>
       )}
+
+      <Text className="text-lg font-semibold mb-3 mt-2">
+        Contact Configuration
+      </Text>
+      <View className="mb-4">
+        <Text className="text-sm text-gray-600 mb-1">Contact Phone Number</Text>
+        <TextInput
+          value={formData.contact_phone_number}
+          onChangeText={(v) => updateFormField("contact_phone_number", v)}
+          placeholder="e.g. 0977123456"
+          keyboardType="phone-pad"
+          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+        />
+      </View>
+      <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+        <Text className="text-base text-gray-700">
+          Use this phone number for calls?
+        </Text>
+        <Switch
+          value={formData.use_phone_for_call}
+          onValueChange={(v) => updateFormField("use_phone_for_call", v)}
+          disabled={!formData.contact_phone_number}
+        />
+      </View>
+      <View className="mb-4">
+        <Text className="text-sm text-gray-600 mb-1">
+          Contact WhatsApp Number
+        </Text>
+        <TextInput
+          value={formData.contact_whatsapp_number}
+          onChangeText={(v) => updateFormField("contact_whatsapp_number", v)}
+          placeholder="e.g. 0966123456"
+          keyboardType="phone-pad"
+          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+        />
+      </View>
+      <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+        <Text className="text-base text-gray-700">
+          Use this WhatsApp number for messages?
+        </Text>
+        <Switch
+          value={formData.use_whatsapp_for_message}
+          onValueChange={(v) => updateFormField("use_whatsapp_for_message", v)}
+          disabled={!formData.contact_whatsapp_number}
+        />
+      </View>
 
       {availableAmenities.length > 0 && (
         <View className="mb-6">
@@ -540,11 +766,13 @@ export default function EditPropertyScreen() {
                     : "bg-gray-100 border-gray-300"
                 }`}
               >
-                <Text className={`text-sm ${
-                  formData.amenities.includes(amenity) 
-                    ? "text-blue-600" 
-                    : "text-gray-700"
-                }`}>
+                <Text
+                  className={`text-sm ${
+                    formData.amenities.includes(amenity)
+                      ? "text-blue-600"
+                      : "text-gray-700"
+                  }`}
+                >
                   {amenity}
                 </Text>
               </TouchableOpacity>
@@ -552,12 +780,11 @@ export default function EditPropertyScreen() {
           </View>
         </View>
       )}
-
       <View className="mb-6">
         <Text className="text-sm text-gray-600 mb-1">Description *</Text>
         <TextInput
           value={formData.description}
-          onChangeText={(v) => updateFormField('description', v)}
+          onChangeText={(v) => updateFormField("description", v)}
           placeholder="Describe the property..."
           multiline
           numberOfLines={4}
@@ -565,7 +792,6 @@ export default function EditPropertyScreen() {
           className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base h-32"
         />
       </View>
-
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Location *</Text>
         <Text className="text-sm text-gray-500 mb-2">
@@ -573,6 +799,7 @@ export default function EditPropertyScreen() {
         </Text>
         <View style={{ height: 250, borderRadius: 8, overflow: "hidden" }}>
           <MapView
+            ref={mapRef}
             style={{ flex: 1 }}
             initialRegion={{
               latitude: formData.coordinates.latitude,
@@ -580,12 +807,16 @@ export default function EditPropertyScreen() {
               latitudeDelta: 0.0922,
               longitudeDelta: 0.0421,
             }}
-            region={formData.coordinates.latitude !== -15.3875 ? {
-                latitude: formData.coordinates.latitude,
-                longitude: formData.coordinates.longitude,
-                latitudeDelta: 0.02,
-                longitudeDelta: 0.01,
-            } : undefined}
+            region={
+              formData.coordinates.latitude !== -15.3875
+                ? {
+                    latitude: formData.coordinates.latitude,
+                    longitude: formData.coordinates.longitude,
+                    latitudeDelta: 0.02,
+                    longitudeDelta: 0.01,
+                  }
+                : undefined
+            }
             onPress={handleMapPress}
             provider="google"
           >
@@ -606,7 +837,6 @@ export default function EditPropertyScreen() {
           </Text>
         </View>
       </View>
-
       <View className="my-6">
         <TouchableOpacity
           onPress={handleSubmit}
@@ -618,7 +848,9 @@ export default function EditPropertyScreen() {
           {formSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-semibold text-base">Update Property</Text>
+            <Text className="text-white font-semibold text-base">
+              Update Property
+            </Text>
           )}
         </TouchableOpacity>
       </View>

@@ -60,15 +60,24 @@ export default function HomeScreen() {
   // --- Fetching Logic (Keep as is - backend exclusion is ideal but filtering handles UI) ---
   const fetchPaginatedProperties = useCallback(
     async (pageNumber: number, isRefresh = false) => {
-      if (!hasMore && pageNumber > 1 && !isRefresh) return;
+      console.log(`fetchPaginatedProperties called with pageNumber: ${pageNumber}, isRefresh: ${isRefresh}`);
+      if (!hasMore && pageNumber > 1 && !isRefresh) {
+        console.log("fetchPaginatedProperties: Aborting - no more pages or not a refresh.");
+        return;
+      }
+
       if (pageNumber === 1) {
+        console.log("fetchPaginatedProperties: Fetching page 1 - setting Zustand loading true.");
         setZustandLoading(true);
         setLocalError(null);
         setZustandError(null);
       } else {
+        console.log("fetchPaginatedProperties: Fetching more - setting isFetchingMore true.");
         setIsFetchingMore(true);
       }
+
       if (isRefresh) {
+        console.log("fetchPaginatedProperties: Refreshing - fetching saved and featured properties.");
         setRefreshing(true);
         await fetchSavedProperties();
         await fetchFeaturedProperties();
@@ -92,37 +101,56 @@ export default function HomeScreen() {
             else if (selectedType === 'apartment' || selectedType === 'commercial') params.append(QueryParams.PARKING_SPACES, parkings.toString());
             else if (selectedType === 'all') params.append(QueryParams.PARKING_SPACES, parkings.toString());
         }
+        const apiUrl = `${API_BASE_URL}/properties?${params.toString()}`;
+        console.log(`fetchPaginatedProperties: Fetching URL: ${apiUrl}`);
 
-        const response = await fetch(`${API_BASE_URL}/properties?${params.toString()}`);
-        if (!response.ok) throw new Error(`Failed to fetch properties (status: ${response.status})`);
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`fetchPaginatedProperties: API Error Status: ${response.status}, Text: ${errorText}`);
+          throw new Error(`Failed to fetch properties (status: ${response.status})`);
+        }
 
         const data: PropertyResponseDto = await response.json();
-        const newProperties = data.properties || [];
+        console.log("fetchPaginatedProperties: API Response Data:", JSON.stringify(data, null, 2));
 
-        setProperties(newProperties, pageNumber);
-        setHasMore( (pageNumber * PAGE_SIZE) < data.total );
+        const newProperties = data.properties || [];
+        console.log(`fetchPaginatedProperties: Received ${newProperties.length} new properties from API.`);
+        console.log(`fetchPaginatedProperties: API reported total properties: ${data.total}.`);
+
+
+        setProperties(newProperties, pageNumber); // This will trigger a store update
+        const newHasMore = (pageNumber * PAGE_SIZE) < data.total;
+        console.log(`fetchPaginatedProperties: Setting hasMore to: ${newHasMore}`);
+        setHasMore(newHasMore);
+        console.log(`fetchPaginatedProperties: Setting page to: ${pageNumber + 1}`);
         setPage(pageNumber + 1);
 
       } catch (error: any) {
-        console.error('Error fetching properties:', error);
+        console.error('fetchPaginatedProperties: Catch Block Error:', error);
         setLocalError(error.message || 'Failed to load properties. Please try again.');
         setHasMore(false);
       } finally {
         if (pageNumber === 1) {
+          console.log("fetchPaginatedProperties: Finally block for page 1 - setting Zustand loading false.");
           setZustandLoading(false);
           setIsInitialFetchDone(true);
         } else {
+          console.log("fetchPaginatedProperties: Finally block for subsequent page - setting isFetchingMore false.");
           setIsFetchingMore(false);
         }
         if (isRefresh) {
+          console.log("fetchPaginatedProperties: Finally block for refresh - setting refreshing false.");
           setRefreshing(false);
         }
+        console.log("fetchPaginatedProperties: Fetch operation complete.");
       }
     },
     [
-      featuredProperties,
       searchQuery, selectedType, bedrooms, bathrooms, garages, parkings, sortOption,
-      hasMore, page, setProperties, setZustandLoading, setZustandError, fetchSavedProperties, fetchFeaturedProperties
+      hasMore, // page, // Removed page as it's set by the function
+      setProperties, setZustandLoading, setZustandError, fetchSavedProperties, fetchFeaturedProperties,
+      setPage, setHasMore, setRefreshing, setIsFetchingMore, setIsInitialFetchDone, setLocalError // Added local state setters
     ]
   );
 
@@ -178,8 +206,8 @@ export default function HomeScreen() {
   };
 
   const filteredProperties = useMemo(() => {
-    const featuredIds = new Set(featuredProperties.map(p => p.id));
-    return properties.filter(p => !featuredIds.has(p.id));
+    const featuredIds: Set<string> = new Set<string>(featuredProperties.map((p: Property) => p.id));
+    return properties.filter((p: Property) => !featuredIds.has(p.id));
   }, [properties, featuredProperties]);
 
   const renderListHeader = () => {

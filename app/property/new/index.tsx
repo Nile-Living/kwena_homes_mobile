@@ -1,4 +1,3 @@
-// ... (all your existing imports for AddPropertyScreen)
 import React, { useState, useRef } from "react";
 import {
   View,
@@ -10,8 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  StyleSheet,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,8 +19,9 @@ import MapView, { Marker } from "react-native-maps";
 import { Picker } from "@react-native-picker/picker";
 import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 import { API_BASE_URL } from "@/constants/Config";
+import { useStore as usePropertyStore } from "@/store/useStore";
 
-// ... (your FormData interface)
+
 interface FormData {
   title: string;
   price: string;
@@ -48,40 +49,32 @@ interface FormData {
   square_meters?: string;
   parking_spaces?: string;
   commercial_property_type?: string;
+  contact_phone_number?: string;
+  contact_whatsapp_number?: string;
+  use_phone_for_call: boolean;
+  use_whatsapp_for_message: boolean;
 }
 
 
 export default function AddPropertyScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { updatePropertyInStore } = usePropertyStore();
   const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState<string[]>([]); // Local URIs from picker
+  const [images, setImages] = useState<string[]>([]);
   const mapRef = useRef<MapView>(null);
 
   const [formData, setFormData] = useState<FormData>({
-    title: "",
-    price: "",
-    location: "",
-    description: "",
+    title: "", price: "", location: "", description: "",
     propertyType: "rent",
     coordinates: { latitude: -15.3875, longitude: 28.3228 },
-    category: "house",
-    amenities: [],
-    security_features: [],
-    bedrooms: "",
-    bathrooms: "",
-    garages: "",
-    parkings: "",
-    size_sqm: "",
-    legal_status: "",
-    intended_use: "",
-    road_access: false,
-    water_supply: "",
-    electricity_available: false,
-    fenced: false,
-    square_meters: "",
-    parking_spaces: "",
-    commercial_property_type: "",
+    category: "house", amenities: [], security_features: [],
+    bedrooms: "", bathrooms: "", garages: "", parkings: "",
+    size_sqm: "", legal_status: "", intended_use: "",
+    road_access: false, water_supply: "", electricity_available: false, fenced: false,
+    square_meters: "", parking_spaces: "", commercial_property_type: "",
+    contact_phone_number: "", contact_whatsapp_number: "",
+    use_phone_for_call: true, use_whatsapp_for_message: true,
   });
 
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
@@ -92,7 +85,7 @@ export default function AddPropertyScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") { Alert.alert("Permission Required", "Please grant permission to access your photos"); return; }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true});
       if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
         setImages([...images, result.assets[0].uri]);
       }
@@ -114,23 +107,20 @@ export default function AddPropertyScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user) {
-      Alert.alert("Authentication Error", "You must be logged in to list a property");
-      return;
-    }
+    if (!user) { Alert.alert("Authentication Error", "You must be logged in to list a property"); return; }
 
     const clientSideValidationErrors = [];
     if (!formData.title.trim()) clientSideValidationErrors.push("Title");
     if (!formData.price.trim() || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) < 0) clientSideValidationErrors.push("Valid Price");
     if (!formData.location.trim()) clientSideValidationErrors.push("Location");
     if (!formData.description.trim()) clientSideValidationErrors.push("Description");
-    if (!formData.propertyType) clientSideValidationErrors.push("Listing Type (Rent/Sale)");
-    if (!formData.category) clientSideValidationErrors.push("Property Category");
     if (images.length === 0) clientSideValidationErrors.push("at least one Image");
-    // Add more client-side checks for category-specific fields if needed
+    if (formData.use_phone_for_call && !formData.contact_phone_number?.trim()) clientSideValidationErrors.push("Phone Number (for calls)");
+    if (formData.use_whatsapp_for_message && !formData.contact_whatsapp_number?.trim()) clientSideValidationErrors.push("WhatsApp Number (for messages)");
+
 
     if (clientSideValidationErrors.length > 0) {
-      Alert.alert("Missing Information on Client", `Please fill in: ${clientSideValidationErrors.join(", ")}`);
+      Alert.alert("Missing Information", `Please fill in: ${clientSideValidationErrors.join(", ")}`);
       return;
     }
 
@@ -145,6 +135,12 @@ export default function AddPropertyScreen() {
     dataPayload.append('category', formData.category);
     dataPayload.append('coordinates', JSON.stringify(formData.coordinates));
     dataPayload.append('user_id', user.id);
+
+    if(formData.contact_phone_number?.trim()) dataPayload.append('contact_phone_number', formData.contact_phone_number.trim());
+    if(formData.contact_whatsapp_number?.trim()) dataPayload.append('contact_whatsapp_number', formData.contact_whatsapp_number.trim());
+    dataPayload.append('use_phone_for_call', String(formData.use_phone_for_call));
+    dataPayload.append('use_whatsapp_for_message', String(formData.use_whatsapp_for_message));
+
 
     let detailsObject: any = {};
     switch (formData.category) {
@@ -163,65 +159,30 @@ export default function AddPropertyScreen() {
       const filename = uri.split('/').pop() || `image-${index}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
-      dataPayload.append('images', {
-        uri: uri,
-        name: filename,
-        type: type,
-      } as any);
+      dataPayload.append('images', { uri: uri, name: filename, type: type } as any);
     });
-
-    console.log("--- FormData being sent (Client-Side Log) ---");
-    console.log("Title:", dataPayload.get('title'));
-    console.log("Price:", dataPayload.get('price'));
-    console.log("Location:", dataPayload.get('location'));
-    console.log("Description:", dataPayload.get('description'));
-    console.log("Property Type:", dataPayload.get('propertyType'));
-    console.log("Category:", dataPayload.get('category'));
-    console.log("User ID:", dataPayload.get('user_id'));
-    console.log("Coordinates:", dataPayload.get('coordinates'));
-    console.log("Details:", dataPayload.get('details'));
-    // For files, FormData.get('images') will return the first file.
-    // To check all files, you'd use FormData.getAll('images').
-    // console.log("First image object (client):", dataPayload.get('images'));
-    // console.log("All image objects (client):", dataPayload.getAll('images'));
-    console.log("Number of images appended (client):", images.length);
-    console.log("--- End of FormData Log ---");
-
 
     try {
       const token = useAuthStore.getState().session?.access_token;
       const response = await fetch(`${API_BASE_URL}/properties`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: dataPayload,
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: dataPayload,
       });
 
       const responseBodyText = await response.text();
-      console.log("--- Backend Response (Client-Side Log) ---");
-      console.log("Status:", response.status);
-      console.log("Status Text:", response.statusText);
-      console.log("Body:", responseBodyText);
-      console.log("--- End of Backend Response Log ---");
-
       if (!response.ok) {
         let errorMsg = `Status: ${response.status}.`;
         try {
             const errorJson = JSON.parse(responseBodyText);
-            if (errorJson.message) {
-                errorMsg += ` Message: ${Array.isArray(errorJson.message) ? errorJson.message.join(', ') : errorJson.message}`;
-            } else {
-                errorMsg += ` Body: ${responseBodyText}`;
-            }
-        } catch(e){
-            errorMsg += ` Body: ${responseBodyText}`;
-        }
+            if (errorJson.message) { errorMsg += ` Message: ${Array.isArray(errorJson.message) ? errorJson.message.join(', ') : errorJson.message}`; }
+            else { errorMsg += ` Body: ${responseBodyText}`; }
+        } catch(e){ errorMsg += ` Body: ${responseBodyText}`; }
         throw new Error(`Failed to create property: ${errorMsg}`);
       }
+      const newPropertyData = JSON.parse(responseBodyText);
+      updatePropertyInStore(newPropertyData.id, newPropertyData);
+
       Alert.alert("Success", "Property listed successfully!", [{ text: "OK", onPress: () => router.replace("/") }]);
     } catch (error: any) {
-      console.error("Error submitting property (raw error object):", error);
       Alert.alert("Submission Error", `${error.message || "An unknown error occurred."}`);
     } finally {
       setLoading(false);
@@ -229,22 +190,15 @@ export default function AddPropertyScreen() {
   };
 
   return (
-    <ScrollView
-      className="flex-1 bg-white p-4"
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ paddingBottom: 40 }}
-    >
+    <ScrollView className="flex-1 bg-white p-4" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+      <Stack.Screen options={{ title: "Add Property" }} />
       <View className="mb-6">
         <Text className="text-lg font-semibold mb-1">Add New Property</Text>
-        <Text className="text-gray-500">
-          Fill in the details below to list your property
-        </Text>
+        <Text className="text-gray-500">Fill in the details below to list your property</Text>
       </View>
 
       <View className="mb-6">
-        <Text className="text-base font-medium mb-2">
-          Property Images (Max 5) *
-        </Text>
+        <Text className="text-base font-medium mb-2">Property Images (Max 5) *</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
           {images.map((image, index) => (
             <View key={`img-${index}`} className="relative mr-3">
@@ -266,14 +220,8 @@ export default function AddPropertyScreen() {
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Category *</Text>
         <View className="border border-gray-300 rounded-lg bg-gray-50">
-          <Picker
-            selectedValue={formData.category}
-            onValueChange={(itemValue) => updateFormField('category', itemValue as PropertyCategory)}
-            style={{ height: 50, width: '100%' }}
-          >
-            {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
-              <Picker.Item key={key} label={value.label} value={key} />
-            ))}
+          <Picker selectedValue={formData.category} onValueChange={(itemValue) => updateFormField('category', itemValue as PropertyCategory)} style={{ height: 50, width: '100%' }}>
+            {Object.entries(PROPERTY_TYPES).map(([key, value]) => (<Picker.Item key={key} label={value.label} value={key} />))}
           </Picker>
         </View>
       </View>
@@ -281,27 +229,16 @@ export default function AddPropertyScreen() {
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Listing Type *</Text>
         <View className="flex-row gap-2 space-x-3">
-          <TouchableOpacity
-            onPress={() => updateFormField('propertyType', 'rent')}
-            className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'rent' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}
-          >
-            <Text className={`font-medium ${formData.propertyType === 'rent' ? 'text-blue-600' : 'text-gray-700'}`}>
-              For Rent
-            </Text>
+          <TouchableOpacity onPress={() => updateFormField('propertyType', 'rent')} className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'rent' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}>
+            <Text className={`font-medium ${formData.propertyType === 'rent' ? 'text-blue-600' : 'text-gray-700'}`}>For Rent</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => updateFormField('propertyType', 'sale')}
-            className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'sale' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}
-          >
-            <Text className={`font-medium ${formData.propertyType === 'sale' ? 'text-blue-600' : 'text-gray-700'}`}>
-              For Sale
-            </Text>
+          <TouchableOpacity onPress={() => updateFormField('propertyType', 'sale')} className={`flex-1 border rounded-lg p-3 items-center ${formData.propertyType === 'sale' ? 'bg-blue-100 border-blue-500' : 'border-gray-300 bg-gray-50'}`}>
+            <Text className={`font-medium ${formData.propertyType === 'sale' ? 'text-blue-600' : 'text-gray-700'}`}>For Sale</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <Text className="text-lg font-semibold mb-3 mt-2">Property Details</Text>
-
       <View className="mb-4">
         <Text className="text-sm text-gray-600 mb-1">Title *</Text>
         <TextInput value={formData.title} onChangeText={(v) => updateFormField('title', v)} placeholder="e.g. Modern 3-Bed House in Roma" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
@@ -327,7 +264,6 @@ export default function AddPropertyScreen() {
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasGaragesParkings && (
          <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -340,7 +276,6 @@ export default function AddPropertyScreen() {
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasSquareMeters && (
          <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
@@ -353,136 +288,75 @@ export default function AddPropertyScreen() {
           </View>
         </View>
       )}
-
       {currentCategoryDetails?.hasLandDetails && (
         <View className="mb-4">
             <Text className="text-base font-medium mb-3">Land Specifics</Text>
-            <View className="mb-4">
-                <Text className="text-sm text-gray-600 mb-1">Land Size (sqm) *</Text>
-                <TextInput value={formData.size_sqm} onChangeText={(v) => updateFormField('size_sqm', v)} keyboardType="numeric" placeholder="e.g. 4000" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
-            </View>
-             <View className="mb-4">
-                <Text className="text-sm text-gray-600 mb-1">Legal Status *</Text>
-                <TextInput value={formData.legal_status} onChangeText={(v) => updateFormField('legal_status', v)} placeholder="e.g. Title Deed, Customary" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
-            </View>
-             <View className="mb-4">
-                <Text className="text-sm text-gray-600 mb-1">Intended Use *</Text>
-                <TextInput value={formData.intended_use} onChangeText={(v) => updateFormField('intended_use', v)} placeholder="e.g. Residential, Agricultural" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
-            </View>
-             <View className="mb-4">
-                <Text className="text-sm text-gray-600 mb-1">Water Supply *</Text>
-                <TextInput value={formData.water_supply} onChangeText={(v) => updateFormField('water_supply', v)} placeholder="e.g. Borehole, Municipal" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
-            </View>
-             <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                <Text className="text-base text-gray-700">Road Access</Text>
-                <Switch value={formData.road_access} onValueChange={(v) => updateFormField('road_access', v)} />
-            </View>
-             <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                <Text className="text-base text-gray-700">Electricity Available</Text>
-                <Switch value={formData.electricity_available} onValueChange={(v) => updateFormField('electricity_available', v)} />
-            </View>
-             <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                <Text className="text-base text-gray-700">Fenced</Text>
-                <Switch value={formData.fenced} onValueChange={(v) => updateFormField('fenced', v)} />
-            </View>
+            <View className="mb-4"><Text className="text-sm text-gray-600 mb-1">Land Size (sqm) *</Text><TextInput value={formData.size_sqm} onChangeText={(v) => updateFormField('size_sqm', v)} keyboardType="numeric" placeholder="e.g. 4000" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" /></View>
+            <View className="mb-4"><Text className="text-sm text-gray-600 mb-1">Legal Status *</Text><TextInput value={formData.legal_status} onChangeText={(v) => updateFormField('legal_status', v)} placeholder="e.g. Title Deed, Customary" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" /></View>
+            <View className="mb-4"><Text className="text-sm text-gray-600 mb-1">Intended Use *</Text><TextInput value={formData.intended_use} onChangeText={(v) => updateFormField('intended_use', v)} placeholder="e.g. Residential, Agricultural" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" /></View>
+            <View className="mb-4"><Text className="text-sm text-gray-600 mb-1">Water Supply *</Text><TextInput value={formData.water_supply} onChangeText={(v) => updateFormField('water_supply', v)} placeholder="e.g. Borehole, Municipal" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" /></View>
+            <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50"><Text className="text-base text-gray-700">Road Access</Text><Switch value={formData.road_access} onValueChange={(v) => updateFormField('road_access', v)} /></View>
+            <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50"><Text className="text-base text-gray-700">Electricity Available</Text><Switch value={formData.electricity_available} onValueChange={(v) => updateFormField('electricity_available', v)} /></View>
+            <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50"><Text className="text-base text-gray-700">Fenced</Text><Switch value={formData.fenced} onValueChange={(v) => updateFormField('fenced', v)} /></View>
+        </View>
+      )}
+      {currentCategoryDetails?.hasCommercialDetails && (
+        <View className="mb-4">
+          <Text className="text-base font-medium mb-3">Commercial Specifics</Text>
+          <Text className="text-sm text-gray-600 mb-1">Commercial Property Type *</Text>
+          <TextInput value={formData.commercial_property_type} onChangeText={(v) => updateFormField('commercial_property_type', v)} placeholder="e.g. Office, Retail, Warehouse" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
         </View>
       )}
 
-       {currentCategoryDetails?.hasCommercialDetails && (
-           <View className="mb-4">
-                <Text className="text-base font-medium mb-3">Commercial Specifics</Text>
-                <Text className="text-sm text-gray-600 mb-1">Commercial Property Type *</Text>
-                <TextInput value={formData.commercial_property_type} onChangeText={(v) => updateFormField('commercial_property_type', v)} placeholder="e.g. Office, Retail, Warehouse" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
-            </View>
-       )}
+      <Text className="text-lg font-semibold mb-3 mt-2">Contact Configuration</Text>
+      <View className="mb-4">
+        <Text className="text-sm text-gray-600 mb-1">Contact Phone Number</Text>
+        <TextInput value={formData.contact_phone_number} onChangeText={(v) => updateFormField('contact_phone_number', v)} placeholder="e.g. 0977123456" keyboardType="phone-pad" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
+      </View>
+      <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+        <Text className="text-base text-gray-700">Use this phone number for calls?</Text>
+        <Switch value={formData.use_phone_for_call} onValueChange={(v) => updateFormField('use_phone_for_call', v)} disabled={!formData.contact_phone_number}/>
+      </View>
+      <View className="mb-4">
+        <Text className="text-sm text-gray-600 mb-1">Contact WhatsApp Number</Text>
+        <TextInput value={formData.contact_whatsapp_number} onChangeText={(v) => updateFormField('contact_whatsapp_number', v)} placeholder="e.g. 0966123456" keyboardType="phone-pad" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base" />
+      </View>
+      <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+        <Text className="text-base text-gray-700">Use this WhatsApp number for messages?</Text>
+        <Switch value={formData.use_whatsapp_for_message} onValueChange={(v) => updateFormField('use_whatsapp_for_message', v)} disabled={!formData.contact_whatsapp_number}/>
+      </View>
+
 
       {availableAmenities.length > 0 && (
         <View className="mb-6">
           <Text className="text-base font-medium mb-2">Amenities</Text>
           <View className="flex-row flex-wrap gap-2">
             {availableAmenities.map((amenity) => (
-              <TouchableOpacity
-                key={amenity}
-                onPress={() => {
-                  const newAmenities = formData.amenities.includes(amenity)
-                    ? formData.amenities.filter((a) => a !== amenity)
-                    : [...formData.amenities, amenity];
-                  updateFormField("amenities", newAmenities);
-                }}
-                className={`px-3 py-2 rounded-full border ${
-                  formData.amenities.includes(amenity)
-                    ? "bg-blue-100 border-blue-500"
-                    : "bg-gray-100 border-gray-300"
-                }`}
-              >
-                <Text className={`text-sm ${formData.amenities.includes(amenity) ? "text-blue-600" : "text-gray-700"}`}>
-                  {amenity}
-                </Text>
+              <TouchableOpacity key={amenity} onPress={() => { const newAmenities = formData.amenities.includes(amenity) ? formData.amenities.filter((a) => a !== amenity) : [...formData.amenities, amenity]; updateFormField("amenities", newAmenities); }}
+                className={`px-3 py-2 rounded-full border ${formData.amenities.includes(amenity) ? "bg-blue-100 border-blue-500" : "bg-gray-100 border-gray-300"}`}>
+                <Text className={`text-sm ${formData.amenities.includes(amenity) ? "text-blue-600" : "text-gray-700"}`}>{amenity}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
       )}
-
       <View className="mb-6">
         <Text className="text-sm text-gray-600 mb-1">Description *</Text>
-        <TextInput
-          value={formData.description}
-          onChangeText={(v) => updateFormField('description', v)}
-          placeholder="Describe the property..."
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base h-32"
-        />
+        <TextInput value={formData.description} onChangeText={(v) => updateFormField('description', v)} placeholder="Describe the property..." multiline numberOfLines={4} textAlignVertical="top" className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base h-32" />
       </View>
-
       <View className="mb-6">
         <Text className="text-base font-medium mb-2">Property Location *</Text>
-        <Text className="text-sm text-gray-500 mb-2">
-          Tap on the map to set the exact location
-        </Text>
+        <Text className="text-sm text-gray-500 mb-2">Tap on the map to set the exact location</Text>
         <View style={{ height: 250, borderRadius: 8, overflow: "hidden" }}>
-          <MapView
-            ref={mapRef}
-            style={{ flex: 1 }}
-            initialRegion={{
-              latitude: formData.coordinates.latitude,
-              longitude: formData.coordinates.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            }}
-            onPress={handleMapPress}
-            provider="google"
-          >
-            <Marker
-              coordinate={formData.coordinates}
-              title="Property Location"
-              description="Drag to adjust"
-              draggable
-              onDragEnd={(e) => handleMapPress(e)}
-            />
+          <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={{ latitude: formData.coordinates.latitude, longitude: formData.coordinates.longitude, latitudeDelta: 0.0922, longitudeDelta: 0.0421 }} onPress={handleMapPress} provider="google">
+            <Marker coordinate={formData.coordinates} title="Property Location" description="Drag to adjust" draggable onDragEnd={(e) => handleMapPress(e)} />
           </MapView>
         </View>
-         <View className="mt-2 flex-row">
-            <Text className="text-xs text-gray-500">Lat: {formData.coordinates.latitude.toFixed(5)}</Text>
-            <Text className="text-xs text-gray-500 ml-4">Long: {formData.coordinates.longitude.toFixed(5)}</Text>
-         </View>
+         <View className="mt-2 flex-row"><Text className="text-xs text-gray-500">Lat: {formData.coordinates.latitude.toFixed(5)}</Text><Text className="text-xs text-gray-500 ml-4">Long: {formData.coordinates.longitude.toFixed(5)}</Text></View>
       </View>
-
       <View className="my-6">
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={loading}
-          className={`rounded-lg py-4 px-6 items-center justify-center shadow-sm ${loading ? "bg-gray-400" : "bg-emerald-700"}`}
-        >
-          {loading ? (
-             <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-white font-semibold text-base">
-              List Property
-            </Text>
-          )}
+        <TouchableOpacity onPress={handleSubmit} disabled={loading} className={`rounded-lg py-4 px-6 items-center justify-center shadow-sm ${loading ? "bg-gray-400" : "bg-emerald-700"}`}>
+          {loading ? (<ActivityIndicator color="white" />) : (<Text className="text-white font-semibold text-base">List Property</Text>)}
         </TouchableOpacity>
       </View>
     </ScrollView>
