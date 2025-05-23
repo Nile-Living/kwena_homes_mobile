@@ -8,19 +8,18 @@ import {
   Alert,
   Modal,
   TextInput,
-  ActivityIndicator, // Import ActivityIndicator for loading state
-  StyleSheet, // Keep StyleSheet for modal overlay potentially
+  ActivityIndicator,
+  StyleSheet,
+  useColorScheme,
 } from "react-native";
-import { useRouter, Stack } from "expo-router"; // Import Stack
+import { useRouter, Stack } from "expo-router";
 import { supabase } from "@/supabaseClient";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import { Colors } from "@/constants/Colors"; 
-import { useColorScheme } from "react-native";
+// Removed Colors import as it's replaced by direct values or Tailwind
 
-// Interface for Profile data
 interface Profile {
   id: string;
   full_name: string | null;
@@ -31,7 +30,6 @@ interface Profile {
   role?: "user" | "agent" | null;
 }
 
-// Helper function to calculate time ago (simplified version)
 const getTimeAgo = (dateString?: string): string => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -48,13 +46,24 @@ const getTimeAgo = (dateString?: string): string => {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuthStore(); // Removed signInWithGoogle if not used here
+  const { user, signOut } = useAuthStore();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isNameModalVisible, setNameModalVisible] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
   const colorScheme = useColorScheme();
+
+  const iconColors = {
+    guestIcon: colorScheme === "dark" ? "#94a3b8" : "gray",
+    avatarPlaceholder: colorScheme === "dark" ? "#94a3b8" : "gray",
+    listItem: colorScheme === "dark" ? "#cbd5e1" : "#4B5563",
+    chevron: colorScheme === "dark" ? "#64748b" : "#9CA3AF",
+    signOutIcon: "#EF4444",
+  };
+
+  const activityIndicatorLoadingColor =
+    colorScheme === "dark" ? "#14532d" : "#f3f4f6";
 
   useEffect(() => {
     fetchProfile();
@@ -68,7 +77,6 @@ export default function ProfileScreen() {
         setLoading(false);
         return;
       }
-      // Ensure role is selected (using * includes it)
       const { data, error } = await supabase
         .from("profiles")
         .select("*, created_at, role")
@@ -83,7 +91,7 @@ export default function ProfileScreen() {
             .from("profiles")
             .insert([{ id: user.id, email: user.email, role: "user" }])
             .select("*, created_at, role")
-            .single(); // Add role on creation
+            .single();
           if (createError) throw createError;
           setProfile(newProfile);
         } else {
@@ -102,7 +110,6 @@ export default function ProfileScreen() {
   };
 
   const handleImagePick = async () => {
-    // ... (Keep existing image pick and upload logic)
     if (!user) {
       Alert.alert(
         "Sign in required",
@@ -154,7 +161,7 @@ export default function ProfileScreen() {
         params: { redirectTo: "/(tabs)/profile" },
       });
       return;
-    } // Ensure redirect works with tabs
+    }
     setNameInput(profile?.full_name || "");
     setNameModalVisible(true);
   };
@@ -171,16 +178,15 @@ export default function ProfileScreen() {
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) return; // Should not happen if called correctly, but safe check
+    if (!user) return;
     try {
-      setLoading(true); // Indicate loading during update
+      setLoading(true);
       const { error } = await supabase
         .from("profiles")
         .update(updates)
         .eq("id", user.id);
 
       if (error) throw error;
-      // Refetch profile to show updated data
       await fetchProfile();
     } catch (error: any) {
       console.error("Error updating profile:", error);
@@ -203,7 +209,6 @@ export default function ProfileScreen() {
   };
 
   const handleNavigateToSaved = () => {
-    // For Regular Users
     if (!user) {
       Alert.alert(
         "Sign in required",
@@ -213,10 +218,9 @@ export default function ProfileScreen() {
         pathname: "/auth/signin",
         params: { redirectTo: "/(tabs)/saved" },
       });
-    } // Redirect to saved tab
-    else {
+    } else {
       router.push("/(tabs)/saved");
-    } // Navigate to saved tab
+    }
   };
 
   const handleNavigateToAddProperty = () => {
@@ -231,8 +235,7 @@ export default function ProfileScreen() {
     }
   };
   const handleNavigateToSettings = () => {
-    // Assuming settings doesn't strictly require login, or add check if needed
-    router.push("/settings"); // Example: Navigate to settings screen
+    router.push("/settings");
   };
   const handleNavigateToEditProfile = () => {
     if (!user) {
@@ -241,45 +244,48 @@ export default function ProfileScreen() {
         pathname: "/auth/signin",
         params: { redirectTo: "/(tabs)/profile" },
       });
-    } // Redirect back to profile after sign in
-    else {
-      // Navigate to a dedicated Edit Profile screen if you have one,
-      // or trigger the name modal directly if that's the only edit action for now.
-      handleUpdateName(); // Example: Trigger name modal directly
-      // router.push("/profile/edit"); // Example: Navigate to edit screen
+    } else {
+      handleUpdateName();
     }
   };
 
-  // Sign Out handler
   const handleSignOut = async () => {
-    setLoading(true); // Show loading during sign out
+    setLoading(true);
     await signOut();
-    setProfile(null); // Clear profile state on sign out
+    setProfile(null);
     setLoading(false);
   };
 
   if (loading && !profile) {
-    // Show full screen loader only on initial load
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
         <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
-        <ActivityIndicator size="large" color={Colors.light.tint} />
+        <ActivityIndicator
+          size="large"
+          color={activityIndicatorLoadingColor}
+        />
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View className="flex-1 items-center justify-center bg-white p-6">
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 p-6">
         <Stack.Screen options={{ title: "Profile", headerShown: false }} />
-        <Ionicons name="person-circle-outline" size={80} color="gray" />
-        <Text className="text-xl font-bold my-4">Welcome Guest</Text>
-        <Text className="text-center text-gray-500 mb-8">
+        <Ionicons
+          name="person-circle-outline"
+          size={80}
+          color={iconColors.guestIcon}
+        />
+        <Text className="text-xl font-bold my-4 text-gray-900 dark:text-gray-100">
+          Welcome Guest
+        </Text>
+        <Text className="text-center text-gray-500 dark:text-gray-400 mb-8">
           Sign in to manage your profile, properties, and saved items.
         </Text>
         <TouchableOpacity
           onPress={() => router.push("/auth/signin")}
-          className="w-full bg-emerald-700 rounded-lg h-12 justify-center items-center shadow-sm"
+          className="w-full bg-emerald-700 dark:bg-dark-tint rounded-lg h-12 justify-center items-center shadow-sm"
         >
           <Text className="text-white font-semibold text-base">
             Sign In / Sign Up
@@ -290,27 +296,31 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-gray-50">
+    <ScrollView className="flex-1 bg-gray-50 dark:bg-slate-900">
       <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
-      <View className="items-center pt-8 pb-6 bg-white mt-12">
+      <View className="items-center pt-8 pb-6 bg-white dark:bg-slate-900 mt-12">
         <TouchableOpacity onPress={handleImagePick} className="mb-3 relative">
           {profile?.avatar_url ? (
             <Image
               source={{ uri: profile.avatar_url }}
-              className="w-24 h-24 rounded-full border-2 border-gray-200"
+              className="w-24 h-24 rounded-full border-2 border-gray-200 dark:border-gray-700"
             />
           ) : (
-            <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center border-2 border-gray-300">
-              <Ionicons name="person-outline" size={48} color="gray" />
+            <View className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 items-center justify-center border-2 border-gray-300 dark:border-gray-600">
+              <Ionicons
+                name="person-outline"
+                size={48}
+                color={iconColors.avatarPlaceholder}
+              />
             </View>
           )}
         </TouchableOpacity>
         <TouchableOpacity onPress={handleNavigateToEditProfile}>
-          <Text className="text-xl font-bold text-gray-800">
+          <Text className="text-xl font-bold text-gray-800 dark:text-gray-100">
             {profile?.full_name || "Update Your Name"}
           </Text>
         </TouchableOpacity>
-        <Text className="text-sm text-gray-500 mt-1">
+        <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {getTimeAgo(profile?.created_at || user?.created_at)}
         </Text>
       </View>
@@ -320,35 +330,43 @@ export default function ProfileScreen() {
           <>
             <TouchableOpacity
               onPress={handleNavigateToProperties}
-              className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
             >
               <View className="flex-row items-center">
-                <Ionicons name="business-outline" size={22} color="#4B5563" />
-                <Text className="ml-4 text-base text-gray-700">
+                <Ionicons
+                  name="business-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
                   My Properties
                 </Text>
               </View>
               <Ionicons
                 name="chevron-forward-outline"
                 size={20}
-                color="#9CA3AF"
+                color={iconColors.chevron}
               />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleNavigateToAddProperty}
-              className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
             >
               <View className="flex-row items-center">
-                <Ionicons name="add-circle-outline" size={24} color="#4B5563" />
-                <Text className="ml-4 text-base text-gray-700">
+                <Ionicons
+                  name="add-circle-outline"
+                  size={24}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
                   Add Property
                 </Text>
               </View>
               <Ionicons
                 name="chevron-forward-outline"
                 size={20}
-                color="#9CA3AF"
+                color={iconColors.chevron}
               />
             </TouchableOpacity>
           </>
@@ -358,35 +376,43 @@ export default function ProfileScreen() {
           <>
             <TouchableOpacity
               onPress={handleNavigateToEditProfile}
-              className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
             >
               <View className="flex-row items-center">
-                <Ionicons name="person-outline" size={22} color="#4B5563" />
-                <Text className="ml-4 text-base text-gray-700">
+                <Ionicons
+                  name="person-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
                   Edit Profile
                 </Text>
               </View>
               <Ionicons
                 name="chevron-forward-outline"
                 size={20}
-                color="#9CA3AF"
+                color={iconColors.chevron}
               />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleNavigateToSaved}
-              className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
             >
               <View className="flex-row items-center">
-                <Ionicons name="heart-outline" size={22} color="#4B5563" />
-                <Text className="ml-4 text-base text-gray-700">
+                <Ionicons
+                  name="heart-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
                   Saved Property
                 </Text>
               </View>
               <Ionicons
                 name="chevron-forward-outline"
                 size={20}
-                color="#9CA3AF"
+                color={iconColors.chevron}
               />
             </TouchableOpacity>
           </>
@@ -394,25 +420,43 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           onPress={handleNavigateToSettings}
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3"
+          className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
         >
           <View className="flex-row items-center">
-            <Ionicons name="options-outline" size={22} color="#4B5563" />
-            <Text className="ml-4 text-base text-gray-700">Settings</Text>
+            <Ionicons
+              name="options-outline"
+              size={22}
+              color={iconColors.listItem}
+            />
+            <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+              Settings
+            </Text>
           </View>
-          <Ionicons name="chevron-forward-outline" size={20} color="#9CA3AF" />
+          <Ionicons
+            name="chevron-forward-outline"
+            size={20}
+            color={iconColors.chevron}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleSignOut}
           disabled={loading}
-          className="flex-row items-center justify-between p-4 bg-white rounded-lg shadow-sm mt-4"
+          className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mt-4"
         >
           <View className="flex-row items-center">
-            <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-            <Text className="ml-4 text-base text-red-600">Sign Out</Text>
+            <Ionicons
+              name="log-out-outline"
+              size={24}
+              color={iconColors.signOutIcon}
+            />
+            <Text className="ml-4 text-base text-red-600 dark:text-red-500">
+              Sign Out
+            </Text>
           </View>
-          {loading && <ActivityIndicator size="small" color="#EF4444" />}
+          {loading && (
+            <ActivityIndicator size="small" color={iconColors.signOutIcon} />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -423,27 +467,32 @@ export default function ProfileScreen() {
         onRequestClose={() => setNameModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View className="bg-white p-6 rounded-lg w-4/5 shadow-xl">
-            <Text className="text-lg font-semibold mb-4 text-gray-800">
+          <View className="bg-white dark:bg-slate-700 p-6 rounded-lg w-4/5 shadow-xl">
+            <Text className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">
               Update Your Name
             </Text>
             <TextInput
-              className="border border-gray-300 p-3 rounded-md mb-5 text-base"
+              className="border border-gray-300 dark:border-gray-600 p-3 rounded-md mb-5 text-base text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               value={nameInput}
               onChangeText={setNameInput}
               placeholder="Enter your full name"
               autoCapitalize="words"
+              placeholderTextColor={
+                colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+              }
             />
             <View className="flex-row justify-end space-x-3">
               <TouchableOpacity
                 onPress={() => setNameModalVisible(false)}
                 className="px-4 py-2 rounded"
               >
-                <Text className="text-gray-600 font-medium">Cancel</Text>
+                <Text className="text-gray-600 dark:text-gray-300 font-medium">
+                  Cancel
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={saveNameUpdate}
-                className="bg-emerald-700 px-5 py-2 rounded shadow-sm"
+                className="bg-emerald-700 dark:bg-dark-tint px-5 py-2 rounded shadow-sm"
               >
                 <Text className="text-white font-medium">Save</Text>
               </TouchableOpacity>

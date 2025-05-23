@@ -51,6 +51,7 @@ export interface Property {
   contact_whatsapp_number?: string;
   use_phone_for_call?: boolean;
   use_whatsapp_for_message?: boolean;
+  isInjectedAd?: boolean;
 }
 
 export interface PropertyResponseDto {
@@ -61,8 +62,8 @@ export interface PropertyResponseDto {
 }
 
 interface PropertyState {
-  properties: Property[]; // Changed back to array
-  featuredProperties: Property[]; // Changed back to array
+  properties: Property[];
+  featuredProperties: Property[];
   savedPropertyDetails: Property[];
   savedProperties: string[];
   searchQuery: string;
@@ -73,6 +74,7 @@ interface PropertyState {
   error: string | null;
   errorFeatured: string | null;
   errorSaved: string | null;
+  // promotedAdCycleIndex: number; // No longer needed here for ad injection logic
   setProperties: (properties: Property[], pageNumber: number) => void;
   setFeaturedProperties: (properties: Property[]) => void;
   setSavedPropertyDetails: (properties: Property[]) => void;
@@ -90,7 +92,10 @@ interface PropertyState {
   toggleSavedProperty: (propertyId: string) => Promise<void>;
   deleteProperty: (propertyId: string) => Promise<void>;
   getPropertyById: (id: string) => Property | undefined;
-  updatePropertyInStore: (propertyId: string, updatedPropertyData: Partial<Property>) => void;
+  updatePropertyInStore: (
+    propertyId: string,
+    updatedPropertyData: Partial<Property>,
+  ) => void;
 }
 
 export const useStore = create<PropertyState>((set, get) => ({
@@ -106,26 +111,37 @@ export const useStore = create<PropertyState>((set, get) => ({
   error: null,
   errorFeatured: null,
   errorSaved: null,
+  // promotedAdCycleIndex: 0, // Can be removed or kept if used for other UI purposes
 
-  setProperties: (newProperties: Property[], pageNumber: number) => {
-    const currentProperties = get().properties;
+  setProperties: (newPropertiesFromBackend: Property[], pageNumber: number) => {
+    const currentPropertiesFromState = get().properties;
     const savedIds = get().savedProperties;
-    const newPropertiesWithLiked: Property[] = newProperties.map((p) => ({
-      ...p,
-      liked: savedIds.includes(p.id),
-    }));
 
-    const combinedProperties: Property[] =
-      pageNumber === 1
-        ? newPropertiesWithLiked
-        : [...currentProperties, ...newPropertiesWithLiked];
+    const processedNewProperties: Property[] = newPropertiesFromBackend.map(
+      (p) => ({
+        ...p,
+        liked: savedIds.includes(p.id),
+      }),
+    );
 
-    const uniquePropertiesMap: Map<string, Property> = new Map();
-    combinedProperties.forEach((p) => {
-      uniquePropertiesMap.set(p.id, p);
+    let combinedProperties: Property[];
+    if (pageNumber === 1) {
+      combinedProperties = processedNewProperties;
+    } else {
+      const uniquePropertiesMap = new Map<string, Property>();
+      currentPropertiesFromState.forEach((p) =>
+        uniquePropertiesMap.set(p.id, p),
+      );
+      processedNewProperties.forEach((p) => {
+        uniquePropertiesMap.set(p.id, p);
+      });
+      combinedProperties = Array.from(uniquePropertiesMap.values());
+    }
+
+    set({
+      properties: combinedProperties,
+      error: null,
     });
-    const uniquePropertiesArray: Property[] = Array.from(uniquePropertiesMap.values());
-    set({ properties: uniquePropertiesArray, error: null });
   },
   setFeaturedProperties: (propertiesToSet) => {
     const savedIds = get().savedProperties;
@@ -232,10 +248,10 @@ export const useStore = create<PropertyState>((set, get) => ({
 
     const newSavedDetails = isLiked
       ? currentSavedDetails.filter((p) => p.id !== propertyId)
-      : [
+      : ([
           ...currentSavedDetails,
-          propertyToAddToDetails || { id: propertyId },
-        ].filter((p): p is Property => p?.id !== undefined);
+          propertyToAddToDetails || ({ id: propertyId } as any),
+        ].filter((p): p is Property => p?.id !== undefined) as Property[]);
 
     set({
       savedProperties: newSavedIds,
@@ -325,19 +341,27 @@ export const useStore = create<PropertyState>((set, get) => ({
     }
   },
   getPropertyById: (id: string): Property | undefined => {
-    return get().properties.find(p => p.id === id) || get().featuredProperties.find(p => p.id === id);
+    return (
+      get().properties.find((p) => p.id === id) ||
+      get().featuredProperties.find((p) => p.id === id)
+    );
   },
-  updatePropertyInStore: (propertyId: string, updatedPropertyData: Partial<Property>) => {
+  updatePropertyInStore: (
+    propertyId: string,
+    updatedPropertyData: Partial<Property>,
+  ) => {
     set((state) => ({
       properties: state.properties.map((p) =>
-        p.id === propertyId ? { ...p, ...updatedPropertyData } : p
+        p.id === propertyId ? { ...p, ...updatedPropertyData } : p,
       ),
       featuredProperties: state.featuredProperties.map((p) =>
-        p.id === propertyId ? { ...p, ...updatedPropertyData } : p
+        p.id === propertyId ? { ...p, ...updatedPropertyData } : p,
       ),
       savedPropertyDetails: state.savedPropertyDetails.map((p) =>
-        p.id === propertyId ? { ...p, ...updatedPropertyData, liked: true } : p // Ensure liked is true for saved details
+        p.id === propertyId
+          ? { ...p, ...updatedPropertyData, liked: true }
+          : p,
       ),
     }));
-  }
+  },
 }));

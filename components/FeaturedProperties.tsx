@@ -32,6 +32,10 @@ export default function FeaturedProperties({ properties }: FeaturedPropertiesPro
     router.push(`../property/${propertyId}`);
   };
 
+  const handleViewAll = () => {
+    router.push('../promoted');
+  }
+
   const getFeatures = (property: Property) => {
     const details = property.details || {};
     let features = [];
@@ -62,7 +66,7 @@ export default function FeaturedProperties({ properties }: FeaturedPropertiesPro
           Featured Properties
         </Text>
         {/* Restore View all button */}
-        <Pressable onPress={() => console.log('View all featured pressed')}>
+        <Pressable onPress={() => handleViewAll()}>
           <Text style={styles.viewAll}>View all</Text>
         </Pressable>
       </View>

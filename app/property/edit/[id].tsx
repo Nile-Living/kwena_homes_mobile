@@ -11,6 +11,7 @@ import {
   Alert,
   Switch,
   StyleSheet,
+  useColorScheme,
 } from "react-native";
 import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
@@ -80,6 +81,7 @@ export default function EditPropertyScreen() {
     string[]
   >([]);
   const mapRef = useRef<MapView>(null);
+  const colorScheme = useColorScheme();
 
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
   const availableAmenities = currentCategoryDetails?.amenities || [];
@@ -96,12 +98,12 @@ export default function EditPropertyScreen() {
         const token = useAuthStore.getState().session?.access_token;
         const response = await fetch(
           `${API_BASE_URL}/properties/${propertyId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(
-            `Failed to fetch property: ${response.status} ${errorText}`
+            `Failed to fetch property: ${response.status} ${errorText}`,
           );
         }
         const propertyData = await response.json();
@@ -150,7 +152,7 @@ export default function EditPropertyScreen() {
       } catch (error: any) {
         Alert.alert(
           "Error",
-          `Failed to load property details: ${error.message}`
+          `Failed to load property details: ${error.message}`,
         );
         router.back();
       } finally {
@@ -197,14 +199,14 @@ export default function EditPropertyScreen() {
     } else {
       const imageToRemoveUrl = existingImages[index];
       const publicIdMatch = imageToRemoveUrl.match(
-        /upload\/(?:v\d+\/)?([^\.]+)/
+        /upload\/(?:v\d+\/)?([^\.]+)/,
       );
       const publicId = publicIdMatch ? publicIdMatch[1] : null;
       if (publicId && !imagesToDeletePublicIds.includes(publicId)) {
         setImagesToDeletePublicIds([...imagesToDeletePublicIds, publicId]);
       }
       setExistingImages(
-        existingImages.filter((url) => url !== imageToRemoveUrl)
+        existingImages.filter((url) => url !== imageToRemoveUrl),
       );
     }
   };
@@ -220,7 +222,7 @@ export default function EditPropertyScreen() {
     }));
     mapRef.current?.animateToRegion(
       { ...coordinate, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-      500
+      500,
     );
   };
 
@@ -252,7 +254,7 @@ export default function EditPropertyScreen() {
     if (validationErrors.length > 0) {
       Alert.alert(
         "Missing Information",
-        `Please fill in: ${validationErrors.join(", ")}`
+        `Please fill in: ${validationErrors.join(", ")}`,
       );
       return;
     }
@@ -271,20 +273,20 @@ export default function EditPropertyScreen() {
     if (formData.contact_phone_number?.trim())
       dataPayload.append(
         "contact_phone_number",
-        formData.contact_phone_number.trim()
+        formData.contact_phone_number.trim(),
       );
     if (formData.contact_whatsapp_number?.trim())
       dataPayload.append(
         "contact_whatsapp_number",
-        formData.contact_whatsapp_number.trim()
+        formData.contact_whatsapp_number.trim(),
       );
     dataPayload.append(
       "use_phone_for_call",
-      String(formData.use_phone_for_call)
+      String(formData.use_phone_for_call),
     );
     dataPayload.append(
       "use_whatsapp_for_message",
-      String(formData.use_whatsapp_for_message)
+      String(formData.use_whatsapp_for_message),
     );
 
     let detailsObject: any = {};
@@ -303,9 +305,11 @@ export default function EditPropertyScreen() {
         detailsObject = {
           bedrooms: parseInt(formData.bedrooms || "0") || undefined,
           bathrooms: parseInt(formData.bathrooms || "0") || undefined,
-          square_meters: parseFloat(formData.square_meters || "0") || undefined,
+          square_meters:
+            parseFloat(formData.square_meters || "0") || undefined,
           amenities: formData.amenities,
-          parking_spaces: parseInt(formData.parking_spaces || "0") || undefined,
+          parking_spaces:
+            parseInt(formData.parking_spaces || "0") || undefined,
           security_features: formData.security_features,
         };
         break;
@@ -323,8 +327,10 @@ export default function EditPropertyScreen() {
       case "commercial":
         detailsObject = {
           property_type: formData.commercial_property_type,
-          square_meters: parseFloat(formData.square_meters || "0") || undefined,
-          parking_spaces: parseInt(formData.parking_spaces || "0") || undefined,
+          square_meters:
+            parseFloat(formData.square_meters || "0") || undefined,
+          parking_spaces:
+            parseInt(formData.parking_spaces || "0") || undefined,
           amenities: formData.amenities,
           security_features: formData.security_features,
         };
@@ -356,7 +362,7 @@ export default function EditPropertyScreen() {
     dataPayload.append("existingImageUrls", JSON.stringify(existingImages));
     dataPayload.append(
       "deletedImagePublicIds",
-      JSON.stringify(imagesToDeletePublicIds)
+      JSON.stringify(imagesToDeletePublicIds),
     );
 
     try {
@@ -384,37 +390,52 @@ export default function EditPropertyScreen() {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        `Failed to update property. ${error.message || "Please try again."}`
+        `Failed to update property. ${error.message || "Please try again."}`,
       );
     } finally {
       setFormSubmitting(false);
     }
   };
 
+  const inputClasses =
+    "border border-gray-300 dark:border-slate-600 rounded-lg p-3 bg-gray-50 dark:bg-slate-700 text-base text-slate-900 dark:text-slate-100";
+  const labelClasses = "text-sm text-gray-600 dark:text-slate-300 mb-1";
+  const sectionTitleClasses =
+    "text-lg font-semibold mb-3 mt-2 text-slate-800 dark:text-slate-100";
+  const pickerContainerClasses =
+    "border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700";
+  const switchContainerClasses =
+    "flex-row justify-between items-center mb-4 p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700";
+  const switchLabelClasses = "text-base text-gray-700 dark:text-slate-300";
+
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-white">
+      <View className="flex-1 justify-center items-center bg-white dark:bg-slate-800">
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text className="mt-4 text-gray-600">Loading property details...</Text>
+        <Text className="mt-4 text-gray-600 dark:text-slate-300">
+          Loading property details...
+        </Text>
       </View>
     );
   }
 
   return (
     <ScrollView
-      className="flex-1 bg-white p-4"
+      className="flex-1 bg-white dark:bg-slate-800 p-4"
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingBottom: 40 }}
     >
       <Stack.Screen options={{ title: "Edit Property" }} />
       <View className="mb-6">
-        <Text className="text-lg font-semibold mb-1">Edit Property</Text>
-        <Text className="text-gray-500">
+        <Text className="text-lg font-semibold mb-1 text-slate-800 dark:text-slate-100">
+          Edit Property
+        </Text>
+        <Text className="text-gray-500 dark:text-slate-400">
           Update your property details below
         </Text>
       </View>
       <View className="mb-6">
-        <Text className="text-base font-medium mb-2">
+        <Text className="text-base font-medium mb-2 text-slate-700 dark:text-slate-300">
           Property Images (Max 5)
         </Text>
         <ScrollView
@@ -427,7 +448,7 @@ export default function EditPropertyScreen() {
               <Image source={{ uri: image }} className="w-24 h-24 rounded-lg" />
               <TouchableOpacity
                 onPress={() => removeImage(index, false)}
-                className="absolute top-1 right-1 bg-white rounded-full p-1 shadow"
+                className="absolute top-1 right-1 bg-white dark:bg-slate-600 rounded-full p-1 shadow"
               >
                 <Ionicons name="close-circle" size={20} color="red" />
               </TouchableOpacity>
@@ -438,7 +459,7 @@ export default function EditPropertyScreen() {
               <Image source={{ uri: image }} className="w-24 h-24 rounded-lg" />
               <TouchableOpacity
                 onPress={() => removeImage(index, true)}
-                className="absolute top-1 right-1 bg-white rounded-full p-1 shadow"
+                className="absolute top-1 right-1 bg-white dark:bg-slate-600 rounded-full p-1 shadow"
               >
                 <Ionicons name="close-circle" size={20} color="red" />
               </TouchableOpacity>
@@ -447,23 +468,38 @@ export default function EditPropertyScreen() {
           {existingImages.length + newImages.length < 5 && (
             <TouchableOpacity
               onPress={pickImage}
-              className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg items-center justify-center bg-gray-50"
+              className="w-24 h-24 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg items-center justify-center bg-gray-50 dark:bg-slate-700"
             >
-              <Ionicons name="add" size={32} color="gray" />
-              <Text className="text-xs text-gray-500 mt-1">Add Image</Text>
+              <Ionicons
+                name="add"
+                size={32}
+                color={colorScheme === "dark" ? "#94a3b8" : "gray"}
+              />
+              <Text className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                Add Image
+              </Text>
             </TouchableOpacity>
           )}
         </ScrollView>
       </View>
       <View className="mb-6">
-        <Text className="text-base font-medium mb-2">Property Category *</Text>
-        <View className="border border-gray-300 rounded-lg bg-gray-50">
+        <Text className="text-base font-medium mb-2 text-slate-700 dark:text-slate-300">
+          Property Category *
+        </Text>
+        <View className={pickerContainerClasses}>
           <Picker
             selectedValue={formData.category}
             onValueChange={(itemValue) =>
               updateFormField("category", itemValue as PropertyCategory)
             }
-            style={{ height: 50, width: "100%" }}
+            style={{
+              height: 50,
+              width: "100%",
+              color: colorScheme === "dark" ? "#FFFFFF" : "#000000",
+            }}
+            dropdownIconColor={
+              colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+            }
           >
             {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
               <Picker.Item key={key} label={value.label} value={key} />
@@ -472,21 +508,23 @@ export default function EditPropertyScreen() {
         </View>
       </View>
       <View className="mb-6">
-        <Text className="text-base font-medium mb-2">Listing Type *</Text>
+        <Text className="text-base font-medium mb-2 text-slate-700 dark:text-slate-300">
+          Listing Type *
+        </Text>
         <View className="flex-row space-x-3">
           <TouchableOpacity
             onPress={() => updateFormField("propertyType", "rent")}
             className={`flex-1 border rounded-lg p-3 items-center ${
               formData.propertyType === "rent"
-                ? "bg-blue-100 border-blue-500"
-                : "border-gray-300 bg-gray-50"
+                ? "bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-700"
+                : "border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700"
             }`}
           >
             <Text
               className={`font-medium ${
                 formData.propertyType === "rent"
-                  ? "text-blue-600"
-                  : "text-gray-700"
+                  ? "text-blue-600 dark:text-blue-300"
+                  : "text-gray-700 dark:text-slate-300"
               }`}
             >
               For Rent
@@ -496,15 +534,15 @@ export default function EditPropertyScreen() {
             onPress={() => updateFormField("propertyType", "sale")}
             className={`flex-1 border rounded-lg p-3 items-center ${
               formData.propertyType === "sale"
-                ? "bg-blue-100 border-blue-500"
-                : "border-gray-300 bg-gray-50"
+                ? "bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-700"
+                : "border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700"
             }`}
           >
             <Text
               className={`font-medium ${
                 formData.propertyType === "sale"
-                  ? "text-blue-600"
-                  : "text-gray-700"
+                  ? "text-blue-600 dark:text-blue-300"
+                  : "text-gray-700 dark:text-slate-300"
               }`}
             >
               For Sale
@@ -512,18 +550,21 @@ export default function EditPropertyScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      <Text className="text-lg font-semibold mb-3 mt-2">Property Details</Text>
+      <Text className={sectionTitleClasses}>Property Details</Text>
       <View className="mb-4">
-        <Text className="text-sm text-gray-600 mb-1">Title *</Text>
+        <Text className={labelClasses}>Title *</Text>
         <TextInput
           value={formData.title}
           onChangeText={(v) => updateFormField("title", v)}
           placeholder="e.g. Modern 3-Bed House"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+          className={inputClasses}
+          placeholderTextColor={
+            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+          }
         />
       </View>
       <View className="mb-4">
-        <Text className="text-sm text-gray-600 mb-1">Price (K) *</Text>
+        <Text className={labelClasses}>Price (K) *</Text>
         <TextInput
           value={formData.price}
           onChangeText={(v) => updateFormField("price", v)}
@@ -531,40 +572,50 @@ export default function EditPropertyScreen() {
             formData.propertyType === "rent" ? "e.g. 15000" : "e.g. 2500000"
           }
           keyboardType="numeric"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+          className={inputClasses}
+          placeholderTextColor={
+            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+          }
         />
       </View>
       <View className="mb-4">
-        <Text className="text-sm text-gray-600 mb-1">
-          Location Description *
-        </Text>
+        <Text className={labelClasses}>Location Description *</Text>
         <TextInput
           value={formData.location}
           onChangeText={(v) => updateFormField("location", v)}
           placeholder="e.g. Off Zambezi Rd, Lusaka"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+          className={inputClasses}
+          placeholderTextColor={
+            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+          }
         />
       </View>
       {currentCategoryDetails?.hasBedBath && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Bedrooms *</Text>
+            <Text className={labelClasses}>Bedrooms *</Text>
             <TextInput
               value={formData.bedrooms}
               onChangeText={(v) => updateFormField("bedrooms", v)}
               keyboardType="numeric"
               placeholder="e.g. 3"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
           <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Bathrooms *</Text>
+            <Text className={labelClasses}>Bathrooms *</Text>
             <TextInput
               value={formData.bathrooms}
               onChangeText={(v) => updateFormField("bathrooms", v)}
               keyboardType="numeric"
               placeholder="e.g. 2"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
         </View>
@@ -572,23 +623,29 @@ export default function EditPropertyScreen() {
       {currentCategoryDetails?.hasGaragesParkings && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Garages</Text>
+            <Text className={labelClasses}>Garages</Text>
             <TextInput
               value={formData.garages}
               onChangeText={(v) => updateFormField("garages", v)}
               keyboardType="numeric"
               placeholder="e.g. 1"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
           <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Parkings (House)</Text>
+            <Text className={labelClasses}>Parkings (House)</Text>
             <TextInput
               value={formData.parkings}
               onChangeText={(v) => updateFormField("parkings", v)}
               keyboardType="numeric"
               placeholder="e.g. 2"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
         </View>
@@ -596,160 +653,217 @@ export default function EditPropertyScreen() {
       {currentCategoryDetails?.hasSquareMeters && (
         <View className="flex-row mb-4 space-x-3">
           <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Area (sqm) *</Text>
+            <Text className={labelClasses}>Area (sqm) *</Text>
             <TextInput
               value={formData.square_meters}
               onChangeText={(v) => updateFormField("square_meters", v)}
               keyboardType="numeric"
               placeholder="e.g. 120"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
           <View className="flex-1">
-            <Text className="text-sm text-gray-600 mb-1">Parking Spaces</Text>
+            <Text className={labelClasses}>Parking Spaces</Text>
             <TextInput
               value={formData.parking_spaces}
               onChangeText={(v) => updateFormField("parking_spaces", v)}
               keyboardType="numeric"
               placeholder="e.g. 1"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
         </View>
       )}
       {currentCategoryDetails?.hasLandDetails && (
         <View className="mb-4">
-          <Text className="text-base font-medium mb-3">Land Specifics</Text>
+          <Text className="text-base font-medium mb-3 text-slate-700 dark:text-slate-300">
+            Land Specifics
+          </Text>
           <View className="mb-4">
-            <Text className="text-sm text-gray-600 mb-1">
-              Land Size (sqm) *
-            </Text>
+            <Text className={labelClasses}>Land Size (sqm) *</Text>
             <TextInput
               value={formData.size_sqm}
               onChangeText={(v) => updateFormField("size_sqm", v)}
               keyboardType="numeric"
               placeholder="e.g. 4000"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
           <View className="mb-4">
-            <Text className="text-sm text-gray-600 mb-1">Legal Status *</Text>
+            <Text className={labelClasses}>Legal Status *</Text>
             <TextInput
               value={formData.legal_status}
               onChangeText={(v) => updateFormField("legal_status", v)}
               placeholder="e.g. Title Deed, Customary"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
           <View className="mb-4">
-            <Text className="text-sm text-gray-600 mb-1">Intended Use *</Text>
+            <Text className={labelClasses}>Intended Use *</Text>
             <TextInput
               value={formData.intended_use}
               onChangeText={(v) => updateFormField("intended_use", v)}
               placeholder="e.g. Residential, Agricultural"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
           <View className="mb-4">
-            <Text className="text-sm text-gray-600 mb-1">Water Supply *</Text>
+            <Text className={labelClasses}>Water Supply *</Text>
             <TextInput
               value={formData.water_supply}
               onChangeText={(v) => updateFormField("water_supply", v)}
               placeholder="e.g. Borehole, Municipal"
-              className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+              className={inputClasses}
+              placeholderTextColor={
+                colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+              }
             />
           </View>
-          <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-            <Text className="text-base text-gray-700">Road Access</Text>
+          <View className={switchContainerClasses}>
+            <Text className={switchLabelClasses}>Road Access</Text>
             <Switch
               value={formData.road_access}
               onValueChange={(v) => updateFormField("road_access", v)}
+              trackColor={{
+                false: "#767577",
+                true:
+                  colorScheme === "dark" ? "#14532d" : "#54816D",
+              }}
+              thumbColor={formData.road_access ? "#f4f3f4" : "#f4f3f4"}
             />
           </View>
-          <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-            <Text className="text-base text-gray-700">
-              Electricity Available
-            </Text>
+          <View className={switchContainerClasses}>
+            <Text className={switchLabelClasses}>Electricity Available</Text>
             <Switch
               value={formData.electricity_available}
-              onValueChange={(v) => updateFormField("electricity_available", v)}
+              onValueChange={(v) =>
+                updateFormField("electricity_available", v)
+              }
+              trackColor={{
+                false: "#767577",
+                true:
+                  colorScheme === "dark" ? "#14532d" : "#54816D",
+              }}
+              thumbColor={
+                formData.electricity_available ? "#f4f3f4" : "#f4f3f4"
+              }
             />
           </View>
-          <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-            <Text className="text-base text-gray-700">Fenced</Text>
+          <View className={switchContainerClasses}>
+            <Text className={switchLabelClasses}>Fenced</Text>
             <Switch
               value={formData.fenced}
               onValueChange={(v) => updateFormField("fenced", v)}
+              trackColor={{
+                false: "#767577",
+                true:
+                  colorScheme === "dark" ? "#14532d" : "#54816D",
+              }}
+              thumbColor={formData.fenced ? "#f4f3f4" : "#f4f3f4"}
             />
           </View>
         </View>
       )}
       {currentCategoryDetails?.hasCommercialDetails && (
         <View className="mb-4">
-          <Text className="text-base font-medium mb-3">
+          <Text className="text-base font-medium mb-3 text-slate-700 dark:text-slate-300">
             Commercial Specifics
           </Text>
-          <Text className="text-sm text-gray-600 mb-1">
-            Commercial Property Type *
-          </Text>
+          <Text className={labelClasses}>Commercial Property Type *</Text>
           <TextInput
             value={formData.commercial_property_type}
-            onChangeText={(v) => updateFormField("commercial_property_type", v)}
+            onChangeText={(v) =>
+              updateFormField("commercial_property_type", v)
+            }
             placeholder="e.g. Office, Retail, Warehouse"
-            className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+            className={inputClasses}
+            placeholderTextColor={
+              colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+            }
           />
         </View>
       )}
 
-      <Text className="text-lg font-semibold mb-3 mt-2">
-        Contact Configuration
-      </Text>
+      <Text className={sectionTitleClasses}>Contact Configuration</Text>
       <View className="mb-4">
-        <Text className="text-sm text-gray-600 mb-1">Contact Phone Number</Text>
+        <Text className={labelClasses}>Contact Phone Number</Text>
         <TextInput
           value={formData.contact_phone_number}
           onChangeText={(v) => updateFormField("contact_phone_number", v)}
           placeholder="e.g. 0977123456"
           keyboardType="phone-pad"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+          className={inputClasses}
+          placeholderTextColor={
+            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+          }
         />
       </View>
-      <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-        <Text className="text-base text-gray-700">
+      <View className={switchContainerClasses}>
+        <Text className={switchLabelClasses}>
           Use this phone number for calls?
         </Text>
         <Switch
           value={formData.use_phone_for_call}
           onValueChange={(v) => updateFormField("use_phone_for_call", v)}
           disabled={!formData.contact_phone_number}
+          trackColor={{
+            false: "#767577",
+            true: colorScheme === "dark" ? "#14532d" : "#54816D",
+          }}
+          thumbColor={formData.use_phone_for_call ? "#f4f3f4" : "#f4f3f4"}
         />
       </View>
       <View className="mb-4">
-        <Text className="text-sm text-gray-600 mb-1">
-          Contact WhatsApp Number
-        </Text>
+        <Text className={labelClasses}>Contact WhatsApp Number</Text>
         <TextInput
           value={formData.contact_whatsapp_number}
           onChangeText={(v) => updateFormField("contact_whatsapp_number", v)}
           placeholder="e.g. 0966123456"
           keyboardType="phone-pad"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base"
+          className={inputClasses}
+          placeholderTextColor={
+            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+          }
         />
       </View>
-      <View className="flex-row justify-between items-center mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
-        <Text className="text-base text-gray-700">
+      <View className={switchContainerClasses}>
+        <Text className={switchLabelClasses}>
           Use this WhatsApp number for messages?
         </Text>
         <Switch
           value={formData.use_whatsapp_for_message}
           onValueChange={(v) => updateFormField("use_whatsapp_for_message", v)}
           disabled={!formData.contact_whatsapp_number}
+          trackColor={{
+            false: "#767577",
+            true: colorScheme === "dark" ? "#14532d" : "#54816D",
+          }}
+          thumbColor={
+            formData.use_whatsapp_for_message ? "#f4f3f4" : "#f4f3f4"
+          }
         />
       </View>
 
       {availableAmenities.length > 0 && (
         <View className="mb-6">
-          <Text className="text-base font-medium mb-2">Amenities</Text>
+          <Text className="text-base font-medium mb-2 text-slate-700 dark:text-slate-300">
+            Amenities
+          </Text>
           <View className="flex-row flex-wrap gap-2">
             {availableAmenities.map((amenity) => (
               <TouchableOpacity
@@ -762,15 +876,15 @@ export default function EditPropertyScreen() {
                 }}
                 className={`px-3 py-2 rounded-full border ${
                   formData.amenities.includes(amenity)
-                    ? "bg-blue-100 border-blue-500"
-                    : "bg-gray-100 border-gray-300"
+                    ? "bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-700"
+                    : "bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600"
                 }`}
               >
                 <Text
                   className={`text-sm ${
                     formData.amenities.includes(amenity)
-                      ? "text-blue-600"
-                      : "text-gray-700"
+                      ? "text-blue-600 dark:text-blue-300"
+                      : "text-gray-700 dark:text-slate-300"
                   }`}
                 >
                   {amenity}
@@ -781,7 +895,7 @@ export default function EditPropertyScreen() {
         </View>
       )}
       <View className="mb-6">
-        <Text className="text-sm text-gray-600 mb-1">Description *</Text>
+        <Text className={labelClasses}>Description *</Text>
         <TextInput
           value={formData.description}
           onChangeText={(v) => updateFormField("description", v)}
@@ -789,12 +903,17 @@ export default function EditPropertyScreen() {
           multiline
           numberOfLines={4}
           textAlignVertical="top"
-          className="border border-gray-300 rounded-lg p-3 bg-gray-50 text-base h-32"
+          className={`${inputClasses} h-32`}
+          placeholderTextColor={
+            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
+          }
         />
       </View>
       <View className="mb-6">
-        <Text className="text-base font-medium mb-2">Property Location *</Text>
-        <Text className="text-sm text-gray-500 mb-2">
+        <Text className="text-base font-medium mb-2 text-slate-700 dark:text-slate-300">
+          Property Location *
+        </Text>
+        <Text className="text-sm text-gray-500 dark:text-slate-400 mb-2">
           Tap on the map to update the location
         </Text>
         <View style={{ height: 250, borderRadius: 8, overflow: "hidden" }}>
@@ -819,6 +938,7 @@ export default function EditPropertyScreen() {
             }
             onPress={handleMapPress}
             provider="google"
+            customMapStyle={colorScheme === "dark" ? mapDarkStyle : []}
           >
             <Marker
               coordinate={formData.coordinates}
@@ -829,10 +949,10 @@ export default function EditPropertyScreen() {
           </MapView>
         </View>
         <View className="mt-2 flex-row">
-          <Text className="text-xs text-gray-500">
+          <Text className="text-xs text-gray-500 dark:text-slate-400">
             Lat: {formData.coordinates.latitude.toFixed(5)}
           </Text>
-          <Text className="text-xs text-gray-500 ml-4">
+          <Text className="text-xs text-gray-500 dark:text-slate-400 ml-4">
             Long: {formData.coordinates.longitude.toFixed(5)}
           </Text>
         </View>
@@ -842,7 +962,9 @@ export default function EditPropertyScreen() {
           onPress={handleSubmit}
           disabled={formSubmitting}
           className={`rounded-lg py-4 px-6 items-center justify-center ${
-            formSubmitting ? "bg-gray-400" : "bg-emerald-700"
+            formSubmitting
+              ? "bg-gray-400 dark:bg-slate-500"
+              : "bg-emerald-700 dark:bg-dark-tint"
           }`}
         >
           {formSubmitting ? (
@@ -857,3 +979,84 @@ export default function EditPropertyScreen() {
     </ScrollView>
   );
 }
+
+const mapDarkStyle = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#263c3f" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#6b9a76" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#38414e" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#212a37" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9ca5b3" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#746855" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1f2835" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#f3d19c" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#2f3948" }],
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#17263c" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#515c6d" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#17263c" }],
+  },
+];

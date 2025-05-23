@@ -4,17 +4,17 @@ import React, {
   useMemo,
   useEffect,
 } from "react";
-import { 
-  Text, 
-  TouchableOpacity, 
-  View, 
-  StyleSheet, 
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  StyleSheet,
   Modal,
   ScrollView,
   SafeAreaView,
   StatusBar,
   Platform,
-  Dimensions
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
@@ -27,7 +27,7 @@ import {
   getAllAmenities,
 } from "@/constants/propertyTypes"; // Assuming this path is correct
 
-// --- Interfaces and Constants (Keep as they were) ---
+// --- Interfaces and Constants ---
 export interface AppliedFilters {
   selectedType: PropertyCategory | "all";
   selectedBedrooms: string;
@@ -37,6 +37,8 @@ export interface AppliedFilters {
   selectedFeatures: string;
   selectedAmenities: string[];
   // Add other potential filters if they exist
+  selectedLegalStatus?: string; // Added for land/commercial
+  selectedCommercialSubType?: string; // Added for commercial
 }
 
 interface FilterModalProps {
@@ -47,11 +49,18 @@ interface FilterModalProps {
 
 const allAmenitiesList = getAllAmenities();
 const commercialSubTypes = [
-  "Any", "Office", "Retail", "Warehouse", "Industrial",
-  "Mixed-Use", "Restaurant", "Other",
+  "Any",
+  "Office",
+  "Retail",
+  "Warehouse",
+  "Industrial",
+  "Mixed-Use",
+  "Restaurant",
+  "Other",
 ];
+const legalStatusOptions = ["Any", "Title Deed", "Customary", "Offer Letter"]; // Example
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // --- Component ---
 
@@ -63,31 +72,34 @@ export default function FilterModal({
   const colorScheme = useColorScheme();
   const [modalVisible, setModalVisible] = useState(false);
 
-  // State for Filters (Keep as they were)
   const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
-    initialFilters?.selectedType || "all"
+    initialFilters?.selectedType || "all",
   );
   const [selectedBedrooms, setSelectedBedrooms] = useState<string>(
-    initialFilters?.selectedBedrooms || "Any"
+    initialFilters?.selectedBedrooms || "Any",
   );
   const [selectedBathrooms, setSelectedBathrooms] = useState<string>(
-    initialFilters?.selectedBathrooms || "Any"
+    initialFilters?.selectedBathrooms || "Any",
   );
   const [selectedGarages, setSelectedGarages] = useState<string>(
-    initialFilters?.selectedGarages || "Any"
+    initialFilters?.selectedGarages || "Any",
   );
   const [selectedParkings, setSelectedParkings] = useState<string>(
-    initialFilters?.selectedParkings || "Any"
+    initialFilters?.selectedParkings || "Any",
   );
   const [selectedFeatures, setSelectedFeatures] = useState<string>(
-    initialFilters?.selectedFeatures || "Any"
+    initialFilters?.selectedFeatures || "Any",
   );
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
-    initialFilters?.selectedAmenities || []
+    initialFilters?.selectedAmenities || [],
   );
-  // Add state for other filters if needed
-
-  // --- Callbacks and Effects ---
+  const [selectedLegalStatus, setSelectedLegalStatus] = useState<string>(
+    initialFilters?.selectedLegalStatus || "Any",
+  );
+  const [
+    selectedCommercialSubType,
+    setSelectedCommercialSubType,
+  ] = useState<string>(initialFilters?.selectedCommercialSubType || "Any");
 
   const openModal = useCallback(() => setModalVisible(true), []);
   const closeModal = useCallback(() => setModalVisible(false), []);
@@ -96,26 +108,43 @@ export default function FilterModal({
     return selectedType !== "all" ? PROPERTY_TYPES[selectedType] : null;
   }, [selectedType]);
 
+  const amenitiesForFilter = useMemo(() => {
+    if (selectedType === "all" || !currentCategoryDetails) {
+      return allAmenitiesList;
+    }
+    return currentCategoryDetails.amenities || [];
+  }, [selectedType, currentCategoryDetails]);
+
   const handleTypeChange = (value: PropertyCategory | "all") => {
     setSelectedType(value);
-    setSelectedAmenities([]); // Reset amenities when type changes
+    setSelectedAmenities([]);
     const details = value !== "all" ? PROPERTY_TYPES[value] : null;
     if (!details?.hasBedBath) {
       setSelectedBedrooms("Any");
       setSelectedBathrooms("Any");
     }
-    if (!details?.hasGaragesParkings) {
+    if (!details?.hasGaragesParkings && !details?.hasSquareMeters) {
       setSelectedGarages("Any");
-      // setSelectedParkings("Any"); // Decide based on logic
+      setSelectedParkings("Any");
+    } else if (!details?.hasGaragesParkings) {
+      setSelectedGarages("Any"); // No garages if not house-like
     }
-    // Reset other specific filters
+    if (!details?.hasLandDetails) {
+      setSelectedLegalStatus("Any");
+    }
+    if (!details?.hasCommercialDetails) {
+      setSelectedCommercialSubType("Any");
+    }
+    if (!details?.hasFeatures) {
+      setSelectedFeatures("Any");
+    }
   };
 
   const toggleAmenity = (amenity: string) => {
     setSelectedAmenities((prev) =>
       prev.includes(amenity)
         ? prev.filter((a) => a !== amenity)
-        : [...prev, amenity]
+        : [...prev, amenity],
     );
   };
 
@@ -127,7 +156,8 @@ export default function FilterModal({
     setSelectedParkings("Any");
     setSelectedFeatures("Any");
     setSelectedAmenities([]);
-    // Reset other filter states
+    setSelectedLegalStatus("Any");
+    setSelectedCommercialSubType("Any");
     onClear();
     closeModal();
   };
@@ -141,12 +171,12 @@ export default function FilterModal({
       selectedParkings,
       selectedFeatures,
       selectedAmenities,
-      // Include other filters if added
+      selectedLegalStatus,
+      selectedCommercialSubType,
     });
     closeModal();
   };
 
-  // Effect to update state if initialFilters change
   useEffect(() => {
     if (initialFilters) {
       setSelectedType(initialFilters?.selectedType || "all");
@@ -156,14 +186,15 @@ export default function FilterModal({
       setSelectedParkings(initialFilters?.selectedParkings || "Any");
       setSelectedFeatures(initialFilters?.selectedFeatures || "Any");
       setSelectedAmenities(initialFilters?.selectedAmenities || []);
+      setSelectedLegalStatus(initialFilters?.selectedLegalStatus || "Any");
+      setSelectedCommercialSubType(
+        initialFilters?.selectedCommercialSubType || "Any",
+      );
     }
-    // Update other filters if needed
   }, [initialFilters]);
 
-  // --- Render ---
   return (
     <>
-      {/* Filter Icon Button */}
       <TouchableOpacity
         className="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 shadow-sm"
         onPress={openModal}
@@ -175,7 +206,6 @@ export default function FilterModal({
         />
       </TouchableOpacity>
 
-      {/* Modal Component */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -187,12 +217,12 @@ export default function FilterModal({
             style={[
               styles.modalContent,
               {
-                backgroundColor: colorScheme === "dark" ? "#1F2937" : "#FFFFFF",
+                backgroundColor:
+                  colorScheme === "dark" ? "#1F2937" : "#FFFFFF",
                 maxHeight: SCREEN_HEIGHT * 0.9,
               },
             ]}
           >
-            {/* Header */}
             <View className="px-4 pt-5 pb-3 flex-row justify-between items-center border-b border-gray-200 dark:border-gray-700">
               <Text className="text-xl font-semibold text-gray-900 dark:text-white">
                 Filter Properties
@@ -206,16 +236,14 @@ export default function FilterModal({
               </TouchableOpacity>
             </View>
 
-            {/* Scrollable Content */}
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingBottom: 100, // Space for buttons
+                paddingBottom: 100,
                 paddingHorizontal: 16,
               }}
             >
               <View className="pt-4">
-                {/* Property Type Picker */}
                 <View className="mb-5">
                   <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Property Type
@@ -245,21 +273,28 @@ export default function FilterModal({
                   </View>
                 </View>
 
-                {/* --- Conditional Filters --- */}
-
-                {/* Bedrooms/Bathrooms */}
-                {(selectedType === "all" || currentCategoryDetails?.hasBedBath) && (
+                {(selectedType === "all" ||
+                  currentCategoryDetails?.hasBedBath) && (
                   <View className="flex-row gap-2 space-x-4 mb-5">
-                    {/* Bedrooms Picker */}
                     <View className="flex-1">
-                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">Bedrooms</Text>
+                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Bedrooms
+                      </Text>
                       <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                         <Picker
                           selectedValue={selectedBedrooms}
                           onValueChange={setSelectedBedrooms}
-                          style={[styles.picker, { color: colorScheme === 'dark' ? 'white' : 'black' }]}
+                          style={[
+                            styles.picker,
+                            {
+                              color:
+                                colorScheme === "dark" ? "white" : "black",
+                            },
+                          ]}
                           itemStyle={styles.pickerItem}
-                          dropdownIconColor={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'}
+                          dropdownIconColor={
+                            colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                          }
                         >
                           {bedBathGarageOptions.map((o) => (
                             <Picker.Item key={o} label={o} value={o} />
@@ -267,16 +302,25 @@ export default function FilterModal({
                         </Picker>
                       </View>
                     </View>
-                    {/* Bathrooms Picker */}
                     <View className="flex-1">
-                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">Bathrooms</Text>
+                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Bathrooms
+                      </Text>
                       <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                         <Picker
                           selectedValue={selectedBathrooms}
                           onValueChange={setSelectedBathrooms}
-                          style={[styles.picker, { color: colorScheme === 'dark' ? 'white' : 'black' }]}
+                          style={[
+                            styles.picker,
+                            {
+                              color:
+                                colorScheme === "dark" ? "white" : "black",
+                            },
+                          ]}
                           itemStyle={styles.pickerItem}
-                          dropdownIconColor={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'}
+                          dropdownIconColor={
+                            colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                          }
                         >
                           {bedBathGarageOptions.map((o) => (
                             <Picker.Item key={o} label={o} value={o} />
@@ -287,24 +331,31 @@ export default function FilterModal({
                   </View>
                 )}
 
-                {/* Garages/Parkings */}
                 {(selectedType === "all" ||
                   currentCategoryDetails?.hasGaragesParkings ||
-                  currentCategoryDetails?.hasSquareMeters
-                ) && (
+                  currentCategoryDetails?.hasSquareMeters) && (
                   <View className="flex-row gap-2 space-x-4 mb-5">
-                    {/* Garages */}
                     {(selectedType === "all" ||
                       currentCategoryDetails?.hasGaragesParkings) && (
                       <View className="flex-1">
-                        <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">Garages</Text>
+                        <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                          Garages
+                        </Text>
                         <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                           <Picker
                             selectedValue={selectedGarages}
                             onValueChange={setSelectedGarages}
-                            style={[styles.picker, { color: colorScheme === 'dark' ? 'white' : 'black' }]}
+                            style={[
+                              styles.picker,
+                              {
+                                color:
+                                  colorScheme === "dark" ? "white" : "black",
+                              },
+                            ]}
                             itemStyle={styles.pickerItem}
-                            dropdownIconColor={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'}
+                            dropdownIconColor={
+                              colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                            }
                           >
                             {bedBathGarageOptions.map((o) => (
                               <Picker.Item key={o} label={o} value={o} />
@@ -314,25 +365,30 @@ export default function FilterModal({
                       </View>
                     )}
 
-                    {/* Parkings */}
                     {(selectedType === "all" ||
                       currentCategoryDetails?.hasGaragesParkings ||
-                      currentCategoryDetails?.hasSquareMeters
-                    ) && (
+                      currentCategoryDetails?.hasSquareMeters) && (
                       <View className="flex-1">
                         <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
                           {currentCategoryDetails?.hasGaragesParkings
                             ? "Parkings (House)"
-                            : "Parking Spaces"
-                          }
+                            : "Parking Spaces"}
                         </Text>
                         <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                           <Picker
                             selectedValue={selectedParkings}
                             onValueChange={setSelectedParkings}
-                            style={[styles.picker, { color: colorScheme === 'dark' ? 'white' : 'black' }]}
+                            style={[
+                              styles.picker,
+                              {
+                                color:
+                                  colorScheme === "dark" ? "white" : "black",
+                              },
+                            ]}
                             itemStyle={styles.pickerItem}
-                            dropdownIconColor={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'}
+                            dropdownIconColor={
+                              colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                            }
                           >
                             {bedBathGarageOptions.map((o) => (
                               <Picker.Item key={o} label={o} value={o} />
@@ -344,107 +400,142 @@ export default function FilterModal({
                   </View>
                 )}
 
-                {/* Land Filters */}
                 {(selectedType === "all" ||
                   currentCategoryDetails?.hasLandDetails) && (
                   <View className="mb-5">
-                    <Text className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-                      Land Filters
+                    <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Legal Status
                     </Text>
-                    {/* Example: Legal Status */}
-                    <View className="mb-4">
-                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
-                        Legal Status
-                      </Text>
-                      <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                        <Picker
-                          selectedValue={"Any"} // Replace with state
-                          onValueChange={() => {}} // Replace with setter
-                          style={[ styles.picker, { color: colorScheme === "dark" ? "white" : "black" }]}
-                          itemStyle={styles.pickerItem}
-                          dropdownIconColor={ colorScheme === "dark" ? "#9CA3AF" : "#6B7280" }
-                        >
-                          <Picker.Item label="Any" value="Any" />
-                          <Picker.Item label="Title Deed" value="Title Deed" />
-                          <Picker.Item label="Customary" value="Customary" />
-                        </Picker>
-                      </View>
+                    <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                      <Picker
+                        selectedValue={selectedLegalStatus}
+                        onValueChange={setSelectedLegalStatus}
+                        style={[
+                          styles.picker,
+                          {
+                            color: colorScheme === "dark" ? "white" : "black",
+                          },
+                        ]}
+                        itemStyle={styles.pickerItem}
+                        dropdownIconColor={
+                          colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                        }
+                      >
+                        {legalStatusOptions.map((status) => (
+                          <Picker.Item
+                            key={status}
+                            label={status}
+                            value={status}
+                          />
+                        ))}
+                      </Picker>
                     </View>
                   </View>
                 )}
 
-                {/* Commercial Filters */}
                 {(selectedType === "all" ||
                   currentCategoryDetails?.hasCommercialDetails) && (
                   <View className="mb-5">
-                    <Text className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-                      Commercial Filters
+                    <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Commercial Type
                     </Text>
-                    <View className="mb-4">
-                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
-                        Commercial Type
-                      </Text>
-                      <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                        <Picker
-                          selectedValue={"Any"} // Replace with state
-                          onValueChange={() => {}} // Replace with setter
-                          style={[ styles.picker, { color: colorScheme === "dark" ? "white" : "black" }]}
-                          itemStyle={styles.pickerItem}
-                          dropdownIconColor={ colorScheme === "dark" ? "#9CA3AF" : "#6B7280" }
-                        >
-                          {commercialSubTypes.map((type) => (
-                            <Picker.Item key={type} label={type} value={type} />
-                          ))}
-                        </Picker>
-                      </View>
+                    <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                      <Picker
+                        selectedValue={selectedCommercialSubType}
+                        onValueChange={setSelectedCommercialSubType}
+                        style={[
+                          styles.picker,
+                          {
+                            color: colorScheme === "dark" ? "white" : "black",
+                          },
+                        ]}
+                        itemStyle={styles.pickerItem}
+                        dropdownIconColor={
+                          colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                        }
+                      >
+                        {commercialSubTypes.map((type) => (
+                          <Picker.Item key={type} label={type} value={type} />
+                        ))}
+                      </Picker>
                     </View>
                   </View>
                 )}
 
-                {/* Features Dropdown */}
-                <View className="mb-5">
-                  <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
-                    Features
-                  </Text>
-                  <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                    <Picker
-                      selectedValue={selectedFeatures}
-                      onValueChange={setSelectedFeatures}
-                      style={[ styles.picker, { color: colorScheme === "dark" ? "white" : "black" }]}
-                      itemStyle={styles.pickerItem}
-                      dropdownIconColor={ colorScheme === "dark" ? "#9CA3AF" : "#6B7280" }
-                    >
-                      {featureOptions.map((o) => (
-                        <Picker.Item key={o} label={o} value={o} />
-                      ))}
-                    </Picker>
+                {(selectedType === "all" ||
+                  currentCategoryDetails?.hasFeatures) && (
+                  <View className="mb-5">
+                    <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Features
+                    </Text>
+                    <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                      <Picker
+                        selectedValue={selectedFeatures}
+                        onValueChange={setSelectedFeatures}
+                        style={[
+                          styles.picker,
+                          {
+                            color: colorScheme === "dark" ? "white" : "black",
+                          },
+                        ]}
+                        itemStyle={styles.pickerItem}
+                        dropdownIconColor={
+                          colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                        }
+                      >
+                        {featureOptions.map((o) => (
+                          <Picker.Item key={o} label={o} value={o} />
+                        ))}
+                      </Picker>
+                    </View>
                   </View>
-                </View>
+                )}
 
-                {/* Amenities Checkboxes */}
                 <View className="mb-6">
                   <Text className="text-base font-medium mb-3 text-gray-700 dark:text-gray-300">
                     Amenities
                   </Text>
                   <View className="flex-row flex-wrap -m-1">
-                    {allAmenitiesList.map((item) => (
+                    {amenitiesForFilter.map((item) => (
                       <TouchableOpacity
                         key={item}
                         className="flex-row items-center m-1 p-2 border rounded-full"
                         style={{
-                          borderColor: selectedAmenities.includes(item) ? "#3B82F6" : colorScheme === "dark" ? "#4B5563" : "#D1D5DB",
-                          backgroundColor: selectedAmenities.includes(item) ? (colorScheme === "dark" ? "rgba(59, 130, 246, 0.3)" : "#DBEAFE") : "transparent",
+                          borderColor: selectedAmenities.includes(item)
+                            ? "#3B82F6"
+                            : colorScheme === "dark"
+                              ? "#4B5563"
+                              : "#D1D5DB",
+                          backgroundColor: selectedAmenities.includes(item)
+                            ? colorScheme === "dark"
+                              ? "rgba(59, 130, 246, 0.3)"
+                              : "#DBEAFE"
+                            : "transparent",
                         }}
                         onPress={() => toggleAmenity(item)}
                       >
                         <Ionicons
-                          name={ selectedAmenities.includes(item) ? "checkmark-circle" : "ellipse-outline" }
+                          name={
+                            selectedAmenities.includes(item)
+                              ? "checkmark-circle"
+                              : "ellipse-outline"
+                          }
                           size={18}
-                          color={ selectedAmenities.includes(item) ? "#2563EB" : colorScheme === "dark" ? "#9CA3AF" : "#6B7280" }
+                          color={
+                            selectedAmenities.includes(item)
+                              ? "#2563EB"
+                              : colorScheme === "dark"
+                                ? "#9CA3AF"
+                                : "#6B7280"
+                          }
                           style={{ marginRight: 6 }}
                         />
                         <Text
-                          className={`text-sm ${ selectedAmenities.includes(item) ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-700 dark:text-gray-300" }`}
+                          className={`text-sm ${
+                            selectedAmenities.includes(item)
+                              ? "text-blue-700 dark:text-blue-300 font-medium"
+                              : "text-gray-700 dark:text-gray-300"
+                          }`}
                         >
                           {item}
                         </Text>
@@ -455,7 +546,6 @@ export default function FilterModal({
               </View>
             </ScrollView>
 
-            {/* Footer Buttons */}
             <View className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-row items-center">
               <TouchableOpacity
                 className="flex-1 px-5 py-3 bg-gray-200 dark:bg-gray-600 rounded-full mr-2"
