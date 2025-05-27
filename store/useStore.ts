@@ -111,38 +111,41 @@ export const useStore = create<PropertyState>((set, get) => ({
   error: null,
   errorFeatured: null,
   errorSaved: null,
-  // promotedAdCycleIndex: 0, // Can be removed or kept if used for other UI purposes
 
   setProperties: (newPropertiesFromBackend: Property[], pageNumber: number) => {
     const currentPropertiesFromState = get().properties;
     const savedIds = get().savedProperties;
-
+  
     const processedNewProperties: Property[] = newPropertiesFromBackend.map(
       (p) => ({
         ...p,
         liked: savedIds.includes(p.id),
       }),
     );
-
+  
     let combinedProperties: Property[];
     if (pageNumber === 1) {
       combinedProperties = processedNewProperties;
     } else {
-      const uniquePropertiesMap = new Map<string, Property>();
-      currentPropertiesFromState.forEach((p) =>
-        uniquePropertiesMap.set(p.id, p),
+      const existingRegularIds = new Set(
+        currentPropertiesFromState
+          .filter(p => !p.isInjectedAd)
+          .map(p => p.id)
       );
-      processedNewProperties.forEach((p) => {
-        uniquePropertiesMap.set(p.id, p);
-      });
-      combinedProperties = Array.from(uniquePropertiesMap.values());
+      
+      const newPropertiesToAdd = processedNewProperties.filter(p => 
+        p.isInjectedAd || !existingRegularIds.has(p.id)
+      );
+      
+      combinedProperties = [...currentPropertiesFromState, ...newPropertiesToAdd];
     }
-
+  
     set({
       properties: combinedProperties,
       error: null,
     });
   },
+  
   setFeaturedProperties: (propertiesToSet) => {
     const savedIds = get().savedProperties;
     const propertiesWithLiked = propertiesToSet.map((p) => ({

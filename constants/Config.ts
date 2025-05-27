@@ -19,4 +19,5 @@ export const QueryParams = {
   HOUSE_PARKINGS: "house_parkings",
   PARKING_SPACES: "parking_spaces",
   STATUS: "status",
+  SESSION_ID: 'sessionId',
 };

@@ -9,7 +9,6 @@ interface SearchBarProps {
   onFilter?: () => void;
 }
 
-
 export default function SearchBar({
   value,
   onChangeText,
@@ -17,6 +16,20 @@ export default function SearchBar({
   onFilter
 }: SearchBarProps) {
   const colorScheme = useColorScheme();
+  
+  const handleTextChange = (text: string) => {
+    // Allow typing but don't trim during typing for better UX
+    onChangeText(text);
+  };
+
+  const handleEndEditing = () => {
+    // Trim when user finishes editing
+    const trimmedValue = value.trim();
+    if (trimmedValue !== value) {
+      onChangeText(trimmedValue);
+    }
+  };
+
   return (
     <View className="flex-1 flex flex-row p-1" style={styles.container}>
       <View style={[
@@ -39,9 +52,12 @@ export default function SearchBar({
             }
           ]}
           value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
+          onChangeText={handleTextChange}
+          onEndEditing={handleEndEditing}
+          onBlur={handleEndEditing}
+          placeholder={placeholder || "Search by location, property type, amenities..."}
           placeholderTextColor={colorScheme === 'dark' ? '#94a3b8' : '#6b7280'}
+          returnKeyType="search"
         />
       </View>
     </View>

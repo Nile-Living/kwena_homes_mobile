@@ -1,5 +1,7 @@
 // app/_layout.tsx
 import React, { useState, useEffect } from "react";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useNotificationsStore } from "@/store/notificationStore";
 import {
   DarkTheme,
   DefaultTheme,
@@ -26,12 +28,21 @@ SplashScreen.preventAutoHideAsync();
 const ONBOARDING_STORAGE_KEY = "@app_onboarding_completed_v1";
 
 export default function RootLayout() {
+  useNotifications();
+  const { session } = useAuthStore();
+  const { clearNotifications } = useNotificationsStore();
   const router = useRouter();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const colorScheme = useColorScheme();
   const [loaded, fontError] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  useEffect(() => {
+    if (!session) {
+      clearNotifications();
+    }
+  }, [session]);
 
   useEffect(() => {
 

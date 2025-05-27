@@ -21,6 +21,7 @@ import { Picker } from "@react-native-picker/picker";
 import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 import { API_BASE_URL } from "@/constants/Config";
 import { useStore as usePropertyStore } from "@/store/useStore";
+import LocationPicker from "@/components/LocationPicker";
 
 interface FormData {
   title: string;
@@ -108,7 +109,7 @@ export default function AddPropertyScreen() {
       if (status !== "granted") {
         Alert.alert(
           "Permission Required",
-          "Please grant permission to access your photos",
+          "Please grant permission to access your photos"
         );
         return;
       }
@@ -128,7 +129,7 @@ export default function AddPropertyScreen() {
       console.error("Error picking image:", error);
       Alert.alert(
         "Image Selection Error",
-        "There was a problem selecting your image. Please try again.",
+        "There was a problem selecting your image. Please try again."
       );
     }
   };
@@ -148,7 +149,7 @@ export default function AddPropertyScreen() {
     }));
     mapRef.current?.animateToRegion(
       { ...coordinate, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-      500,
+      500
     );
   };
 
@@ -160,7 +161,7 @@ export default function AddPropertyScreen() {
     if (!user) {
       Alert.alert(
         "Authentication Error",
-        "You must be logged in to list a property",
+        "You must be logged in to list a property"
       );
       return;
     }
@@ -189,7 +190,7 @@ export default function AddPropertyScreen() {
     if (clientSideValidationErrors.length > 0) {
       Alert.alert(
         "Missing Information",
-        `Please fill in: ${clientSideValidationErrors.join(", ")}`,
+        `Please fill in: ${clientSideValidationErrors.join(", ")}`
       );
       return;
     }
@@ -209,20 +210,20 @@ export default function AddPropertyScreen() {
     if (formData.contact_phone_number?.trim())
       dataPayload.append(
         "contact_phone_number",
-        formData.contact_phone_number.trim(),
+        formData.contact_phone_number.trim()
       );
     if (formData.contact_whatsapp_number?.trim())
       dataPayload.append(
         "contact_whatsapp_number",
-        formData.contact_whatsapp_number.trim(),
+        formData.contact_whatsapp_number.trim()
       );
     dataPayload.append(
       "use_phone_for_call",
-      String(formData.use_phone_for_call),
+      String(formData.use_phone_for_call)
     );
     dataPayload.append(
       "use_whatsapp_for_message",
-      String(formData.use_whatsapp_for_message),
+      String(formData.use_whatsapp_for_message)
     );
 
     let detailsObject: any = {};
@@ -241,11 +242,9 @@ export default function AddPropertyScreen() {
         detailsObject = {
           bedrooms: parseInt(formData.bedrooms || "0") || undefined,
           bathrooms: parseInt(formData.bathrooms || "0") || undefined,
-          square_meters:
-            parseFloat(formData.square_meters || "0") || undefined,
+          square_meters: parseFloat(formData.square_meters || "0") || undefined,
           amenities: formData.amenities,
-          parking_spaces:
-            parseInt(formData.parking_spaces || "0") || undefined,
+          parking_spaces: parseInt(formData.parking_spaces || "0") || undefined,
           security_features: formData.security_features,
         };
         break;
@@ -263,10 +262,8 @@ export default function AddPropertyScreen() {
       case "commercial":
         detailsObject = {
           property_type: formData.commercial_property_type,
-          square_meters:
-            parseFloat(formData.square_meters || "0") || undefined,
-          parking_spaces:
-            parseInt(formData.parking_spaces || "0") || undefined,
+          square_meters: parseFloat(formData.square_meters || "0") || undefined,
+          parking_spaces: parseInt(formData.parking_spaces || "0") || undefined,
           amenities: formData.amenities,
           security_features: formData.security_features,
         };
@@ -333,7 +330,7 @@ export default function AddPropertyScreen() {
     } catch (error: any) {
       Alert.alert(
         "Submission Error",
-        `${error.message || "An unknown error occurred."}`,
+        `${error.message || "An unknown error occurred."}`
       );
     } finally {
       setLoading(false);
@@ -420,9 +417,7 @@ export default function AddPropertyScreen() {
               width: "100%",
               color: colorScheme === "dark" ? "#FFFFFF" : "#000000",
             }}
-            dropdownIconColor={
-              colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-            }
+            dropdownIconColor={colorScheme === "dark" ? "#94a3b8" : "#6b7280"}
           >
             {Object.entries(PROPERTY_TYPES).map(([key, value]) => (
               <Picker.Item key={key} label={value.label} value={key} />
@@ -483,9 +478,7 @@ export default function AddPropertyScreen() {
           onChangeText={(v) => updateFormField("title", v)}
           placeholder="e.g. Modern 3-Bed House in Roma"
           className={inputClasses}
-          placeholderTextColor={
-            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-          }
+          placeholderTextColor={colorScheme === "dark" ? "#94a3b8" : "#6b7280"}
         />
       </View>
       <View className="mb-4">
@@ -498,26 +491,20 @@ export default function AddPropertyScreen() {
           }
           keyboardType="numeric"
           className={inputClasses}
-          placeholderTextColor={
-            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-          }
+          placeholderTextColor={colorScheme === "dark" ? "#94a3b8" : "#6b7280"}
         />
       </View>
       <View className="mb-4">
-        <Text className={labelClasses}>Location Description *</Text>
-        <TextInput
-          value={formData.location}
-          onChangeText={(v) => updateFormField("location", v)}
-          placeholder="e.g. Off Zambezi Rd, Lusaka"
-          className={inputClasses}
-          placeholderTextColor={
-            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-          }
+        <Text className={labelClasses}>Location *</Text>
+        <LocationPicker
+          selectedLocation={formData.location}
+          onLocationSelect={(location) => updateFormField("location", location)}
+          placeholder="Select Location"
         />
       </View>
 
       {currentCategoryDetails?.hasBedBath && (
-        <View className="flex-row mb-4 space-x-3">
+        <View className="flex flex-row mb-4 gap-2">
           <View className="flex-1">
             <Text className={labelClasses}>Bedrooms *</Text>
             <TextInput
@@ -547,7 +534,7 @@ export default function AddPropertyScreen() {
         </View>
       )}
       {currentCategoryDetails?.hasGaragesParkings && (
-        <View className="flex-row mb-4 space-x-3">
+        <View className="flex flex-row mb-4 gap-2">
           <View className="flex-1">
             <Text className={labelClasses}>Garages</Text>
             <TextInput
@@ -667,8 +654,7 @@ export default function AddPropertyScreen() {
               onValueChange={(v) => updateFormField("road_access", v)}
               trackColor={{
                 false: "#767577",
-                true:
-                  colorScheme === "dark" ? "#14532d" : "#54816D",
+                true: colorScheme === "dark" ? "#14532d" : "#54816D",
               }}
               thumbColor={formData.road_access ? "#f4f3f4" : "#f4f3f4"}
             />
@@ -677,13 +663,10 @@ export default function AddPropertyScreen() {
             <Text className={switchLabelClasses}>Electricity Available</Text>
             <Switch
               value={formData.electricity_available}
-              onValueChange={(v) =>
-                updateFormField("electricity_available", v)
-              }
+              onValueChange={(v) => updateFormField("electricity_available", v)}
               trackColor={{
                 false: "#767577",
-                true:
-                  colorScheme === "dark" ? "#14532d" : "#54816D",
+                true: colorScheme === "dark" ? "#14532d" : "#54816D",
               }}
               thumbColor={
                 formData.electricity_available ? "#f4f3f4" : "#f4f3f4"
@@ -697,8 +680,7 @@ export default function AddPropertyScreen() {
               onValueChange={(v) => updateFormField("fenced", v)}
               trackColor={{
                 false: "#767577",
-                true:
-                  colorScheme === "dark" ? "#14532d" : "#54816D",
+                true: colorScheme === "dark" ? "#14532d" : "#54816D",
               }}
               thumbColor={formData.fenced ? "#f4f3f4" : "#f4f3f4"}
             />
@@ -713,9 +695,7 @@ export default function AddPropertyScreen() {
           <Text className={labelClasses}>Commercial Property Type *</Text>
           <TextInput
             value={formData.commercial_property_type}
-            onChangeText={(v) =>
-              updateFormField("commercial_property_type", v)
-            }
+            onChangeText={(v) => updateFormField("commercial_property_type", v)}
             placeholder="e.g. Office, Retail, Warehouse"
             className={inputClasses}
             placeholderTextColor={
@@ -734,9 +714,7 @@ export default function AddPropertyScreen() {
           placeholder="e.g. 0977123456"
           keyboardType="phone-pad"
           className={inputClasses}
-          placeholderTextColor={
-            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-          }
+          placeholderTextColor={colorScheme === "dark" ? "#94a3b8" : "#6b7280"}
         />
       </View>
       <View className={switchContainerClasses}>
@@ -762,9 +740,7 @@ export default function AddPropertyScreen() {
           placeholder="e.g. 0966123456"
           keyboardType="phone-pad"
           className={inputClasses}
-          placeholderTextColor={
-            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-          }
+          placeholderTextColor={colorScheme === "dark" ? "#94a3b8" : "#6b7280"}
         />
       </View>
       <View className={switchContainerClasses}>
@@ -779,9 +755,7 @@ export default function AddPropertyScreen() {
             false: "#767577",
             true: colorScheme === "dark" ? "#14532d" : "#54816D",
           }}
-          thumbColor={
-            formData.use_whatsapp_for_message ? "#f4f3f4" : "#f4f3f4"
-          }
+          thumbColor={formData.use_whatsapp_for_message ? "#f4f3f4" : "#f4f3f4"}
         />
       </View>
 
@@ -830,9 +804,7 @@ export default function AddPropertyScreen() {
           numberOfLines={4}
           textAlignVertical="top"
           className={`${inputClasses} h-32`}
-          placeholderTextColor={
-            colorScheme === "dark" ? "#94a3b8" : "#6b7280"
-          }
+          placeholderTextColor={colorScheme === "dark" ? "#94a3b8" : "#6b7280"}
         />
       </View>
       <View className="mb-6">

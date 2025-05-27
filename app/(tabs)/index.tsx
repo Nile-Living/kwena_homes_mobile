@@ -32,6 +32,7 @@ import {
   SKELETON_COUNT,
   QueryParams,
 } from "@/constants/Config";
+import { getAnonymousSessionId } from '@/utils/sessionIdManager';
 
 type SortOption =
   | "created_at.desc"
@@ -58,6 +59,7 @@ export default function HomeScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const {
     properties,
@@ -80,44 +82,49 @@ export default function HomeScreen() {
 
   const fetchPaginatedProperties = useCallback(
     async (pageNumber: number, isRefresh = false) => {
-      console.log(
-        `fetchPaginatedProperties called with pageNumber: ${pageNumber}, isRefresh: ${isRefresh}`,
-      );
+      // console.log(
+      //   `fetchPaginatedProperties called with pageNumber: ${pageNumber}, isRefresh: ${isRefresh}`,
+      // );
       if (!hasMore && pageNumber > 1 && !isRefresh) {
-        console.log(
-          "fetchPaginatedProperties: Aborting - no more pages or not a refresh.",
-        );
+        // console.log(
+        //   "fetchPaginatedProperties: Aborting - no more pages or not a refresh.",
+        // );
         return;
       }
 
       if (pageNumber === 1) {
-        console.log(
-          "fetchPaginatedProperties: Fetching page 1 - setting Zustand loading true.",
-        );
+        // console.log(
+        //   "fetchPaginatedProperties: Fetching page 1 - setting Zustand loading true.",
+        // );
         setZustandLoading(true);
         setLocalError(null);
         setZustandError(null);
       } else {
-        console.log(
-          "fetchPaginatedProperties: Fetching more - setting isFetchingMore true.",
-        );
+        // console.log(
+        //   "fetchPaginatedProperties: Fetching more - setting isFetchingMore true.",
+        // );
         setIsFetchingMore(true);
       }
 
       if (isRefresh) {
-        console.log(
-          "fetchPaginatedProperties: Refreshing - fetching saved and featured properties.",
-        );
+        // console.log(
+        //   "fetchPaginatedProperties: Refreshing - fetching saved and featured properties.",
+        // );
         setRefreshing(true);
         await fetchSavedProperties();
         await fetchFeaturedProperties();
       }
 
       try {
+        const { user } = useAuthStore.getState();
+        const sessionId = user?.id || await getAnonymousSessionId();
+      
+      // console.log(`Using sessionId: ${sessionId} (user: ${user ? 'authenticated' : 'anonymous'})`);
         const params = new URLSearchParams();
         params.append(QueryParams.PAGE, pageNumber.toString());
         params.append(QueryParams.PAGE_SIZE, PAGE_SIZE.toString());
         params.append(QueryParams.SORT, sortOption);
+        params.append('sessionId', sessionId);
 
         if (searchQuery) params.append(QueryParams.LOCATION, searchQuery);
         if (selectedType !== "all")
@@ -141,7 +148,7 @@ export default function HomeScreen() {
             params.append(QueryParams.PARKING_SPACES, parkings.toString());
         }
         const apiUrl = `${API_BASE_URL}/properties?${params.toString()}`;
-        console.log(`fetchPaginatedProperties: Fetching URL: ${apiUrl}`);
+        // console.log(`fetchPaginatedProperties: Fetching URL: ${apiUrl}`);
 
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -155,24 +162,24 @@ export default function HomeScreen() {
         }
 
         const data: PropertyResponseDto = await response.json();
-        console.log(
-          "fetchPaginatedProperties: API Response Data:",
-          JSON.stringify(data, null, 2),
-        );
+        // console.log(
+        //   "fetchPaginatedProperties: API Response Data:",
+        //   JSON.stringify(data, null, 2),
+        // );
 
         const newProperties = data.properties || [];
-        console.log(
-          `fetchPaginatedProperties: Received ${newProperties.length} new properties from API.`,
-        );
-        console.log(
-          `fetchPaginatedProperties: API reported total properties: ${data.total}.`,
-        );
+        // console.log(
+        //   `fetchPaginatedProperties: Received ${newProperties.length} new properties from API.`,
+        // );
+        // console.log(
+        //   `fetchPaginatedProperties: API reported total properties: ${data.total}.`,
+        // );
 
         setProperties(newProperties, pageNumber);
         const newHasMore = pageNumber * PAGE_SIZE < data.total;
-        console.log(`fetchPaginatedProperties: Setting hasMore to: ${newHasMore}`);
+        // console.log(`fetchPaginatedProperties: Setting hasMore to: ${newHasMore}`);
         setHasMore(newHasMore);
-        console.log(`fetchPaginatedProperties: Setting page to: ${pageNumber + 1}`);
+        // console.log(`fetchPaginatedProperties: Setting page to: ${pageNumber + 1}`);
         setPage(pageNumber + 1);
       } catch (error: any) {
         console.error("fetchPaginatedProperties: Catch Block Error:", error);
@@ -182,24 +189,24 @@ export default function HomeScreen() {
         setHasMore(false);
       } finally {
         if (pageNumber === 1) {
-          console.log(
-            "fetchPaginatedProperties: Finally block for page 1 - setting Zustand loading false.",
-          );
+          // console.log(
+          //   "fetchPaginatedProperties: Finally block for page 1 - setting Zustand loading false.",
+          // );
           setZustandLoading(false);
           setIsInitialFetchDone(true);
         } else {
-          console.log(
-            "fetchPaginatedProperties: Finally block for subsequent page - setting isFetchingMore false.",
-          );
+          // console.log(
+          //   "fetchPaginatedProperties: Finally block for subsequent page - setting isFetchingMore false.",
+          // );
           setIsFetchingMore(false);
         }
         if (isRefresh) {
-          console.log(
-            "fetchPaginatedProperties: Finally block for refresh - setting refreshing false.",
-          );
+          // console.log(
+          //   "fetchPaginatedProperties: Finally block for refresh - setting refreshing false.",
+          // );
           setRefreshing(false);
         }
-        console.log("fetchPaginatedProperties: Fetch operation complete.");
+        // console.log("fetchPaginatedProperties: Fetch operation complete.");
       }
     },
     [
@@ -228,7 +235,7 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchFeaturedProperties();
     const debounceTimer = setTimeout(() => {
-      console.log("Filters changed, fetching page 1");
+      // console.log("Filters changed, fetching page 1");
       setPage(1);
       setHasMore(true);
       fetchPaginatedProperties(1);
