@@ -354,44 +354,11 @@ export const styles = StyleSheet.create({
   activeTabText: {
     color: COLORS.primary,
   },
-  overviewContainer: {
-    marginBottom: 24,
-  },
-  keyFeaturesContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 24,
-  },
-  keyFeatureCard: {
-    flex: 1,
-    maxWidth: (width - 40 - 24) / 3,
-    backgroundColor: COLORS.background,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    marginHorizontal: 4,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  keyFeatureValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginTop: 10,
-    textAlign: "center",
-  },
+
   descriptionContainer: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: COLORS.text,
-    marginBottom: 16,
-  },
+
   description: {
     fontSize: 15,
     lineHeight: 24,
@@ -656,5 +623,74 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+
+  overviewContainer: {
+    padding: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.darkGray,
+    marginBottom: 16,
+  },
+
+  keyFeaturesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+
+  keyFeatureCard: {
+    flex: 1,
+    minWidth: '30%', // Ensures 3 cards per row
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  featureIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${COLORS.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  keyFeatureValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.darkGray,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
+  noFeaturesContainer: {
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 12,
+  },
+
+  noFeaturesText: {
+    fontSize: 14,
+    color: COLORS.mediumGray,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

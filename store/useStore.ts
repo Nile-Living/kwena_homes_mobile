@@ -74,7 +74,6 @@ interface PropertyState {
   error: string | null;
   errorFeatured: string | null;
   errorSaved: string | null;
-  // promotedAdCycleIndex: number; // No longer needed here for ad injection logic
   setProperties: (properties: Property[], pageNumber: number) => void;
   setFeaturedProperties: (properties: Property[]) => void;
   setSavedPropertyDetails: (properties: Property[]) => void;
@@ -194,6 +193,7 @@ export const useStore = create<PropertyState>((set, get) => ({
       if (!response.ok) throw new Error("Failed to fetch featured properties");
       const data: Property[] = await response.json();
       get().setFeaturedProperties(data || []);
+      console.log("Fetch Featured Properties result: ", data)
     } catch (err: any) {
       console.error("Error fetching featured properties:", err);
       set({ errorFeatured: "Could not load featured properties." });

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotificationsStore, Notification } from '@/store/notificationStore';
 import { useAuthStore } from '@/store/authStore';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { router } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 
@@ -29,19 +30,23 @@ const NotificationsScreen = () => {
     markAllAsRead,
     setError,
     isUserAgent,
+    isRegularUser,
   } = useNotificationsStore();
   
   const { user } = useAuthStore();
+  const { isSubscribed } = useSubscriptionStore();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Check if user is agent using the store method
+  // Check if user can access notifications
   const isAgent = isUserAgent();
+  const isUser = isRegularUser();
+  const canAccessNotifications = isAgent || (isUser && isSubscribed);
 
   useEffect(() => {
-    if (isAgent) {
+    if (canAccessNotifications) {
       fetchNotifications(true);
     }
-  }, [isAgent]);
+  }, [canAccessNotifications]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -62,6 +67,8 @@ const NotificationsScreen = () => {
 
     // Handle navigation based on notification type
     if (notification.type === 'promotion_expiring' && notification.data.property_id) {
+      router.push(`/property/${notification.data.property_id}` as any);
+    } else if (notification.type === 'property_match' && notification.data.property_id) {
       router.push(`/property/${notification.data.property_id}` as any);
     }
   };
@@ -85,6 +92,8 @@ const NotificationsScreen = () => {
         return 'time-outline';
       case 'promotion_expired':
         return 'alert-circle-outline';
+      case 'property_match':
+        return 'home-outline';
       default:
         return 'notifications-outline';
     }
@@ -96,6 +105,8 @@ const NotificationsScreen = () => {
         return '#F59E0B'; // amber
       case 'promotion_expired':
         return '#EF4444'; // red
+      case 'property_match':
+        return '#10B981'; // green
       default:
         return '#6B7280'; // gray
     }
@@ -158,19 +169,25 @@ const NotificationsScreen = () => {
     );
   };
 
-  const renderEmpty = () => (
-    <View className="flex-1 items-center justify-center px-6 py-20">
-      <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-        <Ionicons name="notifications-outline" size={32} color="#9CA3AF" />
+  const renderEmpty = () => {
+    const emptyMessage = isAgent 
+      ? "You'll receive notifications about your promoted properties here."
+      : "You'll receive notifications when new properties match your saved searches.";
+
+    return (
+      <View className="flex-1 items-center justify-center px-6 py-20">
+        <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
+          <Ionicons name="notifications-outline" size={32} color="#9CA3AF" />
+        </View>
+        <Text className="text-lg font-semibold text-gray-900 mb-2">
+          No Notifications
+        </Text>
+        <Text className="text-sm text-gray-500 text-center">
+          {emptyMessage}
+        </Text>
       </View>
-      <Text className="text-lg font-semibold text-gray-900 mb-2">
-        No Notifications
-      </Text>
-      <Text className="text-sm text-gray-500 text-center">
-        You'll receive notifications about your promoted properties here.
-      </Text>
-    </View>
-  );
+    );
+  };
 
   const renderError = () => (
     <View className="flex-1 items-center justify-center px-6">
@@ -195,18 +212,44 @@ const NotificationsScreen = () => {
     </View>
   );
 
-  if (!isAgent) {
+  // Show subscription required message for regular users without subscription
+  if (isUser && !isSubscribed) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="w-20 h-20 bg-blue-100 rounded-full items-center justify-center mb-4">
+            <Ionicons name="notifications-outline" size={32} color="#3B82F6" />
+          </View>
+          <Text className="text-lg font-semibold text-gray-900 mb-2">
+            Subscription Required
+          </Text>
+          <Text className="text-sm text-gray-500 text-center mb-6">
+            Subscribe to get notifications when new properties match your saved searches.
+          </Text>
+          <TouchableOpacity
+            className="bg-blue-500 px-6 py-3 rounded-lg"
+            onPress={() => router.push('/subscription' as any)}
+          >
+            <Text className="text-white font-semibold">View Subscription Plans</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show access denied for users who are neither agents nor regular users
+  if (!canAccessNotifications) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 items-center justify-center px-6">
           <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-            <Ionicons name="business-outline" size={32} color="#9CA3AF" />
+            <Ionicons name="person-outline" size={32} color="#9CA3AF" />
           </View>
           <Text className="text-lg font-semibold text-gray-900 mb-2">
-            Agent Access Only
+            Access Restricted
           </Text>
           <Text className="text-sm text-gray-500 text-center">
-            Notifications are only available for registered agents. Please ensure your profile is set up as an agent.
+            Notifications are available for agents and subscribed users only.
           </Text>
         </View>
       </SafeAreaView>
@@ -251,6 +294,23 @@ const NotificationsScreen = () => {
           )}
         </View>
       </View>
+
+      {/* Role-specific info banner */}
+      {isUser && isSubscribed && (
+        <View className="px-4 py-2 bg-green-50 border-b border-green-200">
+          <Text className="text-green-800 text-sm">
+            📬 You'll receive notifications when properties match your saved searches
+          </Text>
+        </View>
+      )}
+
+      {isAgent && (
+        <View className="px-4 py-2 bg-blue-50 border-b border-blue-200">
+          <Text className="text-blue-800 text-sm">
+            🏠 You'll receive notifications about your property promotions
+          </Text>
+        </View>
+      )}
 
       {/* Notifications List */}
       <FlatList

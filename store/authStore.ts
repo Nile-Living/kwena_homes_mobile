@@ -7,6 +7,8 @@ import { API_BASE_URL } from "@/constants/Config";
 import { Alert } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import { useNotificationsStore } from "@/store/notificationStore";
+import { useSubscriptionStore } from "@/store/subscriptionStore";
 
 export type UserRole = "user" | "agent";
 
@@ -33,6 +35,8 @@ interface AuthState {
     phone: string;
     role: UserRole;
   }) => Promise<boolean>;
+  initializeUserStores: (user: User) => void;
+  clearUserStores: () => void;
 }
 
 const constructSession = (data: any): Session | null => {
@@ -50,11 +54,72 @@ const constructSession = (data: any): Session | null => {
   };
 };
 
+// Helper function to create a proper Session object with updated user
+const createUpdatedSession = (originalSession: Session | null, updatedUser: User): Session | null => {
+  if (!originalSession || !originalSession.access_token) return null;
+  
+  return {
+    access_token: originalSession.access_token,
+    refresh_token: originalSession.refresh_token || "",
+    token_type: originalSession.token_type || "bearer",
+    expires_in: originalSession.expires_in || 3600,
+    expires_at: originalSession.expires_at || (Date.now() / 1000 + 3600),
+    user: updatedUser,
+  } as Session;
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   loading: false,
   error: null,
+
+  initializeUserStores: (user: User) => {
+    console.log("initializeUserStores: Starting store initialization for user:", user.id);
+    
+    // Always fetch saved properties
+    useStore.getState().fetchSavedProperties();
+    
+    // Get user role
+    const userRole = user.user_metadata?.role || user.app_metadata?.role;
+    console.log("initializeUserStores: User role:", userRole);
+    
+    const subscriptionStore = useSubscriptionStore.getState();
+    const notificationStore = useNotificationsStore.getState();
+    
+    if (userRole === 'user') {
+      console.log("initializeUserStores: Initializing stores for regular user");
+      
+      // Fetch subscription data for regular users
+      subscriptionStore.fetchActiveSubscription().then(() => {
+        const { isSubscribed } = useSubscriptionStore.getState();
+        if (isSubscribed) {
+          console.log("initializeUserStores: User is subscribed, fetching notifications");
+          notificationStore.fetchNotifications(true);
+        }
+      });
+      
+      // Fetch saved searches for regular users
+      notificationStore.fetchSavedSearches();
+      
+    } else if (userRole === 'agent') {
+      console.log("initializeUserStores: Initializing stores for agent");
+      
+      // Fetch notifications for agents (promotion-related)
+      notificationStore.fetchNotifications(true);
+    }
+  },
+
+  clearUserStores: () => {
+    console.log("clearUserStores: Clearing all user-specific store data");
+    
+    useStore.getState().setSavedProperties([]);
+    useSubscriptionStore.getState().clearSubscriptionData();
+    
+    const notificationStore = useNotificationsStore.getState();
+    notificationStore.clearNotifications();
+    notificationStore.clearSavedSearches();
+  },
 
   checkAuth: async () => {
     set({ loading: true });
@@ -64,21 +129,51 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error,
       } = await getSupabase().auth.getSession();
       if (error) throw error;
-
-      const currentUser = session?.user ?? null;
-      set({ session, user: currentUser, loading: false, error: null });
-
+  
+      let currentUser = session?.user ?? null;
+      let updatedSession = session;
+      
+      // If we have a user but no role in metadata, fetch it from profiles
+      if (currentUser && !currentUser.user_metadata?.role && !currentUser.app_metadata?.role && session?.access_token) {
+        try {
+          const profileResponse = await fetch(`${API_BASE_URL}/profiles/me`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            currentUser = {
+              ...currentUser,
+              user_metadata: {
+                ...currentUser.user_metadata,
+                role: profileData.role,
+              },
+            };
+            // Create updated session with the new user data
+            updatedSession = createUpdatedSession(session, currentUser);
+          }
+        } catch (profileError) {
+          console.warn("Could not fetch user profile during checkAuth:", profileError);
+        }
+      }
+  
+      set({
+        session: updatedSession,
+        user: currentUser,
+        loading: false,
+        error: null,
+      });
+  
       if (currentUser) {
-        console.log(
-          "checkAuth: User session found, fetching saved properties.",
-        );
-        useStore.getState().fetchSavedProperties();
+        console.log("checkAuth: User session found, initializing stores.");
+        get().initializeUserStores(currentUser);
       } else {
-        console.log("checkAuth: No active session found.");
-        useStore.getState().setSavedProperties([]);
+        console.log("checkAuth: No active session found, clearing stores.");
+        get().clearUserStores();
       }
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
+      get().clearUserStores();
     }
   },
 
@@ -90,39 +185,78 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
-        // Use error message from backend if available, otherwise default
         throw new Error(
           data.message || `Sign in failed (status: ${response.status})`
         );
       }
-
+  
       const session = constructSession(data);
-      const user = data.user as User | null;
-
+      let user = data.user as User | null;
+  
       if (!session || !user) {
         throw new Error(
           "Invalid response received from server during sign in."
         );
       }
-
+  
+      console.log("signIn --- Initial user metadata:", JSON.stringify(user.user_metadata, null, 2));
+  
+      // Fetch user profile to get the role
+      try {
+        console.log("signIn --- Fetching user profile with token:", session.access_token.substring(0, 20) + "...");
+        const profileResponse = await fetch(`${API_BASE_URL}/profiles/me`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        
+        console.log("signIn --- Profile response status:", profileResponse.status);
+        
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          console.log("signIn --- Profile data received:", JSON.stringify(profileData, null, 2));
+          
+          if (profileData.role) {
+            user = {
+              ...user,
+              user_metadata: {
+                ...user.user_metadata,
+                role: profileData.role,
+              },
+            };
+            console.log("signIn --- Updated user metadata:", JSON.stringify(user.user_metadata, null, 2));
+          } else {
+            console.log("signIn --- No role found in profile data");
+          }
+        } else {
+          const errorText = await profileResponse.text();
+          console.error("signIn --- Profile fetch failed:", profileResponse.status, errorText);
+        }
+      } catch (profileError) {
+        console.error("signIn --- Could not fetch user profile:", profileError);
+      }
+  
+      // Update session with modified user
+      const updatedSession = createUpdatedSession(session, user);
+  
       // IMPORTANT: Update Supabase client's internal state
       await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-
-      set({ user, session, loading: false, error: null });
-      console.log("signIn: Sign in successful, fetching saved properties.");
-      useStore.getState().fetchSavedProperties(); // Fetch saved properties after successful sign in
-      return true; // Indicate success
+  
+      console.log("signIn --- Final user object being set:", JSON.stringify(user, null, 2));
+      set({ user, session: updatedSession, loading: false, error: null });
+      console.log("signIn: Sign in successful, initializing stores.");
+      get().initializeUserStores(user);
+      return true;
     } catch (error: any) {
       console.error("signIn error:", error);
       set({ error: error.message, loading: false, user: null, session: null });
-      return false; // Indicate failure
+      get().clearUserStores();
+      return false;
     }
   },
 
@@ -145,18 +279,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const session = constructSession(data);
-      const user = data.user as User | null;
+      let user = data.user as User | null;
 
       if (session && user) {
+        // Update user with role in metadata if available
+        if (role) {
+          user = {
+            ...user,
+            user_metadata: {
+              ...user.user_metadata,
+              role: role,
+            },
+          };
+        }
+
+        const updatedSession = createUpdatedSession(session, user);
+
         await supabase.auth.setSession({
           access_token: session.access_token,
           refresh_token: session.refresh_token,
         });
-        set({ user, session, loading: false, error: null });
-        console.log("signUp: Sign up successful, fetching saved properties.");
-        useStore.getState().fetchSavedProperties();
+        set({ user, session: updatedSession, loading: false, error: null });
+        console.log("signUp: Sign up successful, initializing stores.");
+        get().initializeUserStores(user);
       } else {
         set({ user: null, session: null, loading: false, error: null });
+        get().clearUserStores();
         Alert.alert(
           "Sign Up Pending",
           data.message || "Please check your email to confirm your account.",
@@ -166,6 +314,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error: any) {
       console.error("signUp error:", error);
       set({ error: error.message, loading: false, user: null, session: null });
+      get().clearUserStores();
       return false;
     }
   },
@@ -178,97 +327,88 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       set({ user: null, session: null, loading: false, error: null });
-      useStore.getState().setSavedProperties([]);
+      get().clearUserStores();
     } catch (error: any) {
       console.error("signOut error:", error);
       set({ error: error.message, loading: false });
     }
   },
 
-// store/authStore.ts
-// ... (other imports and code remain the same)
+  signInWithGoogle: async () => {
+    const supabase = getSupabase();
+    try {
+      set({ loading: true, error: null });
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
 
-// ...
-signInWithGoogle: async () => {
-  const supabase = getSupabase();
-  // ... (your console logs for crypto and redirectUri) ...
-  try {
-    set({ loading: true, error: null });
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectUri,
-        skipBrowserRedirect: true, // Keep this true for openAuthSessionAsync
-      },
-    });
+      if (oauthError) throw oauthError;
 
-    if (oauthError) throw oauthError;
+      if (data.url) {
+        console.log("[authStore.ts] Opening auth session with URL:", data.url);
+        console.log("[authStore.ts] Expecting redirect back to:", redirectUri);
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUri,
+        );
+        console.log("[authStore.ts] WebBrowser.openAuthSessionAsync result:", JSON.stringify(result, null, 2));
 
-    if (data.url) {
-      console.log("[authStore.ts] Opening auth session with URL:", data.url);
-      console.log("[authStore.ts] Expecting redirect back to:", redirectUri);
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectUri, // This is the scheme your app will respond to
-      );
-      console.log("[authStore.ts] WebBrowser.openAuthSessionAsync result:", JSON.stringify(result, null, 2));
+        if (result.type === 'success' && result.url) {
+          console.log("[authStore.ts] Auth session success, URL returned:", result.url);
 
-      if (result.type === 'success' && result.url) {
-        console.log("[authStore.ts] Auth session success, URL returned:", result.url);
+          const { queryParams } = Linking.parse(result.url);
+          const code = queryParams?.code;
 
-        // Extract the authorization code from the returned URL
-        // The code is usually in a query parameter named 'code'
-        const { queryParams } = Linking.parse(result.url);
-        const code = queryParams?.code;
+          if (typeof code === 'string' && code) {
+            console.log("[authStore.ts] Authorization code extracted:", code);
 
-        if (typeof code === 'string' && code) {
-          console.log("[authStore.ts] Authorization code extracted:", code);
+            const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-          // Exchange the code for a session
-          const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError) {
+              console.error("[authStore.ts] Error exchanging code for session:", exchangeError);
+              set({ error: exchangeError.message, loading: false });
+              return;
+            }
 
-          if (exchangeError) {
-            console.error("[authStore.ts] Error exchanging code for session:", exchangeError);
-            set({ error: exchangeError.message, loading: false });
-            return;
-          }
-
-          if (sessionData && sessionData.session && sessionData.user) {
-            console.log("[authStore.ts] Session successfully obtained after exchange:", JSON.stringify(sessionData.session, null, 2));
-
+            if (sessionData && sessionData.session && sessionData.user) {
+              console.log("[authStore.ts] Session successfully obtained after exchange:", JSON.stringify(sessionData.session, null, 2));
+              // The session will be handled by the auth state change listener
+            } else {
+              console.error("[authStore.ts] No session data returned from exchangeCodeForSession.");
+              set({ error: "Failed to obtain session after exchanging code.", loading: false });
+            }
           } else {
-            console.error("[authStore.ts] No session data returned from exchangeCodeForSession.");
-            set({ error: "Failed to obtain session after exchanging code.", loading: false });
+            console.error("[authStore.ts] Authorization code not found in callback URL.", result.url);
+            set({ error: "Authorization code missing in callback.", loading: false });
           }
-        } else {
-          console.error("[authStore.ts] Authorization code not found in callback URL.", result.url);
-          set({ error: "Authorization code missing in callback.", loading: false });
+        } else if (result.type !== 'success') {
+          set({ loading: false, error: `Google Sign-In failed or cancelled. Result type: ${result.type}` });
+          return;
         }
-      } else if (result.type !== 'success') {
-        set({ loading: false, error: `Google Sign-In failed or cancelled. Result type: ${result.type}` });
-        return;
+      } else {
+        throw new Error("Could not get Google OAuth URL from Supabase.");
       }
-    } else {
-      throw new Error("Could not get Google OAuth URL from Supabase.");
-    }
 
-  } catch (error: any) {
-    console.error("[authStore.ts] signInWithGoogle error:", error);
-    set({ error: error.message || "Google Sign-In failed.", loading: false });
-  }
-},
+    } catch (error: any) {
+      console.error("[authStore.ts] signInWithGoogle error:", error);
+      set({ error: error.message || "Google Sign-In failed.", loading: false });
+    }
+  },
 
   signInWithFacebook: async () => {
     const supabase = getSupabase();
 
     set({ loading: true, error: null });
     console.log("signInWithFacebook - Using Redirect URI from supabaseClient:", redirectUri);
-    set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "facebook",
         options: {
-          redirectTo: redirectUri, // USE THE IMPORTED URI
+          redirectTo: redirectUri,
           skipBrowserRedirect: true,
         },
       });
@@ -303,12 +443,13 @@ signInWithGoogle: async () => {
     set({ loading: true });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log("onAuthStateChange --- Event:", _event);
       console.log("onAuthStateChange --- Received Session:", JSON.stringify(session, null, 2));
       console.log("onAuthStateChange --- Session User:", JSON.stringify(session?.user, null, 2));
-      const currentUser = session?.user ?? null;
-      const currentSession = session ?? null;
+      
+      let currentUser = session?.user ?? null;
+      let currentSession = session ?? null;
 
       const previousUserId = get().user?.id;
       const previousAccessToken = get().session?.access_token;
@@ -318,20 +459,67 @@ signInWithGoogle: async () => {
       console.log("onAuthStateChange --- Previous Access Token (exists):", !!previousAccessToken);
       console.log("onAuthStateChange --- Current Access Token (exists):", !!currentSession?.access_token);
 
+      // Fetch role if user exists but doesn't have role in metadata
+      if (currentUser && !currentUser.user_metadata?.role && !currentUser.app_metadata?.role && currentSession?.access_token) {
+        console.log("onAuthStateChange --- User has no role in metadata, fetching from profiles...");
+        try {
+          console.log("onAuthStateChange --- Making request to /profiles/me with token:", currentSession.access_token.substring(0, 20) + "...");
+          
+          const profileResponse = await fetch(`${API_BASE_URL}/profiles/me`, {
+            headers: { Authorization: `Bearer ${currentSession.access_token}` },
+          });
+          
+          console.log("onAuthStateChange --- Profile response status:", profileResponse.status);
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            console.log("onAuthStateChange --- Profile data received:", JSON.stringify(profileData, null, 2));
+            
+            if (profileData.role) {
+              console.log("onAuthStateChange --- Updating user with role:", profileData.role);
+              currentUser = {
+                ...currentUser,
+                user_metadata: {
+                  ...currentUser.user_metadata,
+                  role: profileData.role,
+                },
+              };
+              currentSession = createUpdatedSession(currentSession, currentUser);
+              console.log("onAuthStateChange --- Updated user metadata:", JSON.stringify(currentUser.user_metadata, null, 2));
+            } else {
+              console.log("onAuthStateChange --- No role found in profile data");
+            }
+          } else {
+            const errorText = await profileResponse.text();
+            console.error("onAuthStateChange --- Profile fetch failed:", profileResponse.status, errorText);
+          }
+        } catch (profileError) {
+          console.error("onAuthStateChange --- Error fetching user profile:", profileError);
+        }
+      } else {
+        console.log("onAuthStateChange --- User role check:", {
+          hasUser: !!currentUser,
+          hasRoleInUserMetadata: !!currentUser?.user_metadata?.role,
+          hasRoleInAppMetadata: !!currentUser?.app_metadata?.role,
+          hasAccessToken: !!currentSession?.access_token,
+          userMetadata: currentUser?.user_metadata,
+          appMetadata: currentUser?.app_metadata
+        });
+      }
+
       if (
         currentUser?.id !== previousUserId ||
         currentSession?.access_token !== previousAccessToken
       ) {
         console.log("onAuthStateChange --- State change detected. Updating store.");
-        set({ session: currentSession, user: currentUser, error: null, loading: false }); // Ensure loading is also set false here
+        console.log("onAuthStateChange --- Final user object:", JSON.stringify(currentUser, null, 2));
+        set({ session: currentSession, user: currentUser, error: null, loading: false });
         if (currentUser) {
-          console.log(
-            "onAuthStateChange: User detected, fetching saved properties.",
-          );
-          useStore.getState().fetchSavedProperties();
+          console.log("onAuthStateChange: User detected, initializing stores.");
+          get().initializeUserStores(currentUser);
         } else {
-          console.log("onAuthStateChange: No user detected. Clearing saved properties.");
-          useStore.getState().setSavedProperties([]);
+          console.log("onAuthStateChange: No user detected. Clearing stores.");
+          get().clearUserStores();
         }
       } else {
         console.log("onAuthStateChange --- No significant state change detected. Not updating store.");
@@ -378,7 +566,6 @@ signInWithGoogle: async () => {
         );
       }
 
-
       const { data: updatedUserData, error: userUpdateError } =
         await supabase.auth.updateUser({
           data: { role: profileData.role },
@@ -395,21 +582,21 @@ signInWithGoogle: async () => {
       if (currentUser && currentSession) {
         const updatedUser = {
           ...currentUser,
-          phone: profileData.phone, // Directly update phone
+          phone: profileData.phone,
           user_metadata: {
             ...currentUser.user_metadata,
-            role: profileData.role, // Directly update role in metadata
+            role: profileData.role,
           },
         };
-        const updatedSession = {
-            ...currentSession,
-            user: updatedUser,
-        };
+        const updatedSession = createUpdatedSession(currentSession, updatedUser);
         set({ user: updatedUser, session: updatedSession, loading: false, error: null });
+        
+        // Re-initialize stores with updated user role
+        console.log("updateUserProfile: Profile updated, re-initializing stores.");
+        get().initializeUserStores(updatedUser);
       } else {
-         set({ loading: false, error: null }); // Should not happen if token exists
+         set({ loading: false, error: null });
       }
-
 
       console.log("updateUserProfile: Profile update successful.");
       return true;
@@ -420,6 +607,3 @@ signInWithGoogle: async () => {
     }
   },
 }));
-
-
-

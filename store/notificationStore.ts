@@ -1,7 +1,7 @@
-// src/store/notificationsStore.ts
 import { create } from 'zustand';
 import { API_BASE_URL } from '@/constants/Config';
 import { useAuthStore } from './authStore';
+import { useSubscriptionStore } from './subscriptionStore';
 
 export interface Notification {
   id: string;
@@ -23,6 +23,27 @@ export interface NotificationsResponse {
   unreadCount: number;
 }
 
+export interface SavedSearch {
+  id: string;
+  user_id: string;
+  name: string;
+  criteria: {
+    property_type?: 'rent' | 'sale';
+    category?: string;
+    location?: string;
+    min_price?: number;
+    max_price?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    min_square_meters?: number;
+    max_square_meters?: number;
+  };
+  is_active: boolean;
+  notification_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface NotificationsState {
   notifications: Notification[];
   unreadCount: number;
@@ -31,14 +52,25 @@ interface NotificationsState {
   hasMore: boolean;
   page: number;
   
-  // Actions
+  savedSearches: SavedSearch[];
+  loadingSavedSearches: boolean;
+  errorSavedSearches: string | null;
+
   fetchNotifications: (refresh?: boolean) => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   registerDeviceToken: (token: string, platform: string) => Promise<void>;
+  
+  fetchSavedSearches: () => Promise<void>;
+  createSavedSearch: (data: Omit<SavedSearch, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<SavedSearch>;
+  updateSavedSearch: (id: string, data: Partial<SavedSearch>) => Promise<SavedSearch>;
+  deleteSavedSearch: (id: string) => Promise<void>;
+  
   setError: (error: string | null) => void;
   clearNotifications: () => void;
+  clearSavedSearches: () => void;
   isUserAgent: () => boolean;
+  isRegularUser: () => boolean;
 }
 
 export const useNotificationsStore = create<NotificationsState>((set, get) => ({
@@ -48,28 +80,24 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   error: null,
   hasMore: true,
   page: 1,
+  
+  savedSearches: [],
+  loadingSavedSearches: false,
+  errorSavedSearches: null,
 
   isUserAgent: () => {
     const { user } = useAuthStore.getState();
-    
-    // Check the user metadata first (from Supabase auth)
-    if (user?.user_metadata?.role === 'agent') return true;
-    if (user?.app_metadata?.role === 'agent') return true;
-    
-    // If we have user data but no role info, we can't determine agent status
-    // The backend will handle the verification using profiles table
-    return false;
+    return user?.user_metadata?.role === 'agent' || user?.app_metadata?.role === 'agent';
+  },
+
+  isRegularUser: () => {
+    const { user } = useAuthStore.getState();
+    return user?.user_metadata?.role === 'user' || user?.app_metadata?.role === 'user';
   },
 
   fetchNotifications: async (refresh = false) => {
     const token = useAuthStore.getState().session?.access_token;
     if (!token) return;
-
-    // Check if user is likely an agent before making the call
-    if (!get().isUserAgent()) {
-      set({ error: 'Notifications are only available for agents' });
-      return;
-    }
 
     const currentState = get();
     const page = refresh ? 1 : currentState.page;
@@ -195,11 +223,140 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     }
   },
 
+  fetchSavedSearches: async () => {
+    const token = useAuthStore.getState().session?.access_token;
+    if (!token) return;
+
+    set({ loadingSavedSearches: true, errorSavedSearches: null });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/saved-searches`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch saved searches');
+      }
+
+      const data = await response.json();
+      set({ savedSearches: data, loadingSavedSearches: false });
+    } catch (error: any) {
+      console.error('Error fetching saved searches:', error);
+      set({ errorSavedSearches: error.message, loadingSavedSearches: false });
+    }
+  },
+
+  createSavedSearch: async (searchData) => {
+    const token = useAuthStore.getState().session?.access_token;
+    if (!token) throw new Error('Authentication required');
+
+    const { isSubscribed } = useSubscriptionStore.getState();
+    if (!isSubscribed) {
+      throw new Error('You need an active subscription to save searches');
+    }
+
+    const limitCheck = await useSubscriptionStore.getState().checkCanSaveMoreSearches();
+    if (!limitCheck.canSave) {
+      throw new Error(`You have reached your saved search limit (${limitCheck.maxAllowed}). Upgrade your subscription to save more searches.`);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/saved-searches`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(searchData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create saved search');
+      }
+
+      const newSearch = await response.json();
+      set(state => ({ savedSearches: [newSearch, ...state.savedSearches] }));
+      
+      useSubscriptionStore.getState().checkCanSaveMoreSearches();
+      return newSearch;
+    } catch (error: any) {
+      console.error('Error creating saved search:', error);
+      throw error;
+    }
+  },
+
+  updateSavedSearch: async (id, updateData) => {
+    const token = useAuthStore.getState().session?.access_token;
+    if (!token) throw new Error('Authentication required');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/saved-searches/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update saved search');
+      }
+
+      const updatedSearch = await response.json();
+      set(state => ({
+        savedSearches: state.savedSearches.map(search =>
+          search.id === id ? updatedSearch : search
+        ),
+      }));
+      return updatedSearch;
+    } catch (error: any) {
+      console.error('Error updating saved search:', error);
+      throw error;
+    }
+  },
+
+  deleteSavedSearch: async (id) => {
+    const token = useAuthStore.getState().session?.access_token;
+    if (!token) throw new Error('Authentication required');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/saved-searches/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete saved search');
+      }
+
+      set(state => ({
+        savedSearches: state.savedSearches.filter(search => search.id !== id),
+      }));
+      
+      useSubscriptionStore.getState().checkCanSaveMoreSearches();
+    } catch (error: any) {
+      console.error('Error deleting saved search:', error);
+      throw error;
+    }
+  },
+
   setError: (error) => set({ error }),
+
   clearNotifications: () => set({ 
     notifications: [], 
     unreadCount: 0, 
     page: 1, 
-    hasMore: true 
+    hasMore: true,
+    error: null,
+  }),
+
+  clearSavedSearches: () => set({
+    savedSearches: [],
+    errorSavedSearches: null,
   }),
 }));

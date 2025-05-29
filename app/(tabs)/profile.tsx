@@ -18,7 +18,6 @@ import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-// Removed Colors import as it's replaced by direct values or Tailwind
 
 interface Profile {
   id: string;
@@ -234,9 +233,11 @@ export default function ProfileScreen() {
       router.push("/property/new");
     }
   };
+
   const handleNavigateToSettings = () => {
     router.push("/settings");
   };
+
   const handleNavigateToEditProfile = () => {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to edit your profile");
@@ -246,6 +247,30 @@ export default function ProfileScreen() {
       });
     } else {
       handleUpdateName();
+    }
+  };
+
+  const handleNavigateToSubscription = () => {
+    if (!user) {
+      Alert.alert("Sign in required", "Please sign in to manage your subscription");
+      router.push({
+        pathname: "/auth/signin",
+        params: { redirectTo: "/subscription" },
+      });
+    } else {
+      router.push("/subscriptions/subscriptionScreen");
+    }
+  };
+
+  const handleNavigateToSavedSearches = () => {
+    if (!user) {
+      Alert.alert("Sign in required", "Please sign in to manage saved searches");
+      router.push({
+        pathname: "/auth/signin",
+        params: { redirectTo: "/saved-searches" },
+      });
+    } else {
+      router.push("/settings/saveSearchScreen/SavedSearchScreen")
     }
   };
 
@@ -285,7 +310,7 @@ export default function ProfileScreen() {
         </Text>
         <TouchableOpacity
           onPress={() => router.push("/auth/signin")}
-          className="w-full bg-emerald-700 dark:bg-dark-tint rounded-lg h-12 justify-center items-center shadow-sm"
+          className="w-full bg-[#ED9B6B] dark:bg-[#ED9B6B] rounded-lg h-12 justify-center items-center shadow-sm"
         >
           <Text className="text-white font-semibold text-base">
             Sign In / Sign Up
@@ -407,6 +432,48 @@ export default function ProfileScreen() {
                 />
                 <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
                   Saved Property
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={20}
+                color={iconColors.chevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleNavigateToSubscription}
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
+            >
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="star-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+                  Subscription
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={20}
+                color={iconColors.chevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleNavigateToSavedSearches}
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
+            >
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="search-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+                  Saved Searches
                 </Text>
               </View>
               <Ionicons

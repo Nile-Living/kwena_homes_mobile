@@ -1,3 +1,4 @@
+// app/property/[id].tsx - Updated version with real data only
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
@@ -10,7 +11,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Share,
-  StyleSheet,
   Alert,
 } from "react-native";
 import { useLocalSearchParams, Stack, useNavigation } from "expo-router";
@@ -26,11 +26,13 @@ import { Property, useStore } from "@/store/useStore";
 import { API_BASE_URL } from "@/constants/Config";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { useAuthStore } from "@/store/authStore";
-import { styles as propertyDetailsStyles, COLORS } from "@/styles/PropertyDetails.styles"; // Renamed to avoid conflict
+import { styles as propertyDetailsStyles, COLORS } from "@/styles/PropertyDetails.styles";
 import { useRouter } from "expo-router";
 import {
   DisplayableFeature,
-  featureCategories as defaultFeatureCategories,
+  generateDisplayableFeatures,
+  getKeyFeaturesForDisplay,
+  featureCategories,
 } from "../../utils/propertyDetailsUtils";
 import PropertyImageCarousel from "@/components/propertyDetails/PropertyImageCarousel";
 import PropertyHeaderInfo from "@/components/propertyDetails/PropertyHeaderInfo";
@@ -42,11 +44,6 @@ import PropertyNearbyContent from "@/components/propertyDetails/PropertyNearbyCo
 import PropertyAgentCard from "@/components/propertyDetails/PropertyAgentCard";
 import PropertyContactBar from "@/components/propertyDetails/PropertyContactBar";
 import FullScreenImageModal from "@/components/propertyDetails/FullScreenImageModal";
-import {
-  originalMockProperty,
-  generateDisplayableFeatures,
-  getKeyFeaturesForDisplay,
-} from "@/components/propertyDetails/MockPropertyData";
 
 const { width } = Dimensions.get("window");
 
@@ -62,9 +59,7 @@ export default function PropertyDetails() {
   const [error, setError] = useState<string | null>(null);
   const [carouselActiveIndex, setCarouselActiveIndex] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "details" | "nearby">(
-    "overview"
-  );
+  const [activeTab, setActiveTab] = useState<"overview" | "details" | "nearby">("overview");
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const [currentFullScreenIndex, setCurrentFullScreenIndex] = useState(0);
 
@@ -92,9 +87,11 @@ export default function PropertyDetails() {
     const loadPropertyDetails = async () => {
       if (!id) { setError("Property ID is missing."); setLoading(false); return; }
       setLoading(true); setError(null);
+      
       const storeProperty = getPropertyById(id);
       if (storeProperty) {
-        setPropertyData(storeProperty); setLoading(false);
+        setPropertyData(storeProperty); 
+        setLoading(false);
       } else {
         try {
           const response = await fetch(`${API_BASE_URL}/properties/${id}`);
@@ -104,18 +101,26 @@ export default function PropertyDetails() {
           }
           const data: Property = await response.json();
           setPropertyData(data);
-        } catch (err: any) { setError(err.message || "Could not load property details."); }
-        finally { setLoading(false); }
+        } catch (err: any) { 
+          setError(err.message || "Could not load property details."); 
+        } finally { 
+          setLoading(false); 
+        }
       }
     };
     loadPropertyDetails();
   }, [id, getPropertyById]);
 
-  const imagesFromProperty = propertyData?.images && propertyData.images.length > 0 ? propertyData.images : originalMockProperty.images;
+  // Use actual property images or fallback
+  const imagesFromProperty = propertyData?.images && propertyData.images.length > 0 
+    ? propertyData.images 
+    : ['https://via.placeholder.com/400x300?text=No+Image+Available'];
 
   useEffect(() => {
     if (isFullScreen && fullScreenFlatListRef.current && imagesFromProperty.length > 0 && currentFullScreenIndex >= 0 && currentFullScreenIndex < imagesFromProperty.length) {
-      setTimeout(() => { fullScreenFlatListRef.current?.scrollToIndex({ index: currentFullScreenIndex, animated: false }); }, 100);
+      setTimeout(() => { 
+        fullScreenFlatListRef.current?.scrollToIndex({ index: currentFullScreenIndex, animated: false }); 
+      }, 100);
     }
   }, [isFullScreen, currentFullScreenIndex, imagesFromProperty]);
 
@@ -127,24 +132,35 @@ export default function PropertyDetails() {
   const phoneNumberForCall = propertyData?.use_phone_for_call && propertyData.contact_phone_number ? propertyData.contact_phone_number : null;
   const numberForWhatsApp = propertyData?.use_whatsapp_for_message && propertyData.contact_whatsapp_number ? propertyData.contact_whatsapp_number : null;
 
-
   const handleCallAgent = () => {
-    if (phoneNumberForCall) { Linking.openURL(`tel:${phoneNumberForCall}`); }
-    else { Alert.alert("Not Available", "Calling is not configured for this property.");}
+    if (phoneNumberForCall) { 
+      Linking.openURL(`tel:${phoneNumberForCall}`); 
+    } else { 
+      Alert.alert("Not Available", "Calling is not configured for this property.");
+    }
   };
 
   const handleViewOnMap = () => {
     if (propertyData?.coordinates) {
-      router.push({ pathname: "/explore", params: { propertyId: propertyData.id, latitude: propertyData.coordinates.latitude.toString(), longitude: propertyData.coordinates.longitude.toString() } });
+      router.push({ 
+        pathname: "/explore", 
+        params: { 
+          propertyId: propertyData.id, 
+          latitude: propertyData.coordinates.latitude.toString(), 
+          longitude: propertyData.coordinates.longitude.toString() 
+        } 
+      });
     }
   };
 
   const handleWhatsAppAgent = () => {
     if (numberForWhatsApp) {
       const cleanedNumber = numberForWhatsApp.replace(/\D/g, "");
-      const titleToUse = propertyData?.title || originalMockProperty.title;
-      Linking.openURL(`https://wa.me/${cleanedNumber}?text=Hello, I'm interested in the ${encodeURIComponent(titleToUse)} property listed on Kwena Properties.`);
-    } else { Alert.alert("Not Available", "WhatsApp messaging is not configured for this property.");}
+      const titleToUse = propertyData?.title || "this property";
+      Linking.openURL(`https://wa.me/${cleanedNumber}?text=Hello, I'm interested in ${encodeURIComponent(titleToUse)} listed on Kwena Properties.`);
+    } else { 
+      Alert.alert("Not Available", "WhatsApp messaging is not configured for this property.");
+    }
   };
 
   const handleCarouselScroll = (event: any) => {
@@ -162,64 +178,235 @@ export default function PropertyDetails() {
   const handleShare = async () => {
     if (!propertyData) { return; }
     const propertyUrl = `https://www.kwenaproperties.com/property/${propertyData.id}`;
-    const titleToShare = propertyData.title || originalMockProperty.title;
-    const message = `Check out this property: ${titleToShare}\n\nLocation: ${propertyData.location || originalMockProperty.location}\nPrice: K${(propertyData.price ?? originalMockProperty.price).toLocaleString()}\n\nView more details here: ${propertyUrl}`;
+    const message = `Check out this property: ${propertyData.title}\n\nLocation: ${propertyData.location}\nPrice: K${propertyData.price.toLocaleString()}\n\nView more details here: ${propertyUrl}`;
     try {
-      await Share.share({ message: message, url: propertyUrl, title: `Check out: ${titleToShare}` }, { dialogTitle: `Share ${titleToShare}` });
-    } catch (error: any) { console.error("Error sharing property:", error.message); }
+      await Share.share({ 
+        message: message, 
+        url: propertyUrl, 
+        title: `Check out: ${propertyData.title}` 
+      }, { 
+        dialogTitle: `Share ${propertyData.title}` 
+      });
+    } catch (error: any) { 
+      console.error("Error sharing property:", error.message); 
+    }
   };
 
   const handleViewAgentProfile = () => {};
-  const handleMessageAgent = () => {};
 
-  const statusTextMap: { [key: string]: string } = { available: "Available", occupied: "Occupied", rented: "Rented", "off-market": "Off Market", "under-maintenance": "Maintenance", "pending-approval": "Pending", premium: "Premium" };
-  const getFormattedDate = (dateString?: string) => { if (!dateString) return originalMockProperty.listedDate; try { return formatDistanceToNow(new Date(dateString), { addSuffix: true }); } catch (e) { return "Invalid date"; } };
+  const statusTextMap: { [key: string]: string } = { 
+    available: "Available", 
+    occupied: "Occupied", 
+    rented: "Rented", 
+    "off-market": "Off Market", 
+    "under-maintenance": "Maintenance", 
+    "pending-approval": "Pending" 
+  };
 
-  if (loading) { return (<View style={propertyDetailsStyles.centered}><Stack.Screen options={{ headerShown: false }} /><ActivityIndicator size="large" color={COLORS.primary} /><Text style={propertyDetailsStyles.loadingText}>Loading Property...</Text></View>); }
-  if (error) { return (<View style={propertyDetailsStyles.centered}><Stack.Screen options={{ headerShown: false }} /><Ionicons name="alert-circle-outline" size={60} color={COLORS.red} /><Text style={propertyDetailsStyles.errorText}>{error}</Text><TouchableOpacity style={propertyDetailsStyles.retryButton} onPress={() => navigation.goBack()}><Text style={propertyDetailsStyles.retryButtonText}>Go Back</Text></TouchableOpacity></View>); }
-  if (!propertyData) { return (<View style={propertyDetailsStyles.centered}><Stack.Screen options={{ headerShown: false }} /><Ionicons name="home-outline" size={60} color={COLORS.mediumGray} /><Text style={propertyDetailsStyles.errorText}>Property data could not be loaded.</Text><TouchableOpacity style={propertyDetailsStyles.retryButton} onPress={() => navigation.goBack()}><Text style={propertyDetailsStyles.retryButtonText}>Go Back</Text></TouchableOpacity></View>); }
+  const getFormattedDate = (dateString?: string) => { 
+    if (!dateString) return "Recently listed"; 
+    try { 
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true }); 
+    } catch (e) { 
+      return "Recently listed"; 
+    } 
+  };
 
-  const title = propertyData.title || originalMockProperty.title;
-  const subtitle = originalMockProperty.subtitle;
-  const price = propertyData.price ?? originalMockProperty.price;
-  const location = propertyData.location || originalMockProperty.location;
-  const description = propertyData.description || originalMockProperty.description;
+  if (loading) { 
+    return (
+      <View style={propertyDetailsStyles.centered}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={propertyDetailsStyles.loadingText}>Loading Property...</Text>
+      </View>
+    ); 
+  }
+
+  if (error) { 
+    return (
+      <View style={propertyDetailsStyles.centered}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.red} />
+        <Text style={propertyDetailsStyles.errorText}>{error}</Text>
+        <TouchableOpacity style={propertyDetailsStyles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={propertyDetailsStyles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    ); 
+  }
+
+  if (!propertyData) { 
+    return (
+      <View style={propertyDetailsStyles.centered}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Ionicons name="home-outline" size={60} color={COLORS.mediumGray} />
+        <Text style={propertyDetailsStyles.errorText}>Property data could not be loaded.</Text>
+        <TouchableOpacity style={propertyDetailsStyles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={propertyDetailsStyles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    ); 
+  }
+
+  // Use ONLY actual property data
+  const title = propertyData.title;
+  const price = propertyData.price;
+  const location = propertyData.location;
+  const description = propertyData.description || "No description available";
+  
   let statusTagText: string | null = null;
   let statusTagColor: string = COLORS.mediumGray;
-  if (propertyData.is_promoted === true) { statusTagText = "Premium"; statusTagColor = COLORS.statusColor.premium; }
-  else if (propertyData.status && statusTextMap[propertyData.status]) { statusTagText = statusTextMap[propertyData.status]; statusTagColor = COLORS.statusColor[propertyData.status as keyof typeof COLORS.statusColor] || COLORS.mediumGray; }
-  else if (propertyData.status) { statusTagText = propertyData.status.charAt(0).toUpperCase() + propertyData.status.slice(1); statusTagColor = COLORS.mediumGray; }
+  
+  if (propertyData.is_promoted === true) { 
+    statusTagText = "Premium"; 
+    statusTagColor = COLORS.statusColor?.premium || COLORS.primary; 
+  } else if (propertyData.status && statusTextMap[propertyData.status]) { 
+    statusTagText = statusTextMap[propertyData.status]; 
+    statusTagColor = COLORS.statusColor?.[propertyData.status as keyof typeof COLORS.statusColor] || COLORS.mediumGray; 
+  }
+  
   const listedDate = getFormattedDate(propertyData.created_at);
-  const getDisplayCategory = (category?: string) => { if (!category) return originalMockProperty.propertyType; switch (category.toLowerCase()) { case "house": return "House"; case "apartment": return "Apartment"; case "land": return "Land"; case "commercial": return "Commercial"; default: return category.charAt(0).toUpperCase() + category.slice(1); } };
+  
+  const getDisplayCategory = (category?: string) => {
+    if (!category) return "Property";
+    const categoryMap: Record<string, string> = {
+      house: "House",
+      apartment: "Apartment",
+      land: "Land",
+      commercial: "Commercial Property",
+      farm: "Farm",
+      industrial: "Industrial",
+      lodge: "Lodge"
+    };
+    return categoryMap[category.toLowerCase()] || category.charAt(0).toUpperCase() + category.slice(1);
+  };
+  
   const propertyTypeForDisplay = getDisplayCategory(propertyData.category);
+  const priceUnit = propertyData.property_type === 'rent' ? '/month' : '';
+  
+  // Generate features from actual property data
   const displayableFeatures = generateDisplayableFeatures(propertyData);
   const keyFeaturesToDisplay = getKeyFeaturesForDisplay(displayableFeatures, propertyData.category);
-  const groupedFeatures = displayableFeatures.reduce<Record<string, DisplayableFeature[]>>((acc, feature) => { if (!acc[feature.category]) acc[feature.category] = []; acc[feature.category].push(feature); return acc; }, {});
+  const groupedFeatures = displayableFeatures.reduce<Record<string, DisplayableFeature[]>>((acc, feature) => { 
+    if (!acc[feature.category]) acc[feature.category] = []; 
+    acc[feature.category].push(feature); 
+    return acc; 
+  }, {});
+  
   const visibleFeatures = showAllFeatures ? displayableFeatures : displayableFeatures.slice(0, 6);
+
+  // Mock agent data (since this isn't in your schema yet)
+  const mockAgent = {
+    id: "agent-default",
+    name: "Property Agent",
+    photo: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1974&auto=format&fit=crop",
+    rating: 4.5,
+    reviewCount: 25,
+    phone: phoneNumberForCall || "+260 97 1234567",
+    email: "agent@kwenaproperties.com",
+  };
+
+  // Mock nearby places (since this isn't in your schema yet)
+  const mockNearbyPlaces = [
+    { name: "Local School", distance: "0.5 km", icon: "graduation-cap" },
+    { name: "Shopping Center", distance: "1.2 km", icon: "shopping-bag" },
+    { name: "Hospital", distance: "2.5 km", icon: "hospital-o" },
+  ];
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-      <AnimatedDetailHeader title={title} isLiked={isLiked} animatedProperties={headerContainerAnimatedStyle} onBackPress={() => navigation.goBack()} onLikePress={handleLikePress} onSharePress={handleShare} />
-      <ScrollView style={propertyDetailsStyles.container} showsVerticalScrollIndicator={false} onScroll={handleMainScroll} scrollEventThrottle={16}>
-        <PropertyImageCarousel images={imagesFromProperty} isLiked={isLiked} statusText={statusTagText || ""} statusColor={statusTagColor} listedDate={listedDate} activeIndex={carouselActiveIndex} flatListRef={carouselFlatListRef} onImagePress={toggleFullScreen} onLikePress={handleLikePress} onSharePress={handleShare} onBackPress={() => navigation.goBack()} onScroll={handleCarouselScroll} onDotPress={handleDotPress} />
+      
+      <AnimatedDetailHeader 
+        title={title} 
+        isLiked={isLiked} 
+        animatedProperties={headerContainerAnimatedStyle} 
+        onBackPress={() => navigation.goBack()} 
+        onLikePress={handleLikePress} 
+        onSharePress={handleShare} 
+      />
+      
+      <ScrollView 
+        style={propertyDetailsStyles.container} 
+        showsVerticalScrollIndicator={false} 
+        onScroll={handleMainScroll} 
+        scrollEventThrottle={16}
+      >
+        <PropertyImageCarousel 
+          images={imagesFromProperty} 
+          isLiked={isLiked} 
+          statusText={statusTagText || ""} 
+          statusColor={statusTagColor} 
+          listedDate={listedDate} 
+          activeIndex={carouselActiveIndex} 
+          flatListRef={carouselFlatListRef} 
+          onImagePress={toggleFullScreen} 
+          onLikePress={handleLikePress} 
+          onSharePress={handleShare} 
+          onBackPress={() => navigation.goBack()} 
+          onScroll={handleCarouselScroll} 
+          onDotPress={handleDotPress} 
+        />
+        
         <View style={propertyDetailsStyles.contentWrapper}>
-          <PropertyHeaderInfo price={price} priceUnit={originalMockProperty.priceUnit} propertyTypeDisplay={propertyTypeForDisplay} title={title} subtitle={subtitle} location={location} onViewOnMap={handleViewOnMap} />
+          <PropertyHeaderInfo 
+            price={price} 
+            priceUnit={priceUnit}
+            propertyTypeDisplay={propertyTypeForDisplay} 
+            title={title} 
+            location={location} 
+            onViewOnMap={handleViewOnMap} 
+          />
+          
           <PropertyTabs activeTab={activeTab} onTabPress={setActiveTab} />
-          <View style={{ display: activeTab === "overview" ? "flex" : "none" }}><PropertyOverviewContent keyFeaturesToDisplay={keyFeaturesToDisplay} /></View>
-          <View style={{ display: activeTab === "details" ? "flex" : "none" }}><PropertyDetailsContent description={description} displayableFeatures={displayableFeatures} visibleFeatures={visibleFeatures} showAllFeatures={showAllFeatures} onShowAllFeaturesToggle={() => setShowAllFeatures(!showAllFeatures)} featureCategories={defaultFeatureCategories} groupedFeatures={groupedFeatures} /></View>
-          <View style={{ display: activeTab === "nearby" ? "flex" : "none" }}><PropertyNearbyContent nearbyPlaces={originalMockProperty.nearbyPlaces} onViewAllOnMap={handleViewOnMap} /></View>
-          <PropertyAgentCard agent={originalMockProperty.agent} onViewProfile={handleViewAgentProfile} />
+          
+          <View style={{ display: activeTab === "overview" ? "flex" : "none" }}>
+            <PropertyOverviewContent keyFeaturesToDisplay={keyFeaturesToDisplay} />
+          </View>
+          
+          <View style={{ display: activeTab === "details" ? "flex" : "none" }}>
+            <PropertyDetailsContent 
+              description={description} 
+              displayableFeatures={displayableFeatures} 
+              visibleFeatures={visibleFeatures} 
+              showAllFeatures={showAllFeatures} 
+              onShowAllFeaturesToggle={() => setShowAllFeatures(!showAllFeatures)} 
+              featureCategories={Object.values(featureCategories).map(name => ({ id: name.toLowerCase().replace(' ', '_'), name }))}
+              groupedFeatures={groupedFeatures} 
+            />
+          </View>
+          
+          <View style={{ display: activeTab === "nearby" ? "flex" : "none" }}>
+            <PropertyNearbyContent 
+              nearbyPlaces={mockNearbyPlaces} 
+              onViewAllOnMap={handleViewOnMap} 
+            />
+          </View>
+          
+          <PropertyAgentCard 
+            agent={mockAgent} 
+            onViewProfile={handleViewAgentProfile} 
+          />
         </View>
       </ScrollView>
+      
       <PropertyContactBar
         agentPhone={phoneNumberForCall}
         agentWhatsApp={numberForWhatsApp}
         onCallAgent={handleCallAgent}
         onWhatsAppAgent={handleWhatsAppAgent}
       />
-      <FullScreenImageModal visible={isFullScreen} images={imagesFromProperty} initialIndex={currentFullScreenIndex} currentFullScreenIndex={currentFullScreenIndex} flatListRef={fullScreenFlatListRef} onClose={exitFullScreen} onMomentumScrollEnd={handleFullScreenScroll} />
+      
+      <FullScreenImageModal 
+        visible={isFullScreen} 
+        images={imagesFromProperty} 
+        initialIndex={currentFullScreenIndex} 
+        currentFullScreenIndex={currentFullScreenIndex} 
+        flatListRef={fullScreenFlatListRef} 
+        onClose={exitFullScreen} 
+        onMomentumScrollEnd={handleFullScreenScroll} 
+      />
     </GestureHandlerRootView>
   );
 }

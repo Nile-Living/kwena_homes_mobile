@@ -1,3 +1,4 @@
+// components/propertyDetails/PropertyHeaderInfo.tsx
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,10 +9,8 @@ interface PropertyHeaderInfoProps {
   priceUnit: string;
   propertyTypeDisplay: string;
   title: string;
-  subtitle: string;
   location: string;
   onViewOnMap: () => void;
-  // viewCount: number;
 }
 
 const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
@@ -19,17 +18,14 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
   priceUnit,
   propertyTypeDisplay,
   title,
-  subtitle,
   location,
   onViewOnMap,
-  // viewCount,
 }) => {
   return (
     <View style={styles.propertyHeader}>
       <View style={styles.priceRow}>
         <Text style={styles.price}>
-          {priceUnit}
-          {price.toLocaleString()}
+          K{price.toLocaleString()}{priceUnit}
         </Text>
         <View style={styles.propertyTypeTag}>
           <Text style={styles.propertyTypeText}>{propertyTypeDisplay}</Text>
@@ -37,7 +33,6 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
       </View>
 
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
 
       <View style={styles.locationRow}>
         <Ionicons name="location" size={20} color={COLORS.primary} />
@@ -46,11 +41,6 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
           <Text style={styles.mapButtonText}>View on Map</Text>
         </TouchableOpacity>
       </View>
-
-      {/* <View style={styles.viewCountRow}>
-        <Ionicons name="eye-outline" size={16} color={COLORS.darkGray} />
-        <Text style={styles.viewCountText}>{viewCount} views</Text>
-      </View> */}
     </View>
   );
 };
