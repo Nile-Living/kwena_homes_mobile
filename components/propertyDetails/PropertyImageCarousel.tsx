@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   Pressable,
   Dimensions,
-  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { styles, COLORS } from "@/styles/PropertyDetails.styles";
-
-const { width, height } = Dimensions.get("window");
+import {
+  useAppColors,
+  createStyles as createGlobalStyles,
+  LIGHT_COLORS,
+} from "@/styles/PropertyDetails.styles";
 
 interface PropertyImageCarouselProps {
   images: string[];
@@ -46,6 +47,9 @@ const PropertyImageCarousel: React.FC<PropertyImageCarouselProps> = ({
   onScroll,
   onDotPress,
 }) => {
+  const COLORS = useAppColors();
+  const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
+
   return (
     <View style={styles.carouselContainer}>
       <FlatList
@@ -84,7 +88,7 @@ const PropertyImageCarousel: React.FC<PropertyImageCarouselProps> = ({
         style={[styles.floatingButton, styles.backButton]}
         onPress={onBackPress}
       >
-        <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+        <Ionicons name="chevron-back" size={24} color={LIGHT_COLORS.white} />
       </Pressable>
 
       <View style={styles.actionButtons}>
@@ -92,14 +96,14 @@ const PropertyImageCarousel: React.FC<PropertyImageCarouselProps> = ({
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
             size={24}
-            color={isLiked ? COLORS.red : COLORS.white}
+            color={isLiked ? COLORS.red : LIGHT_COLORS.white}
           />
         </Pressable>
         <Pressable style={styles.actionButton} onPress={onSharePress}>
           <Ionicons
             name="share-social-outline"
             size={24}
-            color={COLORS.white}
+            color={LIGHT_COLORS.white}
           />
         </Pressable>
       </View>
@@ -111,7 +115,7 @@ const PropertyImageCarousel: React.FC<PropertyImageCarouselProps> = ({
       )}
 
       <View style={styles.listedDateTag}>
-        <Ionicons name="time-outline" size={14} color={COLORS.white} />
+        <Ionicons name="time-outline" size={14} color={LIGHT_COLORS.white} />
         <Text style={styles.listedDateText}>{listedDate}</Text>
       </View>
 

@@ -1,6 +1,9 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import { styles } from "@/styles/PropertyDetails.styles";
+import {
+  useAppColors,
+  createStyles as createGlobalStyles,
+} from "@/styles/PropertyDetails.styles";
 
 interface PropertyTabsProps {
   activeTab: string;
@@ -11,6 +14,9 @@ const PropertyTabs: React.FC<PropertyTabsProps> = ({
   activeTab,
   onTabPress,
 }) => {
+  const COLORS = useAppColors();
+  const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
+
   return (
     <View style={styles.tabContainer}>
       <TouchableOpacity

@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useAuthStore, UserRole } from "@/store/authStore";
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
@@ -21,8 +22,7 @@ export default function SignUpScreen() {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false);
   const [userType, setUserType] = useState<UserRole>("user");
-  const { signUp, signInWithGoogle, signInWithFacebook, loading, error } =
-    useAuthStore();
+  const { signUp, signInWithGoogle, loading, error } = useAuthStore();
   const router = useRouter();
   const { redirectTo } = useLocalSearchParams();
 
@@ -50,6 +50,7 @@ export default function SignUpScreen() {
         const targetPath = (redirectTo as string) || "/";
         router.replace(targetPath as any);
       }
+      // If profile is incomplete, user will be redirected by the auth state listener
     }
   };
 
@@ -57,13 +58,9 @@ export default function SignUpScreen() {
     await signInWithGoogle();
   };
 
-  const handleFacebookSignIn = async () => {
-    await signInWithFacebook();
-  };
-
   return (
     <ScrollView
-      className="flex-1 bg-white"
+      className="flex-1 bg-white dark:bg-slate-800"
       contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
       keyboardShouldPersistTaps="handled"
     >
@@ -72,6 +69,8 @@ export default function SignUpScreen() {
           title: "Sign Up",
           headerTitle: "Create Account",
           headerBackVisible: true,
+          headerStyle: { backgroundColor: "#FFFFFF" }, // Light mode
+          headerTintColor: "#1F2937", // Light mode
         }}
       />
 
@@ -83,34 +82,41 @@ export default function SignUpScreen() {
           />
         </View>
 
-        <Text className="text-2xl font-bold text-gray-800 mb-2 text-center">
+        <Text className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2 text-center">
           Create Your Account
         </Text>
-        <Text className="text-base text-gray-500 mb-10 text-center">
+        <Text className="text-base text-slate-500 dark:text-slate-400 mb-10 text-center">
           Enter your details below
         </Text>
 
         <View className="mb-6">
-          <Text className="text-base font-medium mb-3 text-gray-700 dark:text-gray-300">
+          <Text className="text-base font-medium mb-3 text-slate-700 dark:text-slate-300">
             I am signing up as a...
           </Text>
           <View className="flex-row gap-2 space-x-3">
             <TouchableOpacity
               onPress={() => setUserType("user")}
-              className={`flex-1 border rounded-lg p-4 items-center ${
-                userType === "user"
-                  ? "bg-blue-100 border-blue-500"
-                  : "border-gray-300 bg-gray-50"
-              }`}
+              className={`flex-1 border rounded-lg p-4 items-center 
+                ${
+                  userType === "user"
+                    ? "bg-customgreen/10 border-customgreen dark:bg-customgreen/20"
+                    : "border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700"
+                }`}
             >
               <Ionicons
                 name="person-outline"
                 size={24}
-                color={userType === "user" ? "#2563EB" : "#4B5563"}
+                color={
+                  userType === "user"
+                    ? "#54816D" /* customgreen */
+                    : "#4B5563" /* slate-600 */
+                }
               />
               <Text
                 className={`mt-1 font-medium ${
-                  userType === "user" ? "text-blue-600" : "text-gray-700"
+                  userType === "user"
+                    ? "text-customgreen"
+                    : "text-slate-700 dark:text-slate-300"
                 }`}
               >
                 Regular User
@@ -118,20 +124,27 @@ export default function SignUpScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setUserType("agent")}
-              className={`flex-1 border rounded-lg p-4 items-center ${
-                userType === "agent"
-                  ? "bg-blue-100 border-blue-500"
-                  : "border-gray-300 bg-gray-50"
-              }`}
+              className={`flex-1 border rounded-lg p-4 items-center 
+                ${
+                  userType === "agent"
+                    ? "bg-customgreen/10 border-customgreen dark:bg-customgreen/20"
+                    : "border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700"
+                }`}
             >
               <Ionicons
                 name="business-outline"
                 size={24}
-                color={userType === "agent" ? "#2563EB" : "#4B5563"}
+                color={
+                  userType === "agent"
+                    ? "#54816D" /* customgreen */
+                    : "#4B5563" /* slate-600 */
+                }
               />
               <Text
                 className={`mt-1 font-medium ${
-                  userType === "agent" ? "text-blue-600" : "text-gray-700"
+                  userType === "agent"
+                    ? "text-customgreen"
+                    : "text-slate-700 dark:text-slate-300"
                 }`}
               >
                 Agent / Owner
@@ -139,29 +152,35 @@ export default function SignUpScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
         <View className="mb-5 w-full">
-          <Text className="text-xs text-gray-500 mb-1 ml-1">Email</Text>
-          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center bg-white">
+          <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-1">
+            Email
+          </Text>
+          <View className="border border-slate-300 dark:border-slate-600 rounded-lg h-14 px-4 flex-row items-center bg-white dark:bg-slate-700">
             <TextInput
               placeholder="example@email.com"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
-              className="flex-1 text-base text-black"
+              className="flex-1 text-base text-slate-900 dark:text-slate-100"
               placeholderTextColor="#9CA3AF"
             />
           </View>
         </View>
+
         <View className="mb-5 w-full">
-          <Text className="text-xs text-gray-500 mb-1 ml-1">Password</Text>
-          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center justify-between bg-white">
+          <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-1">
+            Password
+          </Text>
+          <View className="border border-slate-300 dark:border-slate-600 rounded-lg h-14 px-4 flex-row items-center justify-between bg-white dark:bg-slate-700">
             <TextInput
               placeholder="Create a password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!isPasswordVisible}
-              className="flex-1 text-base text-black mr-2"
+              className="flex-1 text-base text-slate-900 dark:text-slate-100 mr-2"
               placeholderTextColor="#9CA3AF"
             />
             <TouchableOpacity
@@ -170,22 +189,23 @@ export default function SignUpScreen() {
               <Ionicons
                 name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
                 size={24}
-                color="#6B7280"
+                className="text-slate-500 dark:text-slate-400"
               />
             </TouchableOpacity>
           </View>
         </View>
+
         <View className="mb-5 w-full">
-          <Text className="text-xs text-gray-500 mb-1 ml-1">
+          <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-1">
             Confirm Password
           </Text>
-          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center justify-between bg-white">
+          <View className="border border-slate-300 dark:border-slate-600 rounded-lg h-14 px-4 flex-row items-center justify-between bg-white dark:bg-slate-700">
             <TextInput
               placeholder="Confirm your password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!isConfirmPasswordVisible}
-              className="flex-1 text-base text-black mr-2"
+              className="flex-1 text-base text-slate-900 dark:text-slate-100 mr-2"
               placeholderTextColor="#9CA3AF"
             />
             <TouchableOpacity
@@ -198,20 +218,23 @@ export default function SignUpScreen() {
                   isConfirmPasswordVisible ? "eye-off-outline" : "eye-outline"
                 }
                 size={24}
-                color="#6B7280"
+                className="text-slate-500 dark:text-slate-400"
               />
             </TouchableOpacity>
           </View>
         </View>
+
         <View className="mb-8 w-full">
-          <Text className="text-xs text-gray-500 mb-1 ml-1">Phone Number</Text>
-          <View className="border border-gray-300 rounded-lg h-14 px-4 flex-row items-center bg-white">
+          <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1 ml-1">
+            Phone Number
+          </Text>
+          <View className="border border-slate-300 dark:border-slate-600 rounded-lg h-14 px-4 flex-row items-center bg-white dark:bg-slate-700">
             <TextInput
               placeholder="+260 9..."
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              className="flex-1 text-base text-black"
+              className="flex-1 text-base text-slate-900 dark:text-slate-100"
               placeholderTextColor="#9CA3AF"
             />
           </View>
@@ -220,14 +243,19 @@ export default function SignUpScreen() {
         <TouchableOpacity
           onPress={handleSignUp}
           disabled={loading}
-          className="w-full bg-emerald-800 rounded-lg h-14 justify-center items-center mb-6 shadow-sm"
+          className={`w-full rounded-lg h-14 justify-center items-center mb-6 shadow-sm 
+            ${loading ? "bg-slate-400 dark:bg-slate-500" : "bg-customgreen dark:bg-dark-tint"}`}
         >
-          <Text className="text-white font-semibold text-base">
-            {loading ? "Creating Account..." : "Sign Up"}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text className="text-white font-semibold text-base">
+              Sign Up
+            </Text>
+          )}
         </TouchableOpacity>
 
-        <Text className="text-sm text-gray-500 mb-6 text-center">
+        <Text className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">
           Or continue with
         </Text>
 
@@ -235,7 +263,7 @@ export default function SignUpScreen() {
           <TouchableOpacity
             onPress={handleGoogleSignIn}
             disabled={loading}
-            className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
+            className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white dark:bg-slate-700 shadow-sm"
           >
             <Image
               source={{
@@ -243,41 +271,27 @@ export default function SignUpScreen() {
               }}
               className="w-6 h-6 mr-2"
             />
-            <Text className="text-gray-700 font-semibold text-base">
+            <Text className="text-slate-700 dark:text-slate-200 font-semibold text-base">
               Google
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleFacebookSignIn}
-            disabled={loading}
-            className="flex-1 border border-gray-300 rounded-lg h-14 justify-center items-center flex-row mx-1 bg-white shadow-sm"
-          >
-            <Image
-              source={{
-                uri: "https://img.icons8.com/color/48/facebook-new.png",
-              }}
-              className="w-6 h-6 mr-2"
-            />
-            <Text className="text-gray-700 font-semibold text-base">
-              Facebook
             </Text>
           </TouchableOpacity>
         </View>
 
         <View className="flex-row justify-center items-center">
-          <Text className="text-sm text-gray-500">
+          <Text className="text-sm text-slate-500 dark:text-slate-400">
             Already have an account?{" "}
           </Text>
           <TouchableOpacity onPress={() => router.push("/auth/signin")}>
-            <Text className="text-sm font-semibold text-emerald-800">
+            <Text className="text-sm font-semibold text-customgreen dark:text-green-400">
               Sign In
             </Text>
           </TouchableOpacity>
         </View>
 
         {error && (
-          <Text className="mt-4 text-red-600 text-center text-sm">{error}</Text>
+          <Text className="mt-4 text-red-600 dark:text-red-500 text-center text-sm">
+            {error}
+          </Text>
         )}
       </View>
     </ScrollView>

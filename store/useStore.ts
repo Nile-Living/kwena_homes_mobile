@@ -52,6 +52,15 @@ export interface Property {
   use_phone_for_call?: boolean;
   use_whatsapp_for_message?: boolean;
   isInjectedAd?: boolean;
+  userProfile?: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+    phone?: string;
+    email?: string;
+    role?: string;
+    created_at?: string;
+  } | null;
 }
 
 export interface PropertyResponseDto {

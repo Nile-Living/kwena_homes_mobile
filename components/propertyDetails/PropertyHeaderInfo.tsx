@@ -1,8 +1,10 @@
-// components/propertyDetails/PropertyHeaderInfo.tsx
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { styles, COLORS } from "@/styles/PropertyDetails.styles";
+import {
+  useAppColors,
+  createStyles as createGlobalStyles,
+} from "@/styles/PropertyDetails.styles";
 
 interface PropertyHeaderInfoProps {
   price: number;
@@ -21,11 +23,15 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
   location,
   onViewOnMap,
 }) => {
+  const COLORS = useAppColors();
+  const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
+
   return (
     <View style={styles.propertyHeader}>
       <View style={styles.priceRow}>
         <Text style={styles.price}>
-          K{price.toLocaleString()}{priceUnit}
+          K{price.toLocaleString()}
+          {priceUnit}
         </Text>
         <View style={styles.propertyTypeTag}>
           <Text style={styles.propertyTypeText}>{propertyTypeDisplay}</Text>

@@ -13,6 +13,7 @@ import {
   Dimensions,
   StatusBar,
   KeyboardAvoidingView,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/constants/Config';
@@ -103,111 +104,120 @@ const PromoteScreenEnhanced: React.FC = () => {
     return promotionPlans.find((plan) => plan.id === selectedPlanId) || null;
   }, [selectedPlanId]);
 
-  const handleInitiatePayment = async () => {
-    console.log('handleInitiatePayment called');
+// In your PromoteScreenEnhanced component, update handleInitiatePayment:
 
-    if (!selectedPlan) {
-      Alert.alert('Error', 'Please select a promotion plan.');
-      console.log('Validation failed: No plan selected');
-      return;
-    }
-    if (!propertyId) {
-      Alert.alert('Error', 'Property ID is missing.');
-      console.log('Validation failed: No propertyId');
-      return;
-    }
+const handleInitiatePayment = async () => {
+  console.log('handleInitiatePayment called');
 
-    if (paymentMethod === 'mobileMoney') {
-      const mobileRegex = /^0[79][567][0-9]{7}$/;
-      if (!mobileMoneyNumber || !mobileRegex.test(mobileMoneyNumber)) {
-        Alert.alert(
-          'Error',
-          'Please enter a valid Zambian Mobile Money number (e.g., 09... / 07...).',
-        );
-        console.log('Validation failed: Invalid mobile money number');
-        return;
-      }
-    } else if (paymentMethod === 'card') {
+  if (!selectedPlan) {
+    Alert.alert('Error', 'Please select a promotion plan.');
+    return;
+  }
+  if (!propertyId) {
+    Alert.alert('Error', 'Property ID is missing.');
+    return;
+  }
+
+  if (paymentMethod === 'mobileMoney') {
+    const mobileRegex = /^0[79][567][0-9]{7}$/;
+    if (!mobileMoneyNumber || !mobileRegex.test(mobileMoneyNumber)) {
       Alert.alert(
-        'Not Implemented',
-        'Card payment is not yet connected. Please use Mobile Money.',
+        'Error',
+        'Please enter a valid Zambian Mobile Money number (e.g., 09... / 07...).',
       );
       return;
     }
+  }
 
-    console.log('Validation passed. Initiating payment...');
-    setIsLoading(true);
-    setCurrentPaymentReference(null);
+  setIsLoading(true);
+  setCurrentPaymentReference(null);
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/promotions/initiate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: propertyId,
-          planId: selectedPlan.id,
-          mobileMoneyNumber: mobileMoneyNumber,
-        }),
-      });
+  try {
+    const response = await fetch(`${API_BASE_URL}/promotions/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        propertyId: propertyId,
+        planId: selectedPlan.id,
+        mobileMoneyNumber: mobileMoneyNumber,
+        paymentMethod: paymentMethod, // 'mobileMoney' or 'card'
+        // Add card details if card payment
+        cardDetails: paymentMethod === 'card' ? {
+          cardNumber,
+          expiryDate,
+          cvv,
+          cardholderName,
+          email: 'user@example.com',
+        } : undefined,
+      }),
+    });
 
-      const data = await response.json();
-      console.log('Backend response:', data);
+    const data = await response.json();
+    console.log('Backend response:', data);
 
-      if (!response.ok) {
-        // Use backend message if available, handle specific errors like Conflict
-        if (response.status === 409) { // Conflict
-           throw new Error(data.message || 'Promotion conflict detected.');
-        }
-        throw new Error(data.message || 'Failed to initiate promotion.');
+    if (!response.ok) {
+      if (response.status === 409) {
+        throw new Error(data.message || 'Promotion conflict detected.');
       }
+      throw new Error(data.message || 'Failed to initiate promotion.');
+    }
 
-      setCurrentPaymentReference(data.paymentReference);
+    setCurrentPaymentReference(data.paymentReference);
 
-      // --- Handle final status from backend ---
+    // Handle different provider responses
+    if (data.provider === 'ZYNLE') {
+      if (data.redirect_url) {
+        // Card payment - redirect user
+        Alert.alert(
+          'Complete Payment',
+          'You will be redirected to complete your card payment.',
+          [
+            { 
+              text: 'Continue', 
+              onPress: async () => {
+                if (await Linking.canOpenURL(data.redirect_url)) {
+                  Linking.openURL(data.redirect_url);
+                }
+              }
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ],
+        );
+      } else {
+        // Mobile money - show status message
+        Alert.alert(
+          'Payment Initiated',
+          'Please check your phone for the mobile money prompt and authorize the payment. The status will update automatically.',
+          [{ text: 'OK' }],
+        );
+      }
+    } else {
+      // Lenco or other provider logic
       if (data.status === 'successful') {
         Alert.alert(
           'Promotion Activated!',
           data.message || 'Your listing promotion is now active.',
           [{ text: 'OK', onPress: () => router.back() }],
         );
-      } else if (data.status === 'success_activation_failed') {
-         Alert.alert(
-           'Payment Successful (Activation Issue)',
-           data.message || 'Payment confirmed, but activation needs review. Contact support.',
-           [{ text: 'OK', onPress: () => router.back() }], // Still go back
-         );
-      } else if (
-        data.status === 'pending' ||
-        data.status === 'pay-offline' ||
-        data.status === 'otp-required' // Should be handled by backend now, but just in case
-      ) {
-        // This case is less likely now with backend polling, but keep for robustness
+      } else if (data.status === 'pending') {
         Alert.alert(
           'Payment Pending',
-          data.message ||
-            'Payment initiated. Please authorize on your phone. Status will update automatically.',
-          [{ text: 'OK' }],
-        );
-      } else {
-        // Handle 'failed', 'timed_out', or other non-successful statuses
-        Alert.alert(
-          'Payment Failed',
-          data.message || `The payment could not be completed (Status: ${data.status}).`,
+          data.message || 'Payment initiated. Please complete authorization.',
           [{ text: 'OK' }],
         );
       }
-      // --- End Handle final status ---
-
-    } catch (error: any) {
-      console.error('Initiation error:', error);
-      Alert.alert(
-        'Initiation Failed',
-        error.message || 'Could not start the payment process.',
-      );
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+  } catch (error: any) {
+    console.error('Initiation error:', error);
+    Alert.alert(
+      'Initiation Failed',
+      error.message || 'Could not start the payment process.',
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const formatCardNumber = (text: string) => {
     const cleaned = text.replace(/\D/g, '');

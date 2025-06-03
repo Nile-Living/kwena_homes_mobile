@@ -14,8 +14,11 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
+
 
 export const useNotifications = () => {
   const notificationListener = useRef<Notifications.Subscription>();
@@ -24,9 +27,7 @@ export const useNotifications = () => {
   const { session, user } = useAuthStore();
 
   useEffect(() => {
-    // Only register for push notifications if user is an agent
-    if (session && isUserAgent()) {
-      console.log('User is an agent, registering for push notifications...');
+    if (session) {
       registerForPushNotificationsAsync().then(token => {
         if (token) {
           const platform = Platform.OS === 'ios' ? 'ios' : 'android';
@@ -35,20 +36,16 @@ export const useNotifications = () => {
         }
       });
 
-      // Listener for notifications received while app is foregrounded
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
         console.log('Notification received:', notification);
-        // Refresh notifications when one is received
         useNotificationsStore.getState().fetchNotifications(true);
       });
 
-      // Listener for when user taps on notification
       responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
         console.log('Notification response:', response);
         
         const data = response.notification.request.content.data;
         
-        // Handle navigation based on notification type
         if (data.type === 'promotion_expiring' && data.property_id) {
           router.push(`/property/${data.property_id}`);
         }

@@ -1,4 +1,3 @@
-// app/auth/complete-profile.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -8,25 +7,19 @@ import {
   Alert,
   ScrollView,
   Image,
-  StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { useAuthStore, UserRole } from "@/store/authStore";
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
 
 export default function CompleteProfileScreen() {
   const [phone, setPhone] = useState("");
   const [userType, setUserType] = useState<UserRole>("user");
-  const {
-    user,
-    updateUserProfile, // We'll add this to authStore
-    loading: authLoading,
-    error: authError,
-  } = useAuthStore();
+  const { updateUserProfile, loading: authLoading, error: authError } =
+    useAuthStore();
   const router = useRouter();
-  const { redirectTo } = useLocalSearchParams(); // Get the original redirect path
+  const { redirectTo } = useLocalSearchParams();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +50,6 @@ export default function CompleteProfileScreen() {
       const targetPath = (redirectTo as string) || "/";
       router.replace(targetPath as any);
     } else {
-      // Error is handled by the authError state from the store, or set local error
       if (!authError) {
         setError("Failed to update profile. Please try again.");
       }
@@ -66,71 +58,96 @@ export default function CompleteProfileScreen() {
 
   return (
     <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollViewContent}
+      className="flex-1 bg-white dark:bg-slate-800"
+      contentContainerStyle={{
+        flexGrow: 1,
+        justifyContent: "center",
+      }}
       keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen
         options={{
           title: "Complete Your Profile",
-          headerBackVisible: false, // User should complete this step
+          headerBackVisible: false,
+          headerStyle: {
+            backgroundColor: "#FFFFFF", // Light mode header
+          },
+          headerTintColor: "#1F2937", // Light mode text
+          // Dark mode header styles can be set globally or via theme listener if needed
         }}
       />
 
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View className="px-6 py-10">
+        <View className="items-center mb-8">
           <Image
-            source={require("@/assets/images/icon.png")} // Adjust path if needed
-            style={styles.logo}
+            source={require("@/assets/images/icon.png")}
+            className="h-20 w-20 mb-2.5"
           />
-          <Text style={styles.title}>Almost There!</Text>
-          <Text style={styles.subtitle}>
+          <Text className="text-3xl font-bold text-slate-800 dark:text-slate-200 mb-2 text-center">
+            Almost There!
+          </Text>
+          <Text className="text-base text-slate-600 dark:text-slate-400 text-center mb-5">
             Please provide a few more details to complete your profile.
           </Text>
         </View>
 
-        {/* User Type Selection */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>I am signing up as a...</Text>
-          <View style={styles.roleContainer}>
+        <View className="mb-5">
+          <Text className="text-sm text-slate-600 dark:text-slate-400 mb-1.5 ml-1">
+            I am signing up as a...
+          </Text>
+          <View className="flex-row justify-between gap-2.5">
             <TouchableOpacity
               onPress={() => setUserType("user")}
-              style={[
-                styles.roleButton,
-                userType === "user" && styles.roleButtonSelected,
-              ]}
+              className={`flex-1 border rounded-lg p-4 items-center 
+                ${
+                  userType === "user"
+                    ? "bg-customgreen/10 border-customgreen dark:bg-customgreen/20"
+                    : "border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700"
+                }`}
             >
               <Ionicons
                 name="person-outline"
                 size={24}
-                color={userType === "user" ? Colors.light.tint : "#4B5563"}
+                color={
+                  userType === "user"
+                    ? "#54816D" /* customgreen */
+                    : "#4B5563" /* slate-600 */
+                }
               />
               <Text
-                style={[
-                  styles.roleText,
-                  userType === "user" && styles.roleTextSelected,
-                ]}
+                className={`mt-1 font-medium ${
+                  userType === "user"
+                    ? "text-customgreen"
+                    : "text-slate-600 dark:text-slate-300"
+                }`}
               >
                 Regular User
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setUserType("agent")}
-              style={[
-                styles.roleButton,
-                userType === "agent" && styles.roleButtonSelected,
-              ]}
+              className={`flex-1 border rounded-lg p-4 items-center 
+                ${
+                  userType === "agent"
+                    ? "bg-customgreen/10 border-customgreen dark:bg-customgreen/20"
+                    : "border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700"
+                }`}
             >
               <Ionicons
                 name="business-outline"
                 size={24}
-                color={userType === "agent" ? Colors.light.tint : "#4B5563"}
+                color={
+                  userType === "agent"
+                    ? "#54816D" /* customgreen */
+                    : "#4B5563" /* slate-600 */
+                }
               />
               <Text
-                style={[
-                  styles.roleText,
-                  userType === "agent" && styles.roleTextSelected,
-                ]}
+                className={`mt-1 font-medium ${
+                  userType === "agent"
+                    ? "text-customgreen"
+                    : "text-slate-600 dark:text-slate-300"
+                }`}
               >
                 Agent / Owner
               </Text>
@@ -138,22 +155,21 @@ export default function CompleteProfileScreen() {
           </View>
         </View>
 
-        {/* Phone Number Input */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>
+        <View className="mb-5">
+          <Text className="text-sm text-slate-600 dark:text-slate-400 mb-1.5 ml-1">
             WhatsApp Phone Number{" "}
-            <Text style={styles.tooltipText}>
+            <Text className="text-xs text-slate-500 dark:text-slate-400">
               (e.g., +260..., used for communication)
             </Text>
           </Text>
-          <View style={styles.inputContainer}>
+          <View className="border border-slate-300 dark:border-slate-600 rounded-lg h-14 px-4 flex-row items-center bg-white dark:bg-slate-700">
             <TextInput
               placeholder="+260 9..."
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              style={styles.textInput}
-              placeholderTextColor="#9CA3AF"
+              className="flex-1 text-base text-slate-800 dark:text-slate-200"
+              placeholderTextColor="#9CA3AF" // slate-400
             />
           </View>
         </View>
@@ -161,139 +177,24 @@ export default function CompleteProfileScreen() {
         <TouchableOpacity
           onPress={handleCompleteProfile}
           disabled={isLoading || authLoading}
-          style={[
-            styles.button,
-            (isLoading || authLoading) && styles.buttonDisabled,
-          ]}
+          className={`bg-customgreen rounded-lg h-14 justify-center items-center mt-2.5 shadow
+            ${(isLoading || authLoading) ? "bg-slate-400 dark:bg-slate-500" : "bg-customgreen dark:bg-dark-tint"}`}
         >
           {isLoading || authLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Complete Profile</Text>
+            <Text className="text-white font-bold text-base">
+              Complete Profile
+            </Text>
           )}
         </TouchableOpacity>
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        {error && (
+          <Text className="mt-4 text-red-600 dark:text-red-500 text-center text-sm">
+            {error}
+          </Text>
+        )}
       </View>
     </ScrollView>
   );
 }
-
-// Add some basic styling (adapt from your SignUpScreen or global styles)
-const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-  },
-  container: {
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  logo: {
-    height: 80,
-    width: 80,
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    color: "#4A5568",
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  tooltipText: {
-    fontSize: 12,
-    color: "#718096",
-  },
-  inputContainer: {
-    borderWidth: 1,
-    borderColor: "#CBD5E0",
-    borderRadius: 8,
-    height: 56,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#1A202C",
-  },
-  roleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10, // For spacing between buttons if using gap
-  },
-  roleButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#CBD5E0",
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: "center",
-    backgroundColor: "#F7FAFC",
-  },
-  roleButtonSelected: {
-    backgroundColor: Colors.light.background,
-    borderColor: Colors.light.tint,
-  },
-  roleText: {
-    marginTop: 4,
-    fontWeight: "500",
-    color: "#4A5568",
-  },
-  roleTextSelected: {
-    color: Colors.light.tint,
-  },
-  button: {
-    backgroundColor: Colors.light.tint,
-    borderRadius: 8,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonDisabled: {
-    backgroundColor: "#A0AEC0",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  errorText: {
-    marginTop: 16,
-    color: "red",
-    textAlign: "center",
-    fontSize: 14,
-  },
-});

@@ -1,9 +1,11 @@
-// components/propertyDetails/AnimatedDetailHeader.tsx
 import React from "react";
 import { Text, Pressable, View, StyleSheet } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { styles as globalStyles, COLORS } from "@/styles/PropertyDetails.styles";
+import {
+  useAppColors,
+  createStyles as createGlobalStyles,
+} from "@/styles/PropertyDetails.styles";
 
 interface AnimatedDetailHeaderProps {
   title: string;
@@ -13,7 +15,7 @@ interface AnimatedDetailHeaderProps {
     borderBottomWidth?: number;
     borderBottomColor?: string;
     contentOpacity?: number;
-    zIndex?: number; // Expecting zIndex
+    zIndex?: number;
   };
   onBackPress: () => void;
   onLikePress: () => void;
@@ -28,18 +30,22 @@ const AnimatedDetailHeader: React.FC<AnimatedDetailHeaderProps> = ({
   onLikePress,
   onSharePress,
 }) => {
-  // Style for the main container (background, border, and zIndex)
+  const COLORS = useAppColors();
+  const globalStyles = React.useMemo(
+    () => createGlobalStyles(COLORS),
+    [COLORS],
+  );
+  const localStyles = React.useMemo(() => createLocalStyles(COLORS), [COLORS]);
+
   const containerAnimatedStyle = useAnimatedStyle(() => {
     return {
       backgroundColor: animatedProperties.backgroundColor,
       borderBottomWidth: animatedProperties.borderBottomWidth,
       borderBottomColor: animatedProperties.borderBottomColor,
-      zIndex: animatedProperties.zIndex, // Apply animated zIndex
-      // The overall opacity of the container itself is implicitly handled by backgroundColor's alpha
+      zIndex: animatedProperties.zIndex,
     };
   });
 
-  // Style for the content's opacity
   const contentAnimatedStyle = useAnimatedStyle(() => {
     return {
       opacity: animatedProperties.contentOpacity,
@@ -47,34 +53,25 @@ const AnimatedDetailHeader: React.FC<AnimatedDetailHeaderProps> = ({
   });
 
   return (
-    // Main container: Applies background, border, and zIndex.
-    // pointerEvents="box-none" is crucial for when zIndex is high.
     <Animated.View
       style={[globalStyles.animatedHeader, containerAnimatedStyle]}
       pointerEvents="box-none"
     >
-      {/* Inner container for content: Handles opacity of buttons/title */}
-      {/* This view needs to be touchable for its children when visible */}
-      <Animated.View style={[styles.contentContainer, contentAnimatedStyle]} pointerEvents="auto">
-        <Pressable
-          style={globalStyles.headerButton}
-          onPress={onBackPress}
-        >
+      <Animated.View
+        style={[localStyles.contentContainer, contentAnimatedStyle]}
+        pointerEvents="auto"
+      >
+        <Pressable style={globalStyles.headerButton} onPress={onBackPress}>
           <Ionicons name="chevron-back" size={24} color={COLORS.text} />
         </Pressable>
 
-        {/* Title wrapper still needs to be non-interactive */}
-        <View style={styles.headerTitleContainer} pointerEvents="none">
-          <Text style={styles.headerTitleText} numberOfLines={1}>
+        <View style={localStyles.headerTitleContainer} pointerEvents="none">
+          <Text style={localStyles.headerTitleText} numberOfLines={1}>
             {title}
           </Text>
         </View>
 
-        {/* Actions group allows its children to be hit */}
-        <View
-          style={globalStyles.headerActions}
-          pointerEvents="box-none"
-        >
+        <View style={globalStyles.headerActions} pointerEvents="box-none">
           <Pressable style={globalStyles.headerButton} onPress={onLikePress}>
             <Ionicons
               name={isLiked ? "heart" : "heart-outline"}
@@ -95,26 +92,26 @@ const AnimatedDetailHeader: React.FC<AnimatedDetailHeaderProps> = ({
   );
 };
 
-// Local styles (contentContainer, headerTitleContainer, headerTitleText)
-const styles = StyleSheet.create({
-  contentContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 10,
-  },
-  headerTitleText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
-    textAlign: "center",
-  },
-});
+const createLocalStyles = (COLORS: ReturnType<typeof useAppColors>) =>
+  StyleSheet.create({
+    contentContainer: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    headerTitleContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginHorizontal: 10,
+    },
+    headerTitleText: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: COLORS.text,
+      textAlign: "center",
+    },
+  });
 
 export default AnimatedDetailHeader;

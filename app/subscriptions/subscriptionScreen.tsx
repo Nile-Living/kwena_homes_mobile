@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Modal,
   TextInput,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptionStore, SubscriptionType } from '@/store/subscriptionStore';
@@ -22,103 +23,170 @@ interface PaymentModalProps {
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ visible, onClose, onPaymentSuccess }) => {
-    const [phone, setPhone] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [otpRequired, setOtpRequired] = useState(false);
-    const [otp, setOtp] = useState('');
-    const [paymentReference, setPaymentReference] = useState('');
-  
-    const handlePayment = async () => {
-      if (!phone.trim()) {
-        Alert.alert('Error', 'Please enter your phone number');
-        return;
-      }
-  
-      setLoading(true);
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'initiated' | 'processing' | 'completed' | 'failed'>('idle');
+  const [currentProvider, setCurrentProvider] = useState<string>('');
+  const [redirectUrl, setRedirectUrl] = useState<string>('');
+
+  useEffect(() => {
+    const checkProvider = async () => {
       try {
         const token = useAuthStore.getState().session?.access_token;
-        const response = await fetch(`${API_BASE_URL}/payments/initiate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            amount: 129,
-            phone: phone,
-            operator: 'mtn',
-            description: 'Monthly Subscription',
-          }),
+        const response = await fetch(`${API_BASE_URL}/payments/provider`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-  
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Payment initiation failed');
-        }
-  
         const data = await response.json();
-        setPaymentReference(data.reference);
-        setOtpRequired(true);
-      } catch (error: any) {
-        Alert.alert('Error', error.message || 'Payment failed');
-      } finally {
-        setLoading(false);
+        setCurrentProvider(data.provider);
+      } catch (error) {
+        console.error('Error checking provider:', error);
       }
     };
+    
+    if (visible) {
+      checkProvider();
+    }
+  }, [visible]);
   
-    const handleOtpSubmit = async () => {
-      if (!otp.trim()) {
-        Alert.alert('Error', 'Please enter the OTP');
-        return;
+  const handlePayment = async () => {
+    if (!phone.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+
+    setLoading(true);
+    setPaymentStatus('initiated');
+    
+    try {
+      const token = useAuthStore.getState().session?.access_token;
+      const response = await fetch(`${API_BASE_URL}/payments/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: 129,
+          phone: phone,
+          method: 'momo', // or 'card'
+          operator: 'mtn',
+          description: 'Monthly Subscription',
+          // Card fields if needed
+          email: 'user@example.com',
+          first_name: 'John',
+          last_name: 'Doe',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Payment initiation failed');
       }
-  
-      setLoading(true);
-      try {
-        const token = useAuthStore.getState().session?.access_token;
-        const response = await fetch(`${API_BASE_URL}/payments/submit-otp`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            reference: paymentReference,
-            otp: otp,
-          }),
-        });
-  
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'OTP verification failed');
-        }
-  
-        const data = await response.json();
-        
-        if (data.subscriptionCreated) {
-          Alert.alert('Success', 'Payment successful! Your subscription is now active.');
-          onPaymentSuccess(paymentReference);
-        } else if (data.status === 'pending') {
-          Alert.alert('Payment Pending', 'Your payment is being processed. You will be notified once completed.');
+
+      const data = await response.json();
+      setPaymentReference(data.reference);
+      
+      if (data.provider === 'ZYNLE') {
+        if (data.redirect_url) {
+          // Handle card payment redirect
+          setRedirectUrl(data.redirect_url);
+          setPaymentStatus('processing');
+          Alert.alert(
+            'Complete Payment',
+            'You will be redirected to complete your card payment. Please complete the payment and return to the app.',
+            [
+              { text: 'Open Payment Page', onPress: () => openRedirectUrl(data.redirect_url) },
+              { text: 'Cancel', style: 'cancel' }
+            ]
+          );
         } else {
-          Alert.alert('Payment Status', `Payment status: ${data.status}`);
+          // Mobile money - wait for USSD prompt completion
+          setPaymentStatus('processing');
+          Alert.alert(
+            'Complete Payment',
+            'Please check your phone for the mobile money prompt and authorize the payment.',
+            [{ text: 'OK' }]
+          );
+          // Start polling for payment status
+          startStatusPolling(data.reference);
         }
-  
-        resetModal();
-        onClose();
-      } catch (error: any) {
-        Alert.alert('Error', error.message || 'OTP verification failed');
-      } finally {
-        setLoading(false);
+      } else if (data.provider === 'LENCO') {
+        // Handle Lenco OTP flow (existing logic)
+        setPaymentStatus('processing');
+        // Show OTP input
       }
-    };
-  
-    const resetModal = () => {
-      setPhone('');
-      setOtp('');
-      setOtpRequired(false);
-      setPaymentReference('');
+    } catch (error: any) {
+      setPaymentStatus('failed');
+      Alert.alert('Error', error.message || 'Payment failed');
+    } finally {
       setLoading(false);
-    };
+    }
+  };
+
+  const openRedirectUrl = (url: string) => {
+    // Use Expo WebBrowser or Linking to open the payment URL
+    // You might want to use an in-app browser
+    Linking.canOpenURL(url).then((canOpen) => {
+      if (canOpen) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open the URL');
+      }
+    }).catch(() => {
+      Alert.alert('Error', 'An unexpected error occurred while trying to open the URL');
+    });
+  };
+
+  const startStatusPolling = (reference: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = useAuthStore.getState().session?.access_token;
+        const response = await fetch(`${API_BASE_URL}/payments/verify/${reference}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.status === 'successful') {
+            clearInterval(pollInterval);
+            setPaymentStatus('completed');
+            Alert.alert('Success', 'Payment successful! Your subscription is now active.');
+            onPaymentSuccess(reference);
+            resetModal();
+            onClose();
+          } else if (data.status === 'failed') {
+            clearInterval(pollInterval);
+            setPaymentStatus('failed');
+            Alert.alert('Payment Failed', 'Your payment could not be completed.');
+          }
+          // Continue polling for pending status
+        }
+      } catch (error) {
+        console.error('Error polling payment status:', error);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    // Stop polling after 5 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (paymentStatus === 'processing') {
+        setPaymentStatus('failed');
+        Alert.alert('Timeout', 'Payment verification timed out. Please check your subscription status.');
+      }
+    }, 300000);
+  };
+
+  const resetModal = () => {
+    setPhone('');
+    setPaymentReference('');
+    setPaymentStatus('idle');
+    setRedirectUrl('');
+    setLoading(false);
+  };
+
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -130,7 +198,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ visible, onClose, onPayment
           <Text className="text-lg font-semibold">Complete Payment</Text>
           <View style={{ width: 24 }} />
         </View>
-
+{/* 
         <View className="flex-1 p-4">
           {!otpRequired ? (
             <View>
@@ -208,7 +276,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ visible, onClose, onPayment
               </TouchableOpacity>
             </View>
           )}
-        </View>
+        </View> */}
       </SafeAreaView>
     </Modal>
   );

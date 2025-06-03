@@ -1,7 +1,11 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
-import { styles, COLORS } from "@/styles/PropertyDetails.styles";
+import {
+  useAppColors,
+  createStyles as createGlobalStyles,
+  LIGHT_COLORS,
+} from "@/styles/PropertyDetails.styles";
 
 interface NearbyPlace {
   name: string;
@@ -18,6 +22,9 @@ const PropertyNearbyContent: React.FC<PropertyNearbyContentProps> = ({
   nearbyPlaces,
   onViewAllOnMap,
 }) => {
+  const COLORS = useAppColors();
+  const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
+
   return (
     <View style={styles.nearbyContainer}>
       <Text style={styles.sectionTitle}>Nearby Places</Text>
@@ -39,7 +46,7 @@ const PropertyNearbyContent: React.FC<PropertyNearbyContentProps> = ({
       ))}
 
       <TouchableOpacity style={styles.viewMapButton} onPress={onViewAllOnMap}>
-        <Ionicons name="map-outline" size={20} color={COLORS.white} />
+        <Ionicons name="map-outline" size={20} color={LIGHT_COLORS.white} />
         <Text style={styles.viewMapButtonText}>View All on Map</Text>
       </TouchableOpacity>
     </View>

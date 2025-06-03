@@ -29,7 +29,8 @@
         "googleMaps": {
           "apiKey": "AIzaSyCsGaVhJ_9Gd8ORYV_Px2NiYWD4vSclRFk"
         }
-      }
+      },
+      "googleServicesFile": "./kwena-properties-firebase-adminsdk-fbsvc-5bc6448a54.json"
     },
     "web": {
       "bundler": "metro",

@@ -1,7 +1,16 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
-import { styles, COLORS } from "@/styles/PropertyDetails.styles";
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  MaterialIcons,
+  FontAwesome,
+} from "@expo/vector-icons";
+import {
+  useAppColors,
+  createStyles as createGlobalStyles,
+} from "@/styles/PropertyDetails.styles";
+import { getAmenityIcon } from "@/utils/amenityIconMapping";
 
 interface IconProps {
   library:
@@ -15,18 +24,25 @@ interface IconProps {
 }
 
 const getIconComponent = ({ library, name, size, color }: IconProps) => {
+  const amenityIcon = getAmenityIcon(name);
+  const iconColor = amenityIcon && amenityIcon.color ? amenityIcon.color : color;
+
   switch (library) {
     case "MaterialCommunityIcons":
       return (
-        <MaterialCommunityIcons name={name as any} size={size} color={color} />
+        <MaterialCommunityIcons
+          name={name as any}
+          size={size}
+          color={iconColor}
+        />
       );
     case "MaterialIcons":
-      return <MaterialIcons name={name as any} size={size} color={color} />;
+      return <MaterialIcons name={name as any} size={size} color={iconColor} />;
     case "Ionicons":
-      return <Ionicons name={name as any} size={size} color={color} />;
+      return <Ionicons name={name as any} size={size} color={iconColor} />;
     case "FontAwesome":
     default:
-      return <FontAwesome name={name as any} size={size} color={color} />;
+      return <FontAwesome name={name as any} size={size} color={iconColor} />;
   }
 };
 
@@ -62,6 +78,9 @@ const PropertyDetailsContent: React.FC<PropertyDetailsContentProps> = ({
   featureCategories,
   groupedFeatures,
 }) => {
+  const COLORS = useAppColors();
+  const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
+
   return (
     <View style={styles.detailsContainer}>
       {description && (

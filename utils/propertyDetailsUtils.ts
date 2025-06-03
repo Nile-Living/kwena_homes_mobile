@@ -1,4 +1,3 @@
-// utils/propertyDetailsUtils.ts - Updated with real data integration
 import { Property } from "@/store/useStore";
 import { getAmenityIcon } from "./amenityIconMapping";
 
@@ -30,24 +29,13 @@ export const generateDisplayableFeatures = (property: Property): DisplayableFeat
   const features: DisplayableFeature[] = [];
   
   if (!property) {
-    console.log('PropertyDetailsUtils: No property provided');
     return features;
   }
 
-  console.log('PropertyDetailsUtils: Generating features for property:', {
-    id: property.id,
-    category: property.category,
-    details: property.details
-  });
-
   if (property.details) {
     const details = property.details;
-    console.log('PropertyDetailsUtils: Property details found:', details);
     
-    // House specific features
     if (property.category === 'house') {
-      console.log('PropertyDetailsUtils: Processing house category');
-      
       if (details.bedrooms) {
         features.push({
           name: 'bedrooms',
@@ -88,39 +76,34 @@ export const generateDisplayableFeatures = (property: Property): DisplayableFeat
         });
       }
 
-      // Add house amenities
       if (details.amenities && Array.isArray(details.amenities) && details.amenities.length > 0) {
-        console.log('PropertyDetailsUtils: Found house amenities:', details.amenities);
         details.amenities.forEach((amenity: string) => {
+          const amenityIcon = getAmenityIcon(amenity);
           features.push({
             name: `amenity_${amenity.toLowerCase().replace(/\s+/g, '_')}`,
-            icon: 'check-circle-outline',
-            value: amenity,
+            icon: amenityIcon.name,
+            value: amenityIcon.label,
             category: featureCategories.amenities,
-            iconLibrary: 'MaterialCommunityIcons'
+            iconLibrary: 'Ionicons'
           });
         });
       }
 
-      // Add house security features
       if (details.security_features && Array.isArray(details.security_features) && details.security_features.length > 0) {
-        console.log('PropertyDetailsUtils: Found house security features:', details.security_features);
         details.security_features.forEach((feature: string) => {
+          const securityIcon = getAmenityIcon(feature);
           features.push({
             name: `security_${feature.toLowerCase().replace(/\s+/g, '_')}`,
-            icon: 'shield-check',
-            value: feature,
+            icon: securityIcon.name,
+            value: securityIcon.label,
             category: featureCategories.security,
-            iconLibrary: 'MaterialCommunityIcons'
+            iconLibrary: 'Ionicons'
           });
         });
       }
     }
     
-    // Land specific features
     if (property.category === 'land') {
-      console.log('PropertyDetailsUtils: Processing land category');
-      
       if (details.size_sqm) {
         features.push({
           name: 'land_size',
@@ -192,10 +175,7 @@ export const generateDisplayableFeatures = (property: Property): DisplayableFeat
       }
     }
     
-    // Apartment specific features
     if (property.category === 'apartment') {
-      console.log('PropertyDetailsUtils: Processing apartment category');
-      
       if (details.bedrooms) {
         features.push({
           name: 'bedrooms',
@@ -236,39 +216,34 @@ export const generateDisplayableFeatures = (property: Property): DisplayableFeat
         });
       }
 
-      // Add apartment amenities
       if (details.amenities && Array.isArray(details.amenities) && details.amenities.length > 0) {
-        console.log('PropertyDetailsUtils: Found apartment amenities:', details.amenities);
         details.amenities.forEach((amenity: string) => {
+          const amenityIcon = getAmenityIcon(amenity);
           features.push({
             name: `amenity_${amenity.toLowerCase().replace(/\s+/g, '_')}`,
-            icon: 'check-circle-outline',
-            value: amenity,
+            icon: amenityIcon.name,
+            value: amenityIcon.label,
             category: featureCategories.amenities,
-            iconLibrary: 'MaterialCommunityIcons'
+            iconLibrary: 'Ionicons'
           });
         });
       }
 
-      // Add apartment security features
       if (details.security_features && Array.isArray(details.security_features) && details.security_features.length > 0) {
-        console.log('PropertyDetailsUtils: Found apartment security features:', details.security_features);
         details.security_features.forEach((feature: string) => {
+          const securityIcon = getAmenityIcon(feature);
           features.push({
             name: `security_${feature.toLowerCase().replace(/\s+/g, '_')}`,
-            icon: 'shield-check',
-            value: feature,
+            icon: securityIcon.name,
+            value: securityIcon.label,
             category: featureCategories.security,
-            iconLibrary: 'MaterialCommunityIcons'
+            iconLibrary: 'Ionicons'
           });
         });
       }
     }
     
-    // Commercial specific features
     if (property.category === 'commercial') {
-      console.log('PropertyDetailsUtils: Processing commercial category');
-      
       if (details.property_type) {
         features.push({
           name: 'commercial_type',
@@ -299,51 +274,43 @@ export const generateDisplayableFeatures = (property: Property): DisplayableFeat
         });
       }
 
-      // Add commercial amenities
       if (details.amenities && Array.isArray(details.amenities) && details.amenities.length > 0) {
-        console.log('PropertyDetailsUtils: Found commercial amenities:', details.amenities);
         details.amenities.forEach((amenity: string) => {
+          const amenityIcon = getAmenityIcon(amenity);
           features.push({
             name: `amenity_${amenity.toLowerCase().replace(/\s+/g, '_')}`,
-            icon: 'check-circle-outline',
-            value: amenity,
+            icon: amenityIcon.name,
+            value: amenityIcon.label,
             category: featureCategories.amenities,
-            iconLibrary: 'MaterialCommunityIcons'
+            iconLibrary: 'Ionicons'
           });
         });
       }
 
-      // Add commercial security features
       if (details.security_features && Array.isArray(details.security_features) && details.security_features.length > 0) {
-        console.log('PropertyDetailsUtils: Found commercial security features:', details.security_features);
         details.security_features.forEach((feature: string) => {
+          const securityIcon = getAmenityIcon(feature);
           features.push({
             name: `security_${feature.toLowerCase().replace(/\s+/g, '_')}`,
-            icon: 'shield-check',
-            value: feature,
+            icon: securityIcon.name,
+            value: securityIcon.label,
             category: featureCategories.security,
-            iconLibrary: 'MaterialCommunityIcons'
+            iconLibrary: 'Ionicons'
           });
         });
       }
     }
-  } else {
-    console.log('PropertyDetailsUtils: No details found for property');
   }
   
-  console.log('PropertyDetailsUtils: Generated features:', features);
   return features;
 };
-
 
 export const getKeyFeaturesForDisplay = (
   allFeatures: DisplayableFeature[],
   category?: string
 ): DisplayableFeature[] => {
-  // Get basic features first
   const basicFeatures = allFeatures.filter(f => f.category === featureCategories.basic);
   
-  // Get category-specific features
   let categorySpecificFeatures: DisplayableFeature[] = [];
   if (category === 'land') {
     categorySpecificFeatures = allFeatures.filter(f => f.category === featureCategories.land);
@@ -351,19 +318,17 @@ export const getKeyFeaturesForDisplay = (
     categorySpecificFeatures = allFeatures.filter(f => f.category === featureCategories.commercial);
   }
   
-  // Get amenities and utilities
   const amenityFeatures = allFeatures.filter(f => 
     f.category === featureCategories.amenities || 
     f.category === featureCategories.utilities ||
     f.category === featureCategories.security
   );
   
-  // Prioritize and limit to 3 features
   const prioritizedFeatures = [
-    ...basicFeatures.slice(0, 2), // Max 2 basic features (bedrooms, bathrooms)
-    ...categorySpecificFeatures.slice(0, 1), // Max 1 category-specific feature
-    ...amenityFeatures.slice(0, 1) // Max 1 amenity/utility feature
-  ].slice(0, 3); // Final limit of 3
+    ...basicFeatures.slice(0, 2),
+    ...categorySpecificFeatures.slice(0, 1),
+    ...amenityFeatures.slice(0, 1)
+  ].slice(0, 3);
   
   return prioritizedFeatures;
 };
