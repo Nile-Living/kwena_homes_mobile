@@ -22,6 +22,7 @@ import { PROPERTY_TYPES, PropertyCategory } from "@/constants/propertyTypes";
 import { API_BASE_URL } from "@/constants/Config";
 import { useStore as usePropertyStore } from "@/store/useStore";
 import LocationPicker from "@/components/LocationPicker";
+import NearbyPlacesInput from "@/components/NearbyPlacesInput";
 
 interface FormData {
   title: string;
@@ -54,6 +55,11 @@ interface FormData {
   contact_whatsapp_number?: string;
   use_phone_for_call: boolean;
   use_whatsapp_for_message: boolean;
+  nearby_places: Array<{
+    name: string;
+    distance: string;
+    icon: string;
+  }>;
 }
 
 export default function AddPropertyScreen() {
@@ -93,6 +99,11 @@ export default function AddPropertyScreen() {
     contact_whatsapp_number: "",
     use_phone_for_call: true,
     use_whatsapp_for_message: true,
+    nearby_places: [
+      { name: '', distance: '', icon: 'map-pin' },
+      { name: '', distance: '', icon: 'map-pin' },
+      { name: '', distance: '', icon: 'map-pin' },
+    ],
   });
 
   const currentCategoryDetails = PROPERTY_TYPES[formData.category];
@@ -187,6 +198,17 @@ export default function AddPropertyScreen() {
     )
       clientSideValidationErrors.push("WhatsApp Number (for messages)");
 
+    if (formData.nearby_places.length < 3) {
+      clientSideValidationErrors.push('At least 3 nearby places');
+    } else {
+      const invalidNearbyPlaces = formData.nearby_places.some(
+        place => !place.name.trim() || !place.distance.trim()
+      );
+      if (invalidNearbyPlaces) {
+        clientSideValidationErrors.push('All nearby places must have name and distance');
+      }
+    }
+
     if (clientSideValidationErrors.length > 0) {
       Alert.alert(
         "Missing Information",
@@ -225,6 +247,8 @@ export default function AddPropertyScreen() {
       "use_whatsapp_for_message",
       String(formData.use_whatsapp_for_message)
     );
+
+    dataPayload.append('nearby_places', JSON.stringify(formData.nearby_places));
 
     let detailsObject: any = {};
     switch (formData.category) {
@@ -794,6 +818,13 @@ export default function AddPropertyScreen() {
           </View>
         </View>
       )}
+
+      <NearbyPlacesInput
+        nearbyPlaces={formData.nearby_places}
+        onUpdate={(places) => updateFormField('nearby_places', places)}
+        colorScheme={colorScheme ?? null}
+      />
+
       <View className="mb-6">
         <Text className={labelClasses}>Description *</Text>
         <TextInput

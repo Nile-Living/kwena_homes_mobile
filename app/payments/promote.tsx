@@ -13,13 +13,11 @@ import {
   Dimensions,
   StatusBar,
   KeyboardAvoidingView,
-  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/constants/Config';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-// Removed Reanimated imports
 
 const { width } = Dimensions.get('window');
 
@@ -37,7 +35,7 @@ const promotionPlans: PromotionPlan[] = [
   {
     id: '7days',
     duration: '7 Days',
-    price: 50,
+    price: 1,
     description: 'Standard Boost',
     priceLabel: 'ZMW 50',
     currency: 'ZMW',
@@ -46,7 +44,7 @@ const promotionPlans: PromotionPlan[] = [
   {
     id: '14days',
     duration: '14 Days',
-    price: 90,
+    price: 2,
     description: 'Extended Reach',
     priceLabel: 'ZMW 90',
     currency: 'ZMW',
@@ -60,7 +58,7 @@ const promotionPlans: PromotionPlan[] = [
   {
     id: '1month',
     duration: '1 Month',
-    price: 150,
+    price: 3,
     description: 'Maximum Visibility',
     priceLabel: 'ZMW 150',
     currency: 'ZMW',
@@ -74,8 +72,6 @@ const promotionPlans: PromotionPlan[] = [
   },
 ];
 
-type PaymentMethod = 'mobileMoney' | 'card';
-
 const PromoteScreenEnhanced: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ propertyId: string; propertyTitle?: string }>();
@@ -85,40 +81,31 @@ const PromoteScreenEnhanced: React.FC = () => {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(
     promotionPlans[0].id,
   );
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>('mobileMoney');
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-
   const [isLoading, setIsLoading] = useState(false);
   const [currentPaymentReference, setCurrentPaymentReference] = useState<
     string | null
   >(null);
-
+  const [currentLencoReference, setCurrentLencoReference] = useState<
+    string | null
+  >(null);
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otp, setOtp] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
 
   const selectedPlan = useMemo(() => {
     return promotionPlans.find((plan) => plan.id === selectedPlanId) || null;
   }, [selectedPlanId]);
 
-// In your PromoteScreenEnhanced component, update handleInitiatePayment:
-
-const handleInitiatePayment = async () => {
-  console.log('handleInitiatePayment called');
-
-  if (!selectedPlan) {
-    Alert.alert('Error', 'Please select a promotion plan.');
-    return;
-  }
-  if (!propertyId) {
-    Alert.alert('Error', 'Property ID is missing.');
-    return;
-  }
-
-  if (paymentMethod === 'mobileMoney') {
+  const handleInitiatePayment = async () => {
+    if (!selectedPlan) {
+      Alert.alert('Error', 'Please select a promotion plan.');
+      return;
+    }
+    if (!propertyId) {
+      Alert.alert('Error', 'Property ID is missing.');
+      return;
+    }
     const mobileRegex = /^0[79][567][0-9]{7}$/;
     if (!mobileMoneyNumber || !mobileRegex.test(mobileMoneyNumber)) {
       Alert.alert(
@@ -127,117 +114,126 @@ const handleInitiatePayment = async () => {
       );
       return;
     }
-  }
 
-  setIsLoading(true);
-  setCurrentPaymentReference(null);
+    setIsLoading(true);
+    setShowOtpInput(false);
+    setOtp('');
+    setCurrentPaymentReference(null);
+    setCurrentLencoReference(null);
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/promotions/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        propertyId: propertyId,
-        planId: selectedPlan.id,
-        mobileMoneyNumber: mobileMoneyNumber,
-        paymentMethod: paymentMethod, // 'mobileMoney' or 'card'
-        // Add card details if card payment
-        cardDetails: paymentMethod === 'card' ? {
-          cardNumber,
-          expiryDate,
-          cvv,
-          cardholderName,
-          email: 'user@example.com',
-        } : undefined,
-      }),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/promotions/initiate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: propertyId,
+          planId: selectedPlan.id,
+          mobileMoneyNumber: mobileMoneyNumber,
+          paymentMethod: 'momo',
+        }),
+      });
 
-    const data = await response.json();
-    console.log('Backend response:', data);
+      const data = await response.json();
 
-    if (!response.ok) {
-      if (response.status === 409) {
-        throw new Error(data.message || 'Promotion conflict detected.');
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to initiate promotion.');
       }
-      throw new Error(data.message || 'Failed to initiate promotion.');
-    }
 
-    setCurrentPaymentReference(data.paymentReference);
+      setCurrentPaymentReference(data.paymentReference);
+      setCurrentLencoReference(data.lencoReference);
 
-    // Handle different provider responses
-    if (data.provider === 'ZYNLE') {
-      if (data.redirect_url) {
-        // Card payment - redirect user
+      if (data.status === 'otp-required' || data.requiresOtp) {
+        setShowOtpInput(true);
         Alert.alert(
-          'Complete Payment',
-          'You will be redirected to complete your card payment.',
-          [
-            { 
-              text: 'Continue', 
-              onPress: async () => {
-                if (await Linking.canOpenURL(data.redirect_url)) {
-                  Linking.openURL(data.redirect_url);
-                }
-              }
-            },
-            { text: 'Cancel', style: 'cancel' }
-          ],
+          'OTP Required',
+          'Please enter the OTP sent to your phone to complete the payment.',
+        );
+      } else if (data.status === 'successful') {
+        Alert.alert(
+          'Promotion Activated!',
+          data.message || 'Your listing promotion is now active.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      } else if (data.status === 'pay-offline') {
+        Alert.alert(
+          'Authorization Required',
+          'Please authorize the payment on your mobile phone. We will verify the status.',
+        );
+      } else if (data.status === 'pending') {
+        Alert.alert(
+          'Payment Pending',
+          data.message ||
+            'Your payment is pending. We will verify the status.',
         );
       } else {
-        // Mobile money - show status message
         Alert.alert(
-          'Payment Initiated',
-          'Please check your phone for the mobile money prompt and authorize the payment. The status will update automatically.',
-          [{ text: 'OK' }],
+          'Payment Status',
+          data.message || `Payment status: ${data.status}`,
         );
       }
-    } else {
-      // Lenco or other provider logic
+    } catch (error: any) {
+      Alert.alert(
+        'Initiation Failed',
+        error.message || 'Could not start the payment process.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async () => {
+    if (!otp || otp.length !== 6) {
+      Alert.alert('Error', 'Please enter a valid 6-digit OTP.');
+      return;
+    }
+    if (!currentPaymentReference) {
+      Alert.alert('Error', 'Payment reference is missing. Please try again.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/promotions/submit-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference: currentPaymentReference,
+          otp: otp,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'OTP submission failed.');
+      }
+
       if (data.status === 'successful') {
         Alert.alert(
           'Promotion Activated!',
           data.message || 'Your listing promotion is now active.',
           [{ text: 'OK', onPress: () => router.back() }],
         );
-      } else if (data.status === 'pending') {
+        setShowOtpInput(false);
+      } else if (data.status === 'pay-offline') {
         Alert.alert(
-          'Payment Pending',
-          data.message || 'Payment initiated. Please complete authorization.',
-          [{ text: 'OK' }],
+          'Authorization Required',
+          'OTP accepted. Please authorize the payment on your mobile phone to complete.',
+        );
+        setShowOtpInput(false);
+      } else {
+        Alert.alert(
+          'Payment Status',
+          data.message || `Payment status after OTP: ${data.status}`,
         );
       }
+    } catch (error: any) {
+      Alert.alert(
+        'OTP Submission Failed',
+        error.message || 'Could not process OTP.',
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-  } catch (error: any) {
-    console.error('Initiation error:', error);
-    Alert.alert(
-      'Initiation Failed',
-      error.message || 'Could not start the payment process.',
-    );
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  const formatCardNumber = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
-    let formatted = '';
-    for (let i = 0; i < cleaned.length; i++) {
-      if (i > 0 && i % 4 === 0) {
-        formatted += ' ';
-      }
-      formatted += cleaned[i];
-    }
-    setCardNumber(formatted);
-  };
-
-  const formatExpiryDate = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
-    let formatted = cleaned;
-    if (cleaned.length > 2) {
-      formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
-    }
-    setExpiryDate(formatted);
   };
 
   const handleNextStep = () => {
@@ -251,27 +247,9 @@ const handleInitiatePayment = async () => {
   const handleBackStep = () => {
     if (currentStep === 2) {
       setCurrentStep(1);
+      setShowOtpInput(false);
+      setOtp('');
     }
-  };
-
-  const getCardType = (cardNum: string) => {
-    const cleanedNum = cardNum.replace(/\s+/g, '');
-    if (/^4/.test(cleanedNum)) return 'Visa';
-    if (/^5[1-5]/.test(cleanedNum)) return 'Mastercard';
-    if (/^3[47]/.test(cleanedNum)) return 'American Express';
-    return '';
-  };
-
-  const renderCardIcon = () => {
-    const cardType = getCardType(cardNumber);
-    if (cardType === 'Visa') {
-      return <Ionicons name="card" size={24} color="#1A56DB" />;
-    } else if (cardType === 'Mastercard') {
-      return <Ionicons name="card" size={24} color="#E53E3E" />;
-    } else if (cardType === 'American Express') {
-      return <Ionicons name="card" size={24} color="#2D3748" />;
-    }
-    return <Ionicons name="card-outline" size={24} color="#6B7280" />;
   };
 
   const renderStepOne = () => (
@@ -382,176 +360,50 @@ const handleInitiatePayment = async () => {
       </TouchableOpacity>
       <Text style={styles.stepTitle}>Payment Details</Text>
       <Text style={styles.stepDescription}>
-        Choose your preferred payment method and complete your purchase
+        Enter your mobile money number to proceed
       </Text>
-      <View style={styles.paymentMethodsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.paymentMethodTab,
-            paymentMethod === 'mobileMoney' && styles.paymentMethodTabActive,
-          ]}
-          onPress={() => setPaymentMethod('mobileMoney')}
-        >
-          <Ionicons
-            name="phone-portrait-outline"
-            size={22}
-            color={paymentMethod === 'mobileMoney' ? '#4F46E5' : '#6B7280'}
-          />
-          <Text
-            style={[
-              styles.paymentMethodText,
-              paymentMethod === 'mobileMoney' && styles.paymentMethodTextActive,
-            ]}
-          >
-            Mobile Money
+
+      <View style={styles.inputSection}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Mobile Money Number</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="call-outline" size={20} color="#6B7280" />
+            <TextInput
+              placeholder="09XXXXXXXX / 07XXXXXXXX"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              value={mobileMoneyNumber}
+              onChangeText={setMobileMoneyNumber}
+              style={styles.textInput}
+              maxLength={10}
+              editable={!showOtpInput && !isLoading}
+            />
+          </View>
+          <Text style={styles.inputHelper}>
+            We'll send a payment prompt to this number (Lenco Payments)
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.paymentMethodTab,
-            paymentMethod === 'card' && styles.paymentMethodTabActive,
-          ]}
-          onPress={() => setPaymentMethod('card')}
-        >
-          <Ionicons
-            name="card-outline"
-            size={22}
-            color={paymentMethod === 'card' ? '#4F46E5' : '#6B7280'}
-          />
-          <Text
-            style={[
-              styles.paymentMethodText,
-              paymentMethod === 'card' && styles.paymentMethodTextActive,
-            ]}
-          >
-            Credit/Debit Card
-          </Text>
-        </TouchableOpacity>
+        </View>
+
+        {showOtpInput && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Enter OTP</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="keypad-outline" size={20} color="#6B7280" />
+              <TextInput
+                placeholder="6-digit OTP"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                value={otp}
+                onChangeText={setOtp}
+                style={styles.textInput}
+                maxLength={6}
+                editable={!isLoading}
+              />
+            </View>
+          </View>
+        )}
       </View>
-      {paymentMethod === 'mobileMoney' ? (
-        <View style={styles.inputSection}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Mobile Money Number</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="call-outline" size={20} color="#6B7280" />
-              <TextInput
-                placeholder="09XXXXXXXX / 07XXXXXXXX"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-                value={mobileMoneyNumber}
-                onChangeText={setMobileMoneyNumber}
-                style={styles.textInput}
-                maxLength={10}
-                editable={true}
-              />
-            </View>
-            <Text style={styles.inputHelper}>
-              We'll send a payment prompt to this number
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.inputSection}>
-          <View style={styles.cardPreview}>
-            <LinearGradient
-              colors={['#4F46E5', '#6366F1', '#818CF8']}
-              style={styles.cardBackground}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.cardTopRow}>
-                <Text style={styles.cardLabel}>Credit/Debit Card</Text>
-                <Ionicons name="wifi-outline" size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.cardNumberRow}>
-                <Text style={styles.cardNumberText}>
-                  {cardNumber || '•••• •••• •••• ••••'}
-                </Text>
-              </View>
-              <View style={styles.cardBottomRow}>
-                <View>
-                  <Text style={styles.cardHolderLabel}>Card Holder</Text>
-                  <Text style={styles.cardHolderName}>
-                    {cardholderName || 'YOUR NAME'}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={styles.cardExpiryLabel}>Expires</Text>
-                  <Text style={styles.cardExpiryDate}>
-                    {expiryDate || 'MM/YY'}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Card Number</Text>
-            <View style={styles.inputContainer}>
-              {renderCardIcon()}
-              <TextInput
-                placeholder="1234 5678 9012 3456"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                value={cardNumber}
-                onChangeText={formatCardNumber}
-                style={styles.textInput}
-                maxLength={19}
-                editable={true}
-              />
-            </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Cardholder Name</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#6B7280" />
-              <TextInput
-                placeholder="Name as it appears on card"
-                placeholderTextColor="#9CA3AF"
-                value={cardholderName}
-                onChangeText={setCardholderName}
-                style={styles.textInput}
-                autoCapitalize="words"
-                editable={true}
-              />
-            </View>
-          </View>
-          <View style={styles.rowInputContainer}>
-            <View style={styles.flexInput}>
-              <Text style={styles.inputLabel}>Expiry Date</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-                <TextInput
-                  placeholder="MM/YY"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={expiryDate}
-                  onChangeText={formatExpiryDate}
-                  style={styles.textInput}
-                  maxLength={5}
-                  editable={true}
-                />
-              </View>
-            </View>
-            <View style={styles.flexInput}>
-              <Text style={styles.inputLabel}>CVV</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
-                <TextInput
-                  placeholder="123"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={cvv}
-                  onChangeText={setCvv}
-                  style={styles.textInput}
-                  maxLength={4}
-                  secureTextEntry
-                  editable={true}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
+
       <View style={styles.summaryContainer}>
         <Text style={styles.summaryTitle}>Order Summary</Text>
         <View style={styles.summaryRow}>
@@ -568,36 +420,61 @@ const handleInitiatePayment = async () => {
           </Text>
         </View>
       </View>
-      <TouchableOpacity
-        style={[styles.payButton, isLoading && styles.payButtonDisabled]}
-        onPress={handleInitiatePayment}
-        disabled={isLoading}
-        activeOpacity={0.8}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
-        ) : (
-          <>
-            <Text style={styles.payButtonText}>
-              {`Pay ${selectedPlan?.priceLabel}`}
-            </Text>
-            <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-          </>
-        )}
-      </TouchableOpacity>
+
+      {!showOtpInput ? (
+        <TouchableOpacity
+          style={[styles.payButton, isLoading && styles.payButtonDisabled]}
+          onPress={handleInitiatePayment}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <>
+              <Text style={styles.payButtonText}>
+                {`Pay ${selectedPlan?.priceLabel}`}
+              </Text>
+              <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
+            </>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.payButton, isLoading && styles.payButtonDisabled]}
+          onPress={handleOtpSubmit}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <>
+              <Text style={styles.payButtonText}>Submit OTP</Text>
+              <Ionicons name="key-outline" size={20} color="#FFFFFF" />
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
       <View style={styles.securityContainer}>
         <Ionicons name="lock-closed" size={16} color="#16A34A" />
-        <Text style={styles.securityText}>Secured by 256-bit encryption</Text>
+        <Text style={styles.securityText}>Secured by Lenco Payments</Text>
       </View>
     </KeyboardAvoidingView>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: "Promote Listing", headerShown: false }} />
+      <Stack.Screen
+        options={{ title: 'Promote Listing', headerShown: false }}
+      />
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="close" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Promote Your Listing</Text>
@@ -617,7 +494,6 @@ const handleInitiatePayment = async () => {
   );
 };
 
-// Paste the full StyleSheet from the previous response here
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -772,38 +648,6 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     marginLeft: 4,
   },
-  paymentMethodsContainer: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    padding: 4,
-  },
-  paymentMethodTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  paymentMethodTabActive: {
-    backgroundColor: '#FFFFFF',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  paymentMethodText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 8,
-  },
-  paymentMethodTextActive: {
-    color: '#4F46E5',
-  },
   inputSection: {
     marginBottom: 24,
   },
@@ -836,14 +680,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 4,
-  },
-  rowInputContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  flexInput: {
-    flex: 1,
   },
   summaryContainer: {
     backgroundColor: '#F3F4F6',
@@ -896,8 +732,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   payButtonDisabled: {
-    backgroundColor: '#818CF8',
-    opacity: 0.8,
+    backgroundColor: '#A5B4FC',
   },
   payButtonText: {
     fontSize: 16,
@@ -914,71 +749,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4B5563',
     marginLeft: 4,
-  },
-  cardPreview: {
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  cardBackground: {
-    padding: 20,
-    minHeight: 180,
-    borderRadius: 16,
-    justifyContent: 'space-between',
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    opacity: 0.9,
-  },
-  cardNumberRow: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  cardNumberText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    letterSpacing: 2,
-  },
-  cardBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  cardHolderLabel: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  cardHolderName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-  },
-  cardExpiryLabel: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  cardExpiryDate: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
   },
 });
 

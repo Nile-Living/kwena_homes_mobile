@@ -29,6 +29,12 @@ export interface PropertyDetails {
   property_type?: string;
 }
 
+export interface NearbyPlace {
+  name: string;
+  distance: string;
+  icon: string;
+}
+
 export interface Property {
   id: string;
   title: string;
@@ -52,6 +58,7 @@ export interface Property {
   use_phone_for_call?: boolean;
   use_whatsapp_for_message?: boolean;
   isInjectedAd?: boolean;
+  nearby_places?: NearbyPlace[];
   userProfile?: {
     id: string;
     full_name: string;

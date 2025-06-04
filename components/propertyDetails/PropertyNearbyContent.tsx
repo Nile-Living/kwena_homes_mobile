@@ -25,6 +25,15 @@ const PropertyNearbyContent: React.FC<PropertyNearbyContentProps> = ({
   const COLORS = useAppColors();
   const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
 
+  if (!nearbyPlaces || nearbyPlaces.length === 0) {
+    return (
+      <View style={styles.nearbyContainer}>
+        <Text style={styles.sectionTitle}>Nearby Places</Text>
+        <Text style={styles.nearbyPlaceDistance}>No nearby places listed for this property.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.nearbyContainer}>
       <Text style={styles.sectionTitle}>Nearby Places</Text>
