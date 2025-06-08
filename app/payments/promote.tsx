@@ -135,46 +135,91 @@ const PromoteScreenEnhanced: React.FC = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to initiate promotion.');
-      }
+      if (response.ok) {
+        setCurrentPaymentReference(data.paymentReference);
+        setCurrentLencoReference(data.lencoReference);
 
-      setCurrentPaymentReference(data.paymentReference);
-      setCurrentLencoReference(data.lencoReference);
-
-      if (data.status === 'otp-required' || data.requiresOtp) {
-        setShowOtpInput(true);
-        Alert.alert(
-          'OTP Required',
-          'Please enter the OTP sent to your phone to complete the payment.',
-        );
-      } else if (data.status === 'successful') {
-        Alert.alert(
-          'Promotion Activated!',
-          data.message || 'Your listing promotion is now active.',
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
-      } else if (data.status === 'pay-offline') {
-        Alert.alert(
-          'Authorization Required',
-          'Please authorize the payment on your mobile phone. We will verify the status.',
-        );
-      } else if (data.status === 'pending') {
-        Alert.alert(
-          'Payment Pending',
-          data.message ||
-            'Your payment is pending. We will verify the status.',
-        );
+        if (data.status === 'otp-required' || data.requiresOtp) {
+          setShowOtpInput(true);
+          Alert.alert(
+            'OTP Required',
+            'Please enter the OTP sent to your phone to complete the payment.',
+          );
+        } else if (data.status === 'successful') {
+          router.replace({
+            pathname: '/promoted/success',
+            params: {
+              propertyId: propertyId,
+              propertyTitle: propertyTitle,
+            },
+          });
+        } else if (
+          data.status === 'pay-offline' ||
+          data.status === 'pending'
+        ) {
+          router.replace({
+            pathname: `/promoted/[propertyId]/status`,
+            params: {
+              paymentReference: data.paymentReference,
+              propertyId: propertyId,
+              propertyTitle: propertyTitle,
+              initialStatus: data.status,
+            },
+          });
+        } else {
+          Alert.alert(
+            'Payment Status',
+            data.message || `Payment status: ${data.status}`,
+          );
+        }
       } else {
-        Alert.alert(
-          'Payment Status',
-          data.message || `Payment status: ${data.status}`,
-        );
+        if (
+          data.message &&
+          (data.message.includes('pay-offline') ||
+            data.message.includes('pending') ||
+            data.message.includes('otp-required')) &&
+          data.existingPaymentReference
+        ) {
+          router.replace({
+            pathname: `/promoted/[propertyId]/status`,
+            params: {
+              paymentReference: data.existingPaymentReference,
+              propertyId: propertyId,
+              propertyTitle: propertyTitle,
+              initialStatus: 'pay-offline',
+            },
+          });
+        } else if (
+          data.message &&
+          data.message.includes('already has an active promotion')
+        ) {
+          Alert.alert(
+            'Already Promoted',
+            'This property already has an active promotion. You can view it in your listings.',
+            [
+              {
+                text: 'View Listings',
+                onPress: () => {
+                  router.push(`/properties`);
+                },
+              },
+              {
+                text: 'OK',
+                style: 'cancel',
+              },
+            ],
+          );
+        } else {
+          Alert.alert(
+            'Promotion Failed',
+            data.message || 'Failed to initiate promotion.',
+          );
+        }
       }
     } catch (error: any) {
       Alert.alert(
-        'Initiation Failed',
-        error.message || 'Could not start the payment process.',
+        'Network Error',
+        'Could not connect to the server. Please check your internet connection and try again.',
       );
     } finally {
       setIsLoading(false);
@@ -203,33 +248,37 @@ const PromoteScreenEnhanced: React.FC = () => {
       });
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'OTP submission failed.');
-      }
-
-      if (data.status === 'successful') {
-        Alert.alert(
-          'Promotion Activated!',
-          data.message || 'Your listing promotion is now active.',
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
+      if (response.ok) {
         setShowOtpInput(false);
-      } else if (data.status === 'pay-offline') {
-        Alert.alert(
-          'Authorization Required',
-          'OTP accepted. Please authorize the payment on your mobile phone to complete.',
-        );
-        setShowOtpInput(false);
+        if (data.status === 'successful') {
+          router.replace({
+            pathname: '/promoted/success',
+            params: {
+              propertyId: propertyId,
+              propertyTitle: propertyTitle,
+            },
+          });
+        } else {
+          router.replace({
+            pathname: `/promoted/[propertyId]/status`,
+            params: {
+              paymentReference: currentPaymentReference,
+              propertyId: propertyId,
+              propertyTitle: propertyTitle,
+              initialStatus: data.status,
+            },
+          });
+        }
       } else {
         Alert.alert(
-          'Payment Status',
-          data.message || `Payment status after OTP: ${data.status}`,
+          'OTP Failed',
+          data.message || 'Invalid OTP. Please try again.',
         );
       }
     } catch (error: any) {
       Alert.alert(
-        'OTP Submission Failed',
-        error.message || 'Could not process OTP.',
+        'Network Error',
+        'Could not connect to the server. Please check your internet connection and try again.',
       );
     } finally {
       setIsLoading(false);

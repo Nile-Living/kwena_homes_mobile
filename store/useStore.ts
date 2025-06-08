@@ -111,6 +111,7 @@ interface PropertyState {
     propertyId: string,
     updatedPropertyData: Partial<Property>,
   ) => void;
+  refreshPropertyPromotionStatus: (propertyId: string) => Promise<void>;
 }
 
 export const useStore = create<PropertyState>((set, get) => ({
@@ -383,4 +384,26 @@ export const useStore = create<PropertyState>((set, get) => ({
       ),
     }));
   },
+
+refreshPropertyPromotionStatus: async (propertyId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`);
+      if (!response.ok) return;
+
+      const updatedProperty: Property = await response.json();
+
+      const updateState = (p: Property) =>
+        p.id === propertyId
+          ? { ...p, is_promoted: updatedProperty.is_promoted }
+          : p;
+
+      set((state) => ({
+        properties: state.properties.map(updateState),
+        featuredProperties: state.featuredProperties.map(updateState),
+        savedPropertyDetails: state.savedPropertyDetails.map(updateState),
+      }));
+    } catch (error) {
+      console.error('Failed to refresh property promotion status:', error);
+    }
+  }, 
 }));
