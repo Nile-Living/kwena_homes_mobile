@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -80,6 +80,26 @@ export default function PropertyDetails() {
   const fullScreenFlatListRef = useRef<FlatList<string>>(null);
   const scrollY = useSharedValue(0);
 
+  const nearbyPlacesData = useMemo(() => {
+    if (!propertyData?.nearby_places) {
+      return [];
+    }
+    const places = propertyData.nearby_places;
+    if (Array.isArray(places)) {
+      return places;
+    }
+    if (typeof places === "string") {
+      try {
+        const parsedPlaces = JSON.parse(places);
+        return Array.isArray(parsedPlaces) ? parsedPlaces : [];
+      } catch (e) {
+        console.error("Failed to parse nearby_places JSON string:", e);
+        return [];
+      }
+    }
+    return [];
+  }, [propertyData?.nearby_places]);
+
   const headerContainerAnimatedStyle = useAnimatedStyle(() => {
     const interpolatedScrollOpacity = interpolate(
       scrollY.value,
@@ -88,10 +108,8 @@ export default function PropertyDetails() {
       Extrapolate.CLAMP,
     );
     const newZIndex = interpolatedScrollOpacity < 0.05 ? -1 : 100;
-
     const baseBackgroundColor =
       colorScheme === "dark" ? "24,24,24" : "255,255,255";
-
     return {
       backgroundColor: `rgba(${baseBackgroundColor}, ${interpolatedScrollOpacity})`,
       borderBottomWidth: interpolatedScrollOpacity > 0.7 ? 1 : 0,
@@ -114,7 +132,6 @@ export default function PropertyDetails() {
       }
       setLoading(true);
       setError(null);
-
       const storeProperty = getPropertyById(id);
       if (storeProperty) {
         setPropertyData(storeProperty);
@@ -212,7 +229,9 @@ export default function PropertyDetails() {
       const cleanedNumber = numberForWhatsApp.replace(/\D/g, "");
       const titleToUse = propertyData?.title || "this property";
       Linking.openURL(
-        `https://wa.me/${cleanedNumber}?text=Hello, I'm interested in ${encodeURIComponent(titleToUse)} listed on Kwena Properties.`,
+        `https://wa.me/${cleanedNumber}?text=Hello, I'm interested in ${encodeURIComponent(
+          titleToUse,
+        )} listed on Kwena Properties.`,
       );
     } else {
       Alert.alert(
@@ -427,12 +446,6 @@ export default function PropertyDetails() {
 
   const actualAgent = getUserAgent();
 
-  const mockNearbyPlaces = [
-    { name: "Local School", distance: "0.5 km", icon: "graduation-cap" },
-    { name: "Shopping Center", distance: "1.2 km", icon: "shopping-bag" },
-    { name: "Hospital", distance: "2.5 km", icon: "hospital-o" },
-  ];
-
   return (
     <GestureHandlerRootView
       style={{ flex: 1, backgroundColor: COLORS.background }}
@@ -514,7 +527,7 @@ export default function PropertyDetails() {
 
           <View style={{ display: activeTab === "nearby" ? "flex" : "none" }}>
             <PropertyNearbyContent
-              nearbyPlaces={mockNearbyPlaces}
+              nearbyPlaces={nearbyPlacesData}
               onViewAllOnMap={handleViewOnMap}
             />
           </View>

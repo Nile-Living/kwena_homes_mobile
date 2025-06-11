@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,13 @@ import {
   ActivityIndicator,
   StyleSheet,
   useColorScheme,
-} from "react-native";
-import { useRouter, Stack } from "expo-router";
-import { supabase } from "@/supabaseClient";
-import { useAuthStore } from "@/store/authStore";
-import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+} from 'react-native';
+import { useRouter, Stack } from 'expo-router';
+import { supabase } from '@/supabaseClient';
+import { useAuthStore } from '@/store/authStore';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 interface Profile {
   id: string;
@@ -26,21 +26,21 @@ interface Profile {
   phone: string | null;
   email: string | null;
   created_at?: string;
-  role?: "user" | "agent" | null;
+  role?: 'user' | 'agent' | null;
 }
 
 const getTimeAgo = (dateString?: string): string => {
-  if (!dateString) return "";
+  if (!dateString) return '';
   const date = new Date(dateString);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365));
-  if (years > 0) return `Joined ${years} year${years > 1 ? "s" : ""} ago`;
+  if (years > 0) return `Joined ${years} year${years > 1 ? 's' : ''} ago`;
   const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
-  if (months > 0) return `Joined ${months} month${months > 1 ? "s" : ""} ago`;
+  if (months > 0) return `Joined ${months} month${months > 1 ? 's' : ''} ago`;
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  if (days > 0) return `Joined ${days} day${days > 1 ? "s" : ""} ago`;
-  return "Joined recently";
+  if (days > 0) return `Joined ${days} day${days > 1 ? 's' : ''} ago`;
+  return 'Joined recently';
 };
 
 export default function ProfileScreen() {
@@ -49,20 +49,20 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isNameModalVisible, setNameModalVisible] = useState(false);
-  const [nameInput, setNameInput] = useState("");
+  const [nameInput, setNameInput] = useState('');
 
   const colorScheme = useColorScheme();
 
   const iconColors = {
-    guestIcon: colorScheme === "dark" ? "#94a3b8" : "gray",
-    avatarPlaceholder: colorScheme === "dark" ? "#94a3b8" : "gray",
-    listItem: colorScheme === "dark" ? "#cbd5e1" : "#4B5563",
-    chevron: colorScheme === "dark" ? "#64748b" : "#9CA3AF",
-    signOutIcon: "#EF4444",
+    guestIcon: colorScheme === 'dark' ? '#94a3b8' : 'gray',
+    avatarPlaceholder: colorScheme === 'dark' ? '#94a3b8' : 'gray',
+    listItem: colorScheme === 'dark' ? '#cbd5e1' : '#4B5563',
+    chevron: colorScheme === 'dark' ? '#64748b' : '#9CA3AF',
+    signOutIcon: '#EF4444',
   };
 
   const activityIndicatorLoadingColor =
-    colorScheme === "dark" ? "#14532d" : "#f3f4f6";
+    colorScheme === 'dark' ? '#14532d' : '#f3f4f6';
 
   useEffect(() => {
     fetchProfile();
@@ -77,19 +77,19 @@ export default function ProfileScreen() {
         return;
       }
       const { data, error } = await supabase
-        .from("profiles")
-        .select("*, created_at, role")
-        .eq("id", user.id)
+        .from('profiles')
+        .select('*, created_at, role')
+        .eq('id', user.id)
         .single();
       if (error) {
-        if (error.code === "PGRST116") {
+        if (error.code === 'PGRST116') {
           console.log(
-            "Profile not found, creating one with default role 'user'..."
+            "Profile not found, creating one with default role 'user'...",
           );
           const { data: newProfile, error: createError } = await supabase
-            .from("profiles")
-            .insert([{ id: user.id, email: user.email, role: "user" }])
-            .select("*, created_at, role")
+            .from('profiles')
+            .insert([{ id: user.id, email: user.email, role: 'user' }])
+            .select('*, created_at, role')
             .single();
           if (createError) throw createError;
           setProfile(newProfile);
@@ -100,8 +100,8 @@ export default function ProfileScreen() {
         setProfile(data);
       }
     } catch (error: any) {
-      console.error("Error fetching/creating profile:", error);
-      Alert.alert("Error", "Could not load profile data.");
+      console.error('Error fetching/creating profile:', error);
+      Alert.alert('Error', 'Could not load profile data.');
       setProfile(null);
     } finally {
       setLoading(false);
@@ -111,10 +111,10 @@ export default function ProfileScreen() {
   const handleImagePick = async () => {
     if (!user) {
       Alert.alert(
-        "Sign in required",
-        "Please sign in to update your profile image"
+        'Sign in required',
+        'Please sign in to update your profile image',
       );
-      router.push("/auth/signin");
+      router.push('/auth/signin');
       return;
     }
     try {
@@ -126,16 +126,16 @@ export default function ProfileScreen() {
       });
       if (!result.canceled && result.assets.length > 0) {
         const uri = result.assets[0].uri;
-        const fileExtension = uri.split(".").pop();
+        const fileExtension = uri.split('.').pop();
         const fileName = `${user.id}/avatar.${fileExtension}`;
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         const buffer = Uint8Array.from(atob(base64), (c) =>
-          c.charCodeAt(0)
+          c.charCodeAt(0),
         ).buffer;
         const { error: uploadError } = await supabase.storage
-          .from("avatars")
+          .from('avatars')
           .upload(fileName, buffer, {
             contentType: `image/${fileExtension}`,
             upsert: true,
@@ -143,25 +143,25 @@ export default function ProfileScreen() {
         if (uploadError) throw uploadError;
         const {
           data: { publicUrl },
-        } = supabase.storage.from("avatars").getPublicUrl(fileName);
+        } = supabase.storage.from('avatars').getPublicUrl(fileName);
         await updateProfile({ avatar_url: publicUrl });
       }
     } catch (error) {
-      console.error("Error uploading image:", error);
-      Alert.alert("Upload failed", "There was a problem uploading your image");
+      console.error('Error uploading image:', error);
+      Alert.alert('Upload failed', 'There was a problem uploading your image');
     }
   };
 
   const handleUpdateName = () => {
     if (!user) {
-      Alert.alert("Sign in required", "Please sign in to update your profile");
+      Alert.alert('Sign in required', 'Please sign in to update your profile');
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/(tabs)/profile" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/(tabs)/profile' },
       });
       return;
     }
-    setNameInput(profile?.full_name || "");
+    setNameInput(profile?.full_name || '');
     setNameModalVisible(true);
   };
 
@@ -181,15 +181,15 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
       const { error } = await supabase
-        .from("profiles")
+        .from('profiles')
         .update(updates)
-        .eq("id", user.id);
+        .eq('id', user.id);
 
       if (error) throw error;
       await fetchProfile();
     } catch (error: any) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Update Failed", "Could not update profile.");
+      console.error('Error updating profile:', error);
+      Alert.alert('Update Failed', 'Could not update profile.');
     } finally {
       setLoading(false);
     }
@@ -197,53 +197,69 @@ export default function ProfileScreen() {
 
   const handleNavigateToProperties = () => {
     if (!user) {
-      Alert.alert("Sign in required", "Please sign in to view your properties");
+      Alert.alert('Sign in required', 'Please sign in to view your properties');
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/properties" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/properties' },
       });
     } else {
-      router.push("/properties");
+      router.push('/properties');
+    }
+  };
+
+  // --- FIX: Correct navigation handler for promoted properties ---
+  const handleNavigateToPromotedProperties = () => {
+    if (!user) {
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to view your promoted properties',
+      );
+      router.push({
+        pathname: '/auth/signin',
+        params: { redirectTo: '/promoted' }, // Correct route
+      });
+    } else {
+      router.push('/promoted'); // Correct route
     }
   };
 
   const handleNavigateToSaved = () => {
     if (!user) {
       Alert.alert(
-        "Sign in required",
-        "Please sign in to view saved properties"
+        'Sign in required',
+        'Please sign in to view saved properties',
       );
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/(tabs)/saved" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/(tabs)/saved' },
       });
     } else {
-      router.push("/(tabs)/saved");
+      router.push('/(tabs)/saved');
     }
   };
 
   const handleNavigateToAddProperty = () => {
     if (!user) {
-      Alert.alert("Sign in required", "Please sign in to add a property");
+      Alert.alert('Sign in required', 'Please sign in to add a property');
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/property/new" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/property/new' },
       });
     } else {
-      router.push("/property/new");
+      router.push('/property/new');
     }
   };
 
   const handleNavigateToSettings = () => {
-    router.push("/settings");
+    router.push('/settings');
   };
 
   const handleNavigateToEditProfile = () => {
     if (!user) {
-      Alert.alert("Sign in required", "Please sign in to edit your profile");
+      Alert.alert('Sign in required', 'Please sign in to edit your profile');
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/(tabs)/profile" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/(tabs)/profile' },
       });
     } else {
       handleUpdateName();
@@ -252,25 +268,28 @@ export default function ProfileScreen() {
 
   const handleNavigateToSubscription = () => {
     if (!user) {
-      Alert.alert("Sign in required", "Please sign in to manage your subscription");
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to manage your subscription',
+      );
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/subscription" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/subscription' },
       });
     } else {
-      router.push("/subscriptions/subscriptionScreen");
+      router.push('/subscriptions/subscriptionScreen');
     }
   };
 
   const handleNavigateToSavedSearches = () => {
     if (!user) {
-      Alert.alert("Sign in required", "Please sign in to manage saved searches");
+      Alert.alert('Sign in required', 'Please sign in to manage saved searches');
       router.push({
-        pathname: "/auth/signin",
-        params: { redirectTo: "/saved-searches" },
+        pathname: '/auth/signin',
+        params: { redirectTo: '/saved-searches' },
       });
     } else {
-      router.push("/settings/saveSearchScreen/SavedSearchScreen")
+      router.push('/settings/saveSearchScreen/SavedSearchScreen');
     }
   };
 
@@ -284,7 +303,7 @@ export default function ProfileScreen() {
   if (loading && !profile) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
+        <Stack.Screen options={{ headerShown: false, title: 'Profile' }} />
         <ActivityIndicator
           size="large"
           color={activityIndicatorLoadingColor}
@@ -296,7 +315,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 p-6">
-        <Stack.Screen options={{ title: "Profile", headerShown: false }} />
+        <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
         <Ionicons
           name="person-circle-outline"
           size={80}
@@ -309,7 +328,7 @@ export default function ProfileScreen() {
           Sign in to manage your profile, properties, and saved items.
         </Text>
         <TouchableOpacity
-          onPress={() => router.push("/auth/signin")}
+          onPress={() => router.push('/auth/signin')}
           className="w-full bg-[#ED9B6B] dark:bg-[#ED9B6B] rounded-lg h-12 justify-center items-center shadow-sm"
         >
           <Text className="text-white font-semibold text-base">
@@ -322,7 +341,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView className="flex-1 bg-gray-50 dark:bg-slate-900">
-      <Stack.Screen options={{ headerShown: false, title: "Profile" }} />
+      <Stack.Screen options={{ headerShown: false, title: 'Profile' }} />
       <View className="items-center pt-8 pb-6 bg-white dark:bg-slate-900 mt-12">
         <TouchableOpacity onPress={handleImagePick} className="mb-3 relative">
           {profile?.avatar_url ? (
@@ -342,7 +361,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <TouchableOpacity onPress={handleNavigateToEditProfile}>
           <Text className="text-xl font-bold text-gray-800 dark:text-gray-100">
-            {profile?.full_name || "Update Your Name"}
+            {profile?.full_name || 'Update Your Name'}
           </Text>
         </TouchableOpacity>
         <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -351,7 +370,7 @@ export default function ProfileScreen() {
       </View>
 
       <View className="p-4 mt-4">
-        {profile?.role === "agent" && (
+        {profile?.role === 'agent' && (
           <>
             <TouchableOpacity
               onPress={handleNavigateToProperties}
@@ -373,6 +392,29 @@ export default function ProfileScreen() {
                 color={iconColors.chevron}
               />
             </TouchableOpacity>
+
+            {/* --- THE FIX IS HERE --- */}
+            <TouchableOpacity
+              onPress={handleNavigateToPromotedProperties} // 2. The corrected navigation handler
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
+            >
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="rocket-outline" // 1. The new, distinct icon for promoted properties
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+                  My Promoted Properties
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={20}
+                color={iconColors.chevron}
+              />
+            </TouchableOpacity>
+            {/* --- END OF FIX --- */}
 
             <TouchableOpacity
               onPress={handleNavigateToAddProperty}
@@ -397,7 +439,7 @@ export default function ProfileScreen() {
           </>
         )}
 
-        {profile?.role === "user" && (
+        {profile?.role === 'user' && (
           <>
             <TouchableOpacity
               onPress={handleNavigateToEditProfile}
@@ -545,7 +587,7 @@ export default function ProfileScreen() {
               placeholder="Enter your full name"
               autoCapitalize="words"
               placeholderTextColor={
-                colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'
               }
             />
             <View className="flex-row justify-end space-x-3">
@@ -574,8 +616,8 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
 });

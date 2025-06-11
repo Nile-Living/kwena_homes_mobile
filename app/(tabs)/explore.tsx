@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useRouter, useLocalSearchParams } from "expo-router"; // Import useLocalSearchParams
 import { useStore, Property, PropertyDetails } from "@/store/useStore"; // Import PropertyDetails
-// import SearchBar from "@/components/SearchBar"; // SearchBar not used in current ExploreScreen
+import { Ionicons } from "@expo/vector-icons";
 import PriceMarker from "@/components/PriceMarker";
 import * as Location from "expo-location";
 import { getSupabase } from "@/supabaseClient";
@@ -31,44 +31,92 @@ const PropertyPreview = ({
   property: Property;
   onPress: () => void;
 }) => {
+  const propertyTypeDisplay =
+    property.property_type === "rent" ? "For Rent" : "For Sale";
+
   return (
     <Pressable
       onPress={onPress}
-      className="absolute bottom-6 left-4 right-4 bg-white rounded-lg shadow-lg overflow-hidden"
+      className="absolute bottom-5 left-3 right-3 bg-white rounded-xl p-3 active:scale-95 transition-transform"
       style={[
         Platform.select({
           ios: {
             shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 3.84,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+          },
+          android: {
+            elevation: 8,
           },
         }),
       ]}
     >
-      <View className="flex-row h-24">
+      <View className="flex-row items-center">
+        {/* Property Image */}
         <Image
           source={{
             uri:
               property.images && property.images.length > 0
                 ? property.images[0]
-                : "https://via.placeholder.com/100x100.png?text=No+Image",
+                : "https://via.placeholder.com/120x120.png?text=No+Image",
           }}
-          className="w-24 h-24"
+          className="w-28 h-28 rounded-lg"
         />
-        <View className="flex-1 p-3">
-          <Text
-            className="text-lg font-semibold text-gray-800"
-            numberOfLines={1}
-          >
-            {property.title}
-          </Text>
-          <Text className="text-base text-gray-600" numberOfLines={1}>
-            {property.location}
-          </Text>
-          <Text className="text-base font-semibold text-green-600">
+
+        {/* Property Details */}
+        <View className="flex-1 pl-3">
+          <View className="flex-row justify-between items-start">
+            {/* Title and Location */}
+            <View className="flex-1 pr-2">
+              <Text
+                className="text-base font-bold text-gray-800"
+                numberOfLines={1}
+              >
+                {property.title}
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1" numberOfLines={1}>
+                {property.location}
+              </Text>
+            </View>
+
+            {/* Pill for Property Type - REVERTED to a neutral blue */}
+            <View className="bg-blue-100 px-2 py-1 rounded-full">
+              <Text className="text-blue-800 text-xs font-semibold">
+                {propertyTypeDisplay}
+              </Text>
+            </View>
+          </View>
+
+          {/* Icons for Bed/Bath */}
+          <View className="flex-row items-center space-x-4 mt-2">
+            {property.details?.bedrooms && (
+              <View className="flex-row items-center">
+                <Ionicons name="bed-outline" size={16} color="#4B5563" />
+                <Text className="ml-1 text-sm text-gray-700 font-medium">
+                  {property.details.bedrooms}
+                </Text>
+              </View>
+            )}
+            {property.details?.bathrooms && (
+              <View className="flex-row items-center">
+                <Ionicons name="water-outline" size={16} color="#4B5563" />
+                <Text className="ml-1 text-sm text-gray-700 font-medium">
+                  {property.details.bathrooms}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Price - REVERTED to green */}
+          <Text className="text-lg font-extrabold text-green-600 mt-2">
             K{property.price.toLocaleString()}
           </Text>
+        </View>
+
+        {/* Chevron Icon for Affordance */}
+        <View className="justify-center items-center pl-2">
+          <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
         </View>
       </View>
     </Pressable>

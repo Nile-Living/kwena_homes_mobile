@@ -63,7 +63,7 @@ export default function SavedScreen() {
   return (
     <View
       style={styles.container}
-      className={`${colorScheme === "dark" ? "bg-slate-900" : "bg-white"} mt-7`}
+      className={`${colorScheme === "dark" ? "bg-slate-950" : "bg-white"} mt-7`}
     >
       <Stack.Screen options={{ title: "Saved", headerShown: false }} />
       {savedPropertyItems.length === 0 ? (

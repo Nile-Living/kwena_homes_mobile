@@ -1,18 +1,16 @@
-import React, { useEffect } from "react";
+// app/promoted/index.tsx
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   FlatList,
   ActivityIndicator,
   SafeAreaView,
-  useColorScheme,
-} from "react-native";
-import { Stack } from "expo-router";
-import {
-  useStore as usePropertyStore,
-  Property,
-} from "@/store/useStore"; // Assuming Property type is exported from useStore
-import PropertyCard from "@/components/PropertyCard"; // Adjust path
+} from 'react-native';
+import { Stack } from 'expo-router';
+import { useStore as usePropertyStore, Property } from '@/store/useStore';
+import PropertyCard from '@/components/PropertyCard';
+import { useColorScheme } from 'nativewind';
 
 export default function ViewAllPromotedScreen() {
   const {
@@ -21,24 +19,24 @@ export default function ViewAllPromotedScreen() {
     errorFeatured,
     fetchFeaturedProperties,
   } = usePropertyStore();
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
 
   useEffect(() => {
     fetchFeaturedProperties();
   }, [fetchFeaturedProperties]);
 
   const renderItem = ({ item }: { item: Property }) => (
-    // Replace with your actual PropertyCard component
-    <PropertyCard property={item} />
-
+    <View className="mb-4">
+      <PropertyCard property={item} />
+    </View>
   );
 
   if (loadingFeatured) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white dark:bg-slate-800">
+      <SafeAreaView className="flex-1 justify-center items-center bg-gray-50 dark:bg-slate-900">
         <ActivityIndicator
           size="large"
-          color={colorScheme === "dark" ? "#FFFFFF" : "#000000"}
+          color={colorScheme === 'dark' ? '#FFFFFF' : '#1F2937'}
         />
         <Text className="mt-2 text-gray-600 dark:text-slate-300">
           Loading Promoted Properties...
@@ -49,10 +47,8 @@ export default function ViewAllPromotedScreen() {
 
   if (errorFeatured) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white dark:bg-slate-800">
-        <Text className="text-red-500 text-center px-4">
-          {errorFeatured}
-        </Text>
+      <SafeAreaView className="flex-1 justify-center items-center bg-gray-50 dark:bg-slate-900 px-4">
+        <Text className="text-red-500 text-center">{errorFeatured}</Text>
       </SafeAreaView>
     );
   }
@@ -63,7 +59,7 @@ export default function ViewAllPromotedScreen() {
 
   if (!actualPromotedProperties || actualPromotedProperties.length === 0) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white dark:bg-slate-800">
+      <SafeAreaView className="flex-1 justify-center items-center bg-gray-50 dark:bg-slate-900">
         <Text className="text-gray-600 dark:text-slate-300">
           No promoted properties found.
         </Text>
@@ -72,13 +68,13 @@ export default function ViewAllPromotedScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-800">
-      <Stack.Screen options={{ title: "Promoted Properties" }} />
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-950">
+      <Stack.Screen options={{ title: 'Promoted Properties' }} />
       <FlatList
         data={actualPromotedProperties}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16 }}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>

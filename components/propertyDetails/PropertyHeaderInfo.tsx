@@ -5,6 +5,8 @@ import {
   useAppColors,
   createStyles as createGlobalStyles,
 } from "@/styles/PropertyDetails.styles";
+import { useColorScheme } from "react-native";
+
 
 interface PropertyHeaderInfoProps {
   price: number;
@@ -25,6 +27,7 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
 }) => {
   const COLORS = useAppColors();
   const styles = React.useMemo(() => createGlobalStyles(COLORS), [COLORS]);
+  const colorScheme = useColorScheme();
 
   return (
     <View style={styles.propertyHeader}>
@@ -33,7 +36,12 @@ const PropertyHeaderInfo: React.FC<PropertyHeaderInfoProps> = ({
           K{price.toLocaleString()}
           {priceUnit}
         </Text>
-        <View style={styles.propertyTypeTag}>
+        <View
+          style={[
+            styles.propertyTypeTag,
+            colorScheme === "dark" && { backgroundColor: COLORS.accentDark },
+          ]}
+        >
           <Text style={styles.propertyTypeText}>{propertyTypeDisplay}</Text>
         </View>
       </View>

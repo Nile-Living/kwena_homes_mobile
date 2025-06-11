@@ -10,6 +10,15 @@ module.exports = {
         "dark-tint": "#14532d",
         customgreen: "#54816D",
       },
+
+      accent: {
+          DEFAULT: "#F9B16E",
+          dark: "#D7904F",
+        },
+        primary: {
+          DEFAULT: "#244835",
+          dark: "#1A352A",
+        },
       slate: {
         300: "#cbd5e1",
         400: "#94a3b8",

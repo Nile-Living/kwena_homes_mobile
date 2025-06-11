@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { router } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
+import { useColorScheme } from 'nativewind'; // Import useColorScheme
 
 const NotificationsScreen = () => {
   const {
@@ -32,10 +33,11 @@ const NotificationsScreen = () => {
     isUserAgent,
     isRegularUser,
   } = useNotificationsStore();
-  
+
   const { user } = useAuthStore();
   const { isSubscribed } = useSubscriptionStore();
   const [refreshing, setRefreshing] = useState(false);
+  const { colorScheme } = useColorScheme(); // Get the current color scheme
 
   // Check if user can access notifications
   const isAgent = isUserAgent();
@@ -66,23 +68,29 @@ const NotificationsScreen = () => {
     }
 
     // Handle navigation based on notification type
-    if (notification.type === 'promotion_expiring' && notification.data.property_id) {
+    if (
+      notification.type === 'promotion_expiring' &&
+      notification.data.property_id
+    ) {
       router.push(`/property/${notification.data.property_id}` as any);
-    } else if (notification.type === 'property_match' && notification.data.property_id) {
+    } else if (
+      notification.type === 'property_match' &&
+      notification.data.property_id
+    ) {
       router.push(`/property/${notification.data.property_id}` as any);
     }
   };
 
   const handleMarkAllAsRead = () => {
     if (unreadCount === 0) return;
-    
+
     Alert.alert(
       'Mark All as Read',
       'Are you sure you want to mark all notifications as read?',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Mark All', onPress: markAllAsRead },
-      ]
+      ],
     );
   };
 
@@ -114,18 +122,22 @@ const NotificationsScreen = () => {
 
   const renderNotification = ({ item }: { item: Notification }) => {
     const isUnread = !item.read_at;
-    const timeAgo = formatDistanceToNow(new Date(item.created_at), { addSuffix: true });
+    const timeAgo = formatDistanceToNow(new Date(item.created_at), {
+      addSuffix: true,
+    });
 
     return (
       <TouchableOpacity
-        className={`bg-white mx-4 mb-3 rounded-xl p-4 shadow-sm border ${
-          isUnread ? 'border-blue-200 bg-blue-50' : 'border-gray-100'
+        className={`mx-4 mb-3 rounded-xl p-4 shadow-sm border dark:bg-slate-800 ${
+          isUnread
+            ? 'border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-700'
+            : 'border-gray-100 dark:border-slate-700'
         }`}
         onPress={() => handleNotificationPress(item)}
         activeOpacity={0.7}
       >
         <View className="flex-row items-start space-x-3">
-          <View 
+          <View
             className="w-10 h-10 rounded-full items-center justify-center"
             style={{ backgroundColor: getNotificationColor(item.type) + '20' }}
           >
@@ -135,12 +147,14 @@ const NotificationsScreen = () => {
               color={getNotificationColor(item.type)}
             />
           </View>
-          
+
           <View className="flex-1">
             <View className="flex-row items-center justify-between mb-1">
-              <Text 
+              <Text
                 className={`text-base font-semibold ${
-                  isUnread ? 'text-gray-900' : 'text-gray-700'
+                  isUnread
+                    ? 'text-gray-900 dark:text-gray-50'
+                    : 'text-gray-700 dark:text-gray-300'
                 }`}
                 numberOfLines={1}
               >
@@ -150,17 +164,19 @@ const NotificationsScreen = () => {
                 <View className="w-2 h-2 bg-blue-500 rounded-full" />
               )}
             </View>
-            
-            <Text 
+
+            <Text
               className={`text-sm mb-2 ${
-                isUnread ? 'text-gray-700' : 'text-gray-500'
+                isUnread
+                  ? 'text-gray-700 dark:text-gray-300'
+                  : 'text-gray-500 dark:text-gray-400'
               }`}
               numberOfLines={2}
             >
               {item.body}
             </Text>
-            
-            <Text className="text-xs text-gray-400">
+
+            <Text className="text-xs text-gray-400 dark:text-gray-500">
               {timeAgo}
             </Text>
           </View>
@@ -170,19 +186,23 @@ const NotificationsScreen = () => {
   };
 
   const renderEmpty = () => {
-    const emptyMessage = isAgent 
+    const emptyMessage = isAgent
       ? "You'll receive notifications about your promoted properties here."
       : "You'll receive notifications when new properties match your saved searches.";
 
     return (
       <View className="flex-1 items-center justify-center px-6 py-20">
-        <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-          <Ionicons name="notifications-outline" size={32} color="#9CA3AF" />
+        <View className="w-20 h-20 bg-gray-100 dark:bg-slate-800 rounded-full items-center justify-center mb-4">
+          <Ionicons
+            name="notifications-outline"
+            size={32}
+            className="text-gray-400 dark:text-gray-500"
+          />
         </View>
-        <Text className="text-lg font-semibold text-gray-900 mb-2">
+        <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-2">
           No Notifications
         </Text>
-        <Text className="text-sm text-gray-500 text-center">
+        <Text className="text-sm text-gray-500 dark:text-gray-400 text-center">
           {emptyMessage}
         </Text>
       </View>
@@ -191,13 +211,17 @@ const NotificationsScreen = () => {
 
   const renderError = () => (
     <View className="flex-1 items-center justify-center px-6">
-      <View className="w-20 h-20 bg-red-100 rounded-full items-center justify-center mb-4">
-        <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
+      <View className="w-20 h-20 bg-red-100 dark:bg-red-950 rounded-full items-center justify-center mb-4">
+        <Ionicons
+          name="alert-circle-outline"
+          size={32}
+          className="text-red-500 dark:text-red-400"
+        />
       </View>
-      <Text className="text-lg font-semibold text-gray-900 mb-2">
+      <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-2">
         Something went wrong
       </Text>
-      <Text className="text-sm text-gray-500 text-center mb-4">
+      <Text className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
         {error}
       </Text>
       <TouchableOpacity
@@ -215,22 +239,29 @@ const NotificationsScreen = () => {
   // Show subscription required message for regular users without subscription
   if (isUser && !isSubscribed) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
         <View className="flex-1 items-center justify-center px-6">
-          <View className="w-20 h-20 bg-blue-100 rounded-full items-center justify-center mb-4">
-            <Ionicons name="notifications-outline" size={32} color="#3B82F6" />
+          <View className="w-20 h-20 bg-blue-100 dark:bg-blue-950 rounded-full items-center justify-center mb-4">
+            <Ionicons
+              name="notifications-outline"
+              size={32}
+              className="text-blue-500 dark:text-blue-400"
+            />
           </View>
-          <Text className="text-lg font-semibold text-gray-900 mb-2">
+          <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-2">
             Subscription Required
           </Text>
-          <Text className="text-sm text-gray-500 text-center mb-6">
-            Subscribe to get notifications when new properties match your saved searches.
+          <Text className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
+            Subscribe to get notifications when new properties match your saved
+            searches.
           </Text>
           <TouchableOpacity
             className="bg-blue-500 px-6 py-3 rounded-lg"
             onPress={() => router.push('/subscription' as any)}
           >
-            <Text className="text-white font-semibold">View Subscription Plans</Text>
+            <Text className="text-white font-semibold">
+              View Subscription Plans
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -240,15 +271,19 @@ const NotificationsScreen = () => {
   // Show access denied for users who are neither agents nor regular users
   if (!canAccessNotifications) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
         <View className="flex-1 items-center justify-center px-6">
-          <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-            <Ionicons name="person-outline" size={32} color="#9CA3AF" />
+          <View className="w-20 h-20 bg-gray-100 dark:bg-slate-800 rounded-full items-center justify-center mb-4">
+            <Ionicons
+              name="person-outline"
+              size={32}
+              className="text-gray-400 dark:text-gray-500"
+            />
           </View>
-          <Text className="text-lg font-semibold text-gray-900 mb-2">
+          <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-2">
             Access Restricted
           </Text>
-          <Text className="text-sm text-gray-500 text-center">
+          <Text className="text-sm text-gray-500 dark:text-gray-400 text-center">
             Notifications are available for agents and subscribed users only.
           </Text>
         </View>
@@ -258,30 +293,34 @@ const NotificationsScreen = () => {
 
   if (error && notifications.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
         {renderError()}
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
+      <StatusBar
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colorScheme === 'dark' ? '#1e293b' : '#F9FAFB'}
+      />
+
       {/* Header */}
-      <View className="bg-white px-4 py-3 border-b border-gray-200">
+      <View className="bg-white dark:bg-slate-800 px-4 py-3 border-b border-gray-200 dark:border-slate-700">
         <View className="flex-row items-center justify-between">
           <View>
-            <Text className="text-2xl font-bold text-gray-900">
+            <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50">
               Notifications
             </Text>
             {unreadCount > 0 && (
-              <Text className="text-sm text-gray-500">
-                {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
+              <Text className="text-sm text-gray-500 dark:text-gray-400">
+                {unreadCount} unread notification
+                {unreadCount !== 1 ? 's' : ''}
               </Text>
             )}
           </View>
-          
+
           {unreadCount > 0 && (
             <TouchableOpacity
               className="bg-blue-500 px-4 py-2 rounded-lg"
@@ -297,16 +336,17 @@ const NotificationsScreen = () => {
 
       {/* Role-specific info banner */}
       {isUser && isSubscribed && (
-        <View className="px-4 py-2 bg-green-50 border-b border-green-200">
-          <Text className="text-green-800 text-sm">
-            📬 You'll receive notifications when properties match your saved searches
+        <View className="px-4 py-2 bg-green-50 dark:bg-green-950 border-b border-green-200 dark:border-green-800">
+          <Text className="text-green-800 dark:text-green-300 text-sm">
+            📬 You'll receive notifications when properties match your saved
+            searches
           </Text>
         </View>
       )}
 
       {isAgent && (
-        <View className="px-4 py-2 bg-blue-50 border-b border-blue-200">
-          <Text className="text-blue-800 text-sm">
+        <View className="px-4 py-2 bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800">
+          <Text className="text-blue-800 dark:text-blue-300 text-sm">
             🏠 You'll receive notifications about your property promotions
           </Text>
         </View>
@@ -329,11 +369,15 @@ const NotificationsScreen = () => {
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
-        ListEmptyComponent={notifications.length === 0 && !loading ? renderEmpty : null}
+        ListEmptyComponent={
+          notifications.length === 0 && !loading ? renderEmpty : null
+        }
         ListFooterComponent={
           loading && notifications.length > 0 ? (
             <View className="py-4 items-center">
-              <Text className="text-gray-500">Loading more...</Text>
+              <Text className="text-gray-500 dark:text-gray-400">
+                Loading more...
+              </Text>
             </View>
           ) : null
         }

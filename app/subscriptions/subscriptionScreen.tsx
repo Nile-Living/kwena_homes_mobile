@@ -17,6 +17,9 @@ import {
 } from '@/store/subscriptionStore';
 import { useAuthStore } from '@/store/authStore';
 import { API_BASE_URL } from '@/constants/Config';
+import { useRouter, Stack } from 'expo-router';
+import { useColorScheme } from 'nativewind';
+import colors from 'tailwindcss/colors';
 
 interface PaymentModalProps {
   visible: boolean;
@@ -33,30 +36,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentReference, setPaymentReference] = useState('');
-  const [
-    paymentStatus,
-    setPaymentStatus,
-  ] = useState<'idle' | 'initiated' | 'otp-required' | 'processing' | 'completed' | 'failed'>(
-    'idle',
-  );
-  const [currentProvider, setCurrentProvider] = useState<string>('');
+  const [paymentStatus, setPaymentStatus] = useState<
+    | 'idle'
+    | 'initiated'
+    | 'otp-required'
+    | 'processing'
+    | 'completed'
+    | 'failed'
+  >('idle');
+  const router = useRouter();
+  const { colorScheme } = useColorScheme();
 
   useEffect(() => {
-    const checkProvider = async () => {
-      try {
-        const token = useAuthStore.getState().session?.access_token;
-        const response = await fetch(`${API_BASE_URL}/payments/provider`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json();
-        setCurrentProvider(data.provider);
-      } catch (error) {
-        console.error('Error checking provider:', error);
-      }
-    };
-
     if (visible) {
-      checkProvider();
       resetModal();
     }
   }, [visible]);
@@ -68,13 +60,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
     const mobileRegex = /^0[79][567][0-9]{7}$/;
     if (!mobileRegex.test(phone)) {
-      Alert.alert(
-        'Error',
-        'Please enter a valid Zambian Mobile Money number.',
-      );
+      Alert.alert('Error', 'Please enter a valid Zambian Mobile Money number.');
       return;
     }
-
 
     setLoading(true);
     setPaymentStatus('initiated');
@@ -91,7 +79,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           amount: 1,
           phone: phone,
           method: 'momo',
-          operator: 'mtn', // Or dynamically determine
+          operator: 'mtn',
           description: 'Monthly Subscription',
         }),
       });
@@ -106,10 +94,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       if (data.status === 'otp-required' || data.requiresOtp) {
         setPaymentStatus('otp-required');
-        Alert.alert(
-          'OTP Required',
-          'Please enter the OTP sent to your phone.',
-        );
+        Alert.alert('OTP Required', 'Please enter the OTP sent to your phone.');
       } else if (data.status === 'successful') {
         setPaymentStatus('completed');
         Alert.alert(
@@ -119,19 +104,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         onPaymentSuccess(data.reference);
         resetModal();
         onClose();
-      } else if (data.status === 'pay-offline') {
-        setPaymentStatus('processing');
-        Alert.alert(
-          'Authorization Required',
-          'Please authorize the payment on your mobile phone. We will verify the status.',
-        );
-        // Optionally start polling here or rely on webhook
-      } else if (data.status === 'pending') {
-        setPaymentStatus('processing');
-        Alert.alert(
-          'Payment Pending',
-          'Your payment is pending. We will verify the status.',
-        );
+      } else if (data.status === 'pay-offline' || data.status === 'pending') {
+        resetModal();
+        onClose();
+        router.replace({
+          pathname: '/subscriptions/payment-status',
+          params: {
+            paymentReference: data.reference,
+            initialStatus: data.status,
+          },
+        });
       } else {
         setPaymentStatus('failed');
         Alert.alert(
@@ -191,16 +173,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         resetModal();
         onClose();
       } else if (data.status === 'pay-offline') {
-        setPaymentStatus('processing'); // Or a specific status like 'awaiting-auth'
-        Alert.alert(
-          'Authorization Required',
-          'OTP accepted. Please authorize the payment on your mobile phone to complete.',
-        );
-        // Optionally start polling or inform user to check status later
-        resetModal(); // Reset OTP part
-        onClose(); // Close modal, user authorizes externally
+        resetModal();
+        onClose();
+        router.replace({
+          pathname: '/subscriptions/payment-status',
+          params: {
+            paymentReference: paymentReference,
+            initialStatus: data.status,
+          },
+        });
       } else {
-        setPaymentStatus('failed'); // Or back to 'otp-required' if OTP was wrong
+        setPaymentStatus('failed');
         Alert.alert(
           'Payment Status',
           data.message || `Payment status after OTP: ${data.status}`,
@@ -232,42 +215,49 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         onClose();
       }}
     >
-      <SafeAreaView className="flex-1 bg-white">
-        <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
+        <View className="flex-row items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
           <TouchableOpacity
             onPress={() => {
               resetModal();
               onClose();
             }}
           >
-            <Ionicons name="close" size={24} color="#666" />
+            <Ionicons
+              name="close"
+              size={24}
+              color={colorScheme === 'dark' ? colors.slate[400] : colors.slate[600]}
+            />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold">Complete Payment</Text>
-          <View style={{ width: 24 }} />
+          <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50">
+            Complete Payment
+          </Text>
+          <View className="w-6" />
         </View>
 
         <View className="flex-1 p-4">
           {paymentStatus !== 'otp-required' ? (
             <View>
-              <View className="bg-blue-50 p-4 rounded-lg mb-6">
-                <Text className="text-blue-800 font-semibold text-lg mb-2">
+              <View className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg mb-6">
+                <Text className="text-blue-800 dark:text-blue-200 font-semibold text-lg mb-2">
                   Monthly Subscription
                 </Text>
-                <Text className="text-blue-600 text-2xl font-bold">
+                <Text className="text-blue-600 dark:text-blue-300 text-2xl font-bold">
                   K129.00
                 </Text>
               </View>
 
               <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
+                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Mobile Money Number (Lenco)
                 </Text>
                 <TextInput
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="e.g. 0977123456"
+                  placeholderTextColor={colors.slate[400]}
                   keyboardType="phone-pad"
-                  className="border border-gray-300 rounded-lg p-3 text-base"
+                  className="border border-gray-300 dark:border-slate-600 rounded-lg p-3 text-base bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
                   maxLength={10}
                   editable={!loading && paymentStatus !== 'processing'}
                 />
@@ -276,9 +266,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               <TouchableOpacity
                 onPress={handleInitiateLencoPayment}
                 disabled={loading || paymentStatus === 'processing'}
-                className={`p-4 rounded-lg ${
+                className={`p-4 rounded-lg active:bg-blue-600 ${
                   loading || paymentStatus === 'processing'
-                    ? 'bg-gray-300'
+                    ? 'bg-gray-300 dark:bg-slate-600'
                     : 'bg-blue-500'
                 }`}
               >
@@ -293,26 +283,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </View>
           ) : (
             <View>
-              <View className="bg-green-50 p-4 rounded-lg mb-6">
-                <Text className="text-green-800 font-semibold text-lg mb-2">
+              <View className="bg-green-50 dark:bg-green-950 p-4 rounded-lg mb-6">
+                <Text className="text-green-800 dark:text-green-200 font-semibold text-lg mb-2">
                   Enter OTP
                 </Text>
-                <Text className="text-green-600">
+                <Text className="text-green-600 dark:text-green-300">
                   Please enter the OTP sent to {phone}
                 </Text>
               </View>
 
               <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
+                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   OTP Code
                 </Text>
                 <TextInput
                   value={otp}
                   onChangeText={setOtp}
                   placeholder="Enter 6-digit code"
+                  placeholderTextColor={colors.slate[400]}
                   keyboardType="numeric"
                   maxLength={6}
-                  className="border border-gray-300 rounded-lg p-3 text-base text-center text-xl"
+                  className="border border-gray-300 dark:border-slate-600 rounded-lg p-3 text-base text-center text-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
                   editable={!loading}
                 />
               </View>
@@ -320,8 +311,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               <TouchableOpacity
                 onPress={handleLencoOtpSubmit}
                 disabled={loading}
-                className={`p-4 rounded-lg ${
-                  loading ? 'bg-gray-300' : 'bg-green-500'
+                className={`p-4 rounded-lg active:bg-green-600 ${
+                  loading ? 'bg-gray-300 dark:bg-slate-600' : 'bg-green-500'
                 }`}
               >
                 {loading ? (
@@ -335,10 +326,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </View>
           )}
           {paymentStatus === 'processing' && (
-             <View className="mt-4 items-center">
-                <ActivityIndicator size="small" color="#3B82F6" />
-                <Text className="text-gray-600 mt-2">Processing payment...</Text>
-             </View>
+            <View className="mt-4 items-center">
+              <ActivityIndicator size="small" color={colors.blue[500]} />
+              <Text className="text-gray-600 dark:text-gray-400 mt-2">
+                Processing payment...
+              </Text>
+            </View>
           )}
         </View>
       </SafeAreaView>
@@ -359,6 +352,7 @@ export default function SubscriptionScreen() {
   } = useSubscriptionStore();
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { colorScheme } = useColorScheme();
 
   useEffect(() => {
     if (isUserRole()) {
@@ -408,13 +402,17 @@ export default function SubscriptionScreen() {
 
   if (!isUserRole()) {
     return (
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
         <View className="flex-1 justify-center items-center p-6">
-          <Ionicons name="business-outline" size={64} color="#9CA3AF" />
-          <Text className="text-xl font-semibold text-gray-900 mt-4 mb-2">
+          <Ionicons
+            name="business-outline"
+            size={64}
+            color={colorScheme === 'dark' ? colors.slate[500] : colors.slate[400]}
+          />
+          <Text className="text-xl font-semibold text-gray-900 dark:text-gray-50 mt-4 mb-2">
             For Users Only
           </Text>
-          <Text className="text-gray-600 text-center">
+          <Text className="text-gray-600 dark:text-gray-400 text-center">
             Subscriptions are available for regular users only.
           </Text>
         </View>
@@ -424,10 +422,10 @@ export default function SubscriptionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text className="text-gray-600 mt-4">
+          <ActivityIndicator size="large" color={colors.blue[500]} />
+          <Text className="text-gray-600 dark:text-gray-400 mt-4">
             Loading subscription details...
           </Text>
         </View>
@@ -436,48 +434,53 @@ export default function SubscriptionScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
+      <Stack.Screen options={{ title: 'Subscription' }} />
       <ScrollView className="flex-1">
         <View className="p-4">
-          <Text className="text-2xl font-bold text-gray-900 mb-6">
+          <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-6">
             Subscription
           </Text>
 
           {isSubscribed && subscription ? (
-            <View className="bg-white rounded-lg p-4 shadow-sm mb-6">
+            <View className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm mb-6">
               <View className="flex-row items-center justify-between mb-4">
                 <View>
-                  <Text className="text-lg font-semibold text-gray-900">
+                  <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50">
                     Active Subscription
                   </Text>
-                  <Text className="text-green-600 font-medium">
+                  <Text className="text-green-600 dark:text-green-400 font-medium">
                     {subscription.subscription_type.toUpperCase()} PLAN
                   </Text>
                 </View>
-                <View className="bg-green-100 px-3 py-1 rounded-full">
-                  <Text className="text-green-800 font-medium text-sm">
+                <View className="bg-green-100 dark:bg-green-500/20 px-3 py-1 rounded-full">
+                  <Text className="text-green-800 dark:text-green-300 font-medium text-sm">
                     ACTIVE
                   </Text>
                 </View>
               </View>
 
-              <View className="border-t border-gray-200 pt-4">
+              <View className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <View className="flex-row justify-between mb-2">
-                  <Text className="text-gray-600">Started</Text>
-                  <Text className="text-gray-900">
+                  <Text className="text-gray-600 dark:text-gray-400">
+                    Started
+                  </Text>
+                  <Text className="text-gray-900 dark:text-gray-100">
                     {new Date(subscription.starts_at).toLocaleDateString()}
                   </Text>
                 </View>
                 <View className="flex-row justify-between mb-4">
-                  <Text className="text-gray-600">Expires</Text>
-                  <Text className="text-gray-900">
+                  <Text className="text-gray-600 dark:text-gray-400">
+                    Expires
+                  </Text>
+                  <Text className="text-gray-900 dark:text-gray-100">
                     {new Date(subscription.expires_at).toLocaleDateString()}
                   </Text>
                 </View>
 
                 <TouchableOpacity
                   onPress={handleCancelSubscription}
-                  className="bg-red-500 p-3 rounded-lg"
+                  className="bg-red-600 active:bg-red-700 p-3 rounded-lg"
                 >
                   <Text className="text-white text-center font-semibold">
                     Cancel Subscription
@@ -486,26 +489,28 @@ export default function SubscriptionScreen() {
               </View>
             </View>
           ) : (
-            <View className="bg-white rounded-lg p-6 shadow-sm mb-6">
+            <View className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-sm mb-6">
               <View className="items-center mb-6">
-                <Ionicons name="star" size={48} color="#F59E0B" />
-                <Text className="text-2xl font-bold text-gray-900 mt-4 mb-2">
+                <Ionicons name="star" size={48} color={colors.amber[400]} />
+                <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mt-4 mb-2">
                   Unlock Premium Features
                 </Text>
-                <Text className="text-gray-600 text-center">
+                <Text className="text-gray-600 dark:text-gray-400 text-center">
                   Get notified about new properties and save your searches
                 </Text>
               </View>
 
-              <View className="bg-blue-50 p-4 rounded-lg mb-6">
-                <Text className="text-blue-800 font-bold text-3xl text-center mb-2">
+              <View className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg mb-6">
+                <Text className="text-blue-800 dark:text-blue-200 font-bold text-3xl text-center mb-2">
                   K129.00
                 </Text>
-                <Text className="text-blue-600 text-center">per month</Text>
+                <Text className="text-blue-600 dark:text-blue-300 text-center">
+                  per month
+                </Text>
               </View>
 
               <View className="mb-6">
-                <Text className="text-lg font-semibold text-gray-900 mb-4">
+                <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-4">
                   What you'll get:
                 </Text>
 
@@ -514,13 +519,13 @@ export default function SubscriptionScreen() {
                     <Ionicons
                       name="checkmark-circle"
                       size={20}
-                      color="#10B981"
+                      color={colors.green[500]}
                     />
                     <View className="ml-3 flex-1">
-                      <Text className="text-gray-900 font-medium">
+                      <Text className="text-gray-900 dark:text-gray-100 font-medium">
                         Save Up to 5 Searches
                       </Text>
-                      <Text className="text-gray-600 text-sm">
+                      <Text className="text-gray-600 dark:text-gray-400 text-sm">
                         Save your favorite search criteria for quick access
                       </Text>
                     </View>
@@ -530,13 +535,13 @@ export default function SubscriptionScreen() {
                     <Ionicons
                       name="checkmark-circle"
                       size={20}
-                      color="#10B981"
+                      color={colors.green[500]}
                     />
                     <View className="ml-3 flex-1">
-                      <Text className="text-gray-900 font-medium">
+                      <Text className="text-gray-900 dark:text-gray-100 font-medium">
                         Property Alerts
                       </Text>
-                      <Text className="text-gray-600 text-sm">
+                      <Text className="text-gray-600 dark:text-gray-400 text-sm">
                         Get instant notifications when new properties match your
                         searches
                       </Text>
@@ -547,29 +552,31 @@ export default function SubscriptionScreen() {
 
               <TouchableOpacity
                 onPress={() => setShowPaymentModal(true)}
-                className="bg-blue-500 p-4 rounded-lg"
+                className="bg-blue-500 active:bg-blue-600 p-4 rounded-lg"
               >
                 <Text className="text-white text-center font-bold text-lg">
                   Subscribe Now - K129/month
                 </Text>
               </TouchableOpacity>
 
-              <Text className="text-gray-500 text-xs text-center mt-3">
+              <Text className="text-gray-500 dark:text-gray-400 text-xs text-center mt-3">
                 Cancel anytime. No long-term commitments.
               </Text>
             </View>
           )}
 
           {features && isSubscribed && (
-            <View className="bg-white rounded-lg p-4 shadow-sm">
-              <Text className="text-lg font-semibold text-gray-900 mb-4">
+            <View className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
+              <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-4">
                 Your Benefits
               </Text>
 
               <View className="space-y-3">
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-600">Saved Searches</Text>
-                  <Text className="text-gray-900 font-medium">
+                  <Text className="text-gray-600 dark:text-gray-400">
+                    Saved Searches
+                  </Text>
+                  <Text className="text-gray-900 dark:text-gray-100 font-medium">
                     {features.max_saved_searches === -1
                       ? 'Unlimited'
                       : features.max_saved_searches}
@@ -577,7 +584,9 @@ export default function SubscriptionScreen() {
                 </View>
 
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-600">Property Alerts</Text>
+                  <Text className="text-gray-600 dark:text-gray-400">
+                    Property Alerts
+                  </Text>
                   <Ionicons
                     name={
                       features.property_alerts
@@ -585,12 +594,16 @@ export default function SubscriptionScreen() {
                         : 'close-circle'
                     }
                     size={20}
-                    color={features.property_alerts ? '#10B981' : '#EF4444'}
+                    color={
+                      features.property_alerts
+                        ? colors.green[500]
+                        : colors.red[500]
+                    }
                   />
                 </View>
 
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-600">
+                  <Text className="text-gray-600 dark:text-gray-400">
                     Priority Notifications
                   </Text>
                   <Ionicons
@@ -601,7 +614,9 @@ export default function SubscriptionScreen() {
                     }
                     size={20}
                     color={
-                      features.priority_notifications ? '#10B981' : '#EF4444'
+                      features.priority_notifications
+                        ? colors.green[500]
+                        : colors.red[500]
                     }
                   />
                 </View>

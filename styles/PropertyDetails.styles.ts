@@ -496,7 +496,7 @@ export const createStyles = (COLORS: typeof LIGHT_COLORS) =>
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: COLORS.secondary,
+      backgroundColor: `${COLORS.primary}20`,
       justifyContent: "center",
       alignItems: "center",
       marginRight: 16,

@@ -7,10 +7,8 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
-  StyleSheet,
   Platform,
   ActivityIndicator,
-  Dimensions,
   StatusBar,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -18,8 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/constants/Config';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width } = Dimensions.get('window');
+import { useColorScheme } from 'nativewind';
+import colors from 'tailwindcss/colors';
 
 interface PromotionPlan {
   id: string;
@@ -75,6 +73,8 @@ const promotionPlans: PromotionPlan[] = [
 const PromoteScreenEnhanced: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ propertyId: string; propertyTitle?: string }>();
+  const { colorScheme } = useColorScheme();
+
   const propertyId = params.propertyId;
   const propertyTitle = params.propertyTitle;
 
@@ -86,9 +86,6 @@ const PromoteScreenEnhanced: React.FC = () => {
   const [currentPaymentReference, setCurrentPaymentReference] = useState<
     string | null
   >(null);
-  const [currentLencoReference, setCurrentLencoReference] = useState<
-    string | null
-  >(null);
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [otp, setOtp] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
@@ -97,6 +94,7 @@ const PromoteScreenEnhanced: React.FC = () => {
     return promotionPlans.find((plan) => plan.id === selectedPlanId) || null;
   }, [selectedPlanId]);
 
+  // --- Handlers for API calls (unchanged) ---
   const handleInitiatePayment = async () => {
     if (!selectedPlan) {
       Alert.alert('Error', 'Please select a promotion plan.');
@@ -119,7 +117,6 @@ const PromoteScreenEnhanced: React.FC = () => {
     setShowOtpInput(false);
     setOtp('');
     setCurrentPaymentReference(null);
-    setCurrentLencoReference(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/promotions/initiate`, {
@@ -137,7 +134,6 @@ const PromoteScreenEnhanced: React.FC = () => {
 
       if (response.ok) {
         setCurrentPaymentReference(data.paymentReference);
-        setCurrentLencoReference(data.lencoReference);
 
         if (data.status === 'otp-required' || data.requiresOtp) {
           setShowOtpInput(true);
@@ -285,6 +281,7 @@ const PromoteScreenEnhanced: React.FC = () => {
     }
   };
 
+  // --- Step Navigation ---
   const handleNextStep = () => {
     if (currentStep === 1 && selectedPlanId) {
       setCurrentStep(2);
@@ -301,81 +298,94 @@ const PromoteScreenEnhanced: React.FC = () => {
     }
   };
 
+  // --- Render Functions ---
   const renderStepOne = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Choose Your Promotion Plan</Text>
-      <Text style={styles.stepDescription}>
+    <View className="p-5">
+      <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2">
+        Choose Your Promotion Plan
+      </Text>
+      <Text className="text-sm text-gray-500 dark:text-gray-400 mb-6">
         Select the perfect promotion plan for your property to maximize
         visibility
       </Text>
-      <View style={styles.planContainer}>
+      <View className="mb-6">
         {promotionPlans.map((plan) => {
           const isSelected = selectedPlanId === plan.id;
           return (
             <TouchableOpacity
               key={plan.id}
-              style={[styles.planCard, isSelected && styles.planCardSelected]}
+              className={`mb-4 rounded-2xl overflow-hidden border-2 ${
+                isSelected
+                  ? 'border-indigo-500'
+                  : 'border-transparent'
+              }`}
               onPress={() => setSelectedPlanId(plan.id)}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={
-                  isSelected ? ['#4F46E5', '#6366F1'] : ['#F9FAFB', '#F3F4F6']
+                  isSelected
+                    ? [colors.indigo[600], colors.indigo[500]]
+                    : colorScheme === 'dark'
+                      ? [colors.slate[800], colors.slate[700]]
+                      : [colors.gray[50], colors.gray[100]]
                 }
-                style={[
-                  styles.planGradient,
-                  isSelected && styles.planGradientSelected,
-                ]}
+                className="p-5"
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.planHeader}>
+                <View className="flex-row justify-between items-center mb-3">
                   <Text
-                    style={[
-                      styles.planDuration,
-                      isSelected && styles.planTextSelected,
-                    ]}
+                    className={`text-xl font-bold ${
+                      isSelected
+                        ? 'text-white'
+                        : 'text-gray-800 dark:text-gray-100'
+                    }`}
                   >
                     {plan.duration}
                   </Text>
                   <View
-                    style={[
-                      styles.badgeContainer,
-                      isSelected && styles.badgeContainerSelected,
-                    ]}
+                    className={`px-3 py-1 rounded-full ${
+                      isSelected
+                        ? 'bg-white/20'
+                        : 'bg-indigo-100 dark:bg-indigo-500/30'
+                    }`}
                   >
                     <Text
-                      style={[
-                        styles.badgeText,
-                        isSelected && styles.badgeTextSelected,
-                      ]}
+                      className={`text-xs font-semibold ${
+                        isSelected
+                          ? 'text-white'
+                          : 'text-indigo-800 dark:text-indigo-300'
+                      }`}
                     >
                       {plan.description}
                     </Text>
                   </View>
                 </View>
                 <Text
-                  style={[
-                    styles.planPrice,
-                    isSelected && styles.planTextSelected,
-                  ]}
+                  className={`text-3xl font-extrabold mb-4 ${
+                    isSelected
+                      ? 'text-white'
+                      : 'text-gray-900 dark:text-white'
+                  }`}
                 >
                   {plan.priceLabel}
                 </Text>
-                <View style={styles.planFeatures}>
+                <View className="mt-2">
                   {plan.features?.map((feature, index) => (
-                    <View key={index} style={styles.featureRow}>
+                    <View key={index} className="flex-row items-center mb-2">
                       <Ionicons
                         name="checkmark-circle"
                         size={16}
-                        color={isSelected ? '#ffffff' : '#4F46E5'}
-                        style={styles.featureIcon}
+                        color={isSelected ? colors.white : colors.indigo[500]}
+                        className="mr-2"
                       />
                       <Text
-                        style={[
-                          styles.featureText,
-                          isSelected && styles.planTextSelected,
-                        ]}
+                        className={`text-sm ${
+                          isSelected
+                            ? 'text-white'
+                            : 'text-gray-600 dark:text-gray-300'
+                        }`}
                       >
                         {feature}
                       </Text>
@@ -387,9 +397,14 @@ const PromoteScreenEnhanced: React.FC = () => {
           );
         })}
       </View>
-      <TouchableOpacity style={styles.nextButton} onPress={handleNextStep}>
-        <Text style={styles.nextButtonText}>Continue to Payment</Text>
-        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+      <TouchableOpacity
+        className="bg-indigo-600 flex-row items-center justify-center py-4 rounded-xl mt-4 active:bg-indigo-700"
+        onPress={handleNextStep}
+      >
+        <Text className="text-base font-semibold text-white mr-2">
+          Continue to Payment
+        </Text>
+        <Ionicons name="arrow-forward" size={20} color={colors.white} />
       </TouchableOpacity>
     </View>
   );
@@ -397,54 +412,74 @@ const PromoteScreenEnhanced: React.FC = () => {
   const renderStepTwo = () => (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.stepContainer}
+      className="p-5"
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <TouchableOpacity
-        style={styles.backButtonContainer}
+        className="flex-row items-center mb-5 self-start py-1"
         onPress={handleBackStep}
       >
-        <Ionicons name="arrow-back" size={20} color="#4F46E5" />
-        <Text style={styles.backButtonText}>Back to Plans</Text>
+        <Ionicons
+          name="arrow-back"
+          size={20}
+          color={colorScheme === 'dark' ? colors.indigo[400] : colors.indigo[600]}
+        />
+        <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400 ml-1">
+          Back to Plans
+        </Text>
       </TouchableOpacity>
-      <Text style={styles.stepTitle}>Payment Details</Text>
-      <Text style={styles.stepDescription}>
+      <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2">
+        Payment Details
+      </Text>
+      <Text className="text-sm text-gray-500 dark:text-gray-400 mb-6">
         Enter your mobile money number to proceed
       </Text>
 
-      <View style={styles.inputSection}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Mobile Money Number</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color="#6B7280" />
+      <View className="mb-6">
+        <View className="mb-4">
+          <Text className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+            Mobile Money Number
+          </Text>
+          <View className="flex-row items-center bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl px-4 h-12">
+            <Ionicons
+              name="call-outline"
+              size={20}
+              color={colors.slate[500]}
+            />
             <TextInput
               placeholder="09XXXXXXXX / 07XXXXXXXX"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.slate[400]}
               keyboardType="phone-pad"
               value={mobileMoneyNumber}
               onChangeText={setMobileMoneyNumber}
-              style={styles.textInput}
+              className="flex-1 text-base ml-3 text-gray-900 dark:text-white"
               maxLength={10}
               editable={!showOtpInput && !isLoading}
             />
           </View>
-          <Text style={styles.inputHelper}>
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             We'll send a payment prompt to this number (Lenco Payments)
           </Text>
         </View>
 
         {showOtpInput && (
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Enter OTP</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="keypad-outline" size={20} color="#6B7280" />
+          <View>
+            <Text className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+              Enter OTP
+            </Text>
+            <View className="flex-row items-center bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl px-4 h-12">
+              <Ionicons
+                name="keypad-outline"
+                size={20}
+                color={colors.slate[500]}
+              />
               <TextInput
                 placeholder="6-digit OTP"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.slate[400]}
                 keyboardType="number-pad"
                 value={otp}
                 onChangeText={setOtp}
-                style={styles.textInput}
+                className="flex-1 text-base ml-3 text-gray-900 dark:text-white"
                 maxLength={6}
                 editable={!isLoading}
               />
@@ -453,18 +488,24 @@ const PromoteScreenEnhanced: React.FC = () => {
         )}
       </View>
 
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryTitle}>Order Summary</Text>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>
+      <View className="bg-gray-100 dark:bg-slate-800 rounded-xl p-4 mb-6">
+        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-3">
+          Order Summary
+        </Text>
+        <View className="flex-row justify-between mb-2">
+          <Text className="text-sm text-gray-600 dark:text-gray-300">
             {selectedPlan?.duration} Promotion
           </Text>
-          <Text style={styles.summaryValue}>{selectedPlan?.priceLabel}</Text>
+          <Text className="text-sm font-medium text-gray-800 dark:text-gray-100">
+            {selectedPlan?.priceLabel}
+          </Text>
         </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryTotalLabel}>Total</Text>
-          <Text style={styles.summaryTotalValue}>
+        <View className="h-px bg-gray-200 dark:bg-slate-700 my-3" />
+        <View className="flex-row justify-between">
+          <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">
+            Total
+          </Text>
+          <Text className="text-base font-bold text-indigo-600 dark:text-indigo-400">
             {selectedPlan?.priceLabel}
           </Text>
         </View>
@@ -472,68 +513,101 @@ const PromoteScreenEnhanced: React.FC = () => {
 
       {!showOtpInput ? (
         <TouchableOpacity
-          style={[styles.payButton, isLoading && styles.payButtonDisabled]}
+          className={`rounded-xl py-4 flex-row items-center justify-center mb-4 active:bg-indigo-700 ${
+            isLoading
+              ? 'bg-indigo-400 dark:bg-indigo-500/50'
+              : 'bg-indigo-600'
+          }`}
           onPress={handleInitiatePayment}
           disabled={isLoading}
           activeOpacity={0.8}
         >
           {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Text style={styles.payButtonText}>
+              <Text className="text-base font-semibold text-white mr-2">
                 {`Pay ${selectedPlan?.priceLabel}`}
               </Text>
-              <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
+              <Ionicons
+                name="shield-checkmark"
+                size={20}
+                color={colors.white}
+              />
             </>
           )}
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
-          style={[styles.payButton, isLoading && styles.payButtonDisabled]}
+          className={`rounded-xl py-4 flex-row items-center justify-center mb-4 active:bg-indigo-700 ${
+            isLoading
+              ? 'bg-indigo-400 dark:bg-indigo-500/50'
+              : 'bg-indigo-600'
+          }`}
           onPress={handleOtpSubmit}
           disabled={isLoading}
           activeOpacity={0.8}
         >
           {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Text style={styles.payButtonText}>Submit OTP</Text>
-              <Ionicons name="key-outline" size={20} color="#FFFFFF" />
+              <Text className="text-base font-semibold text-white mr-2">
+                Submit OTP
+              </Text>
+              <Ionicons name="key-outline" size={20} color={colors.white} />
             </>
           )}
         </TouchableOpacity>
       )}
 
-      <View style={styles.securityContainer}>
-        <Ionicons name="lock-closed" size={16} color="#16A34A" />
-        <Text style={styles.securityText}>Secured by Lenco Payments</Text>
+      <View className="flex-row items-center justify-center">
+        <Ionicons name="lock-closed" size={16} color={colors.green[600]} />
+        <Text className="text-xs text-gray-500 dark:text-gray-400 ml-1.5">
+          Secured by Lenco Payments
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
       <Stack.Screen
         options={{ title: 'Promote Listing', headerShown: false }}
       />
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      <View style={styles.headerContainer}>
+      <StatusBar
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={
+          colorScheme === 'dark' ? colors.slate[800] : colors.white
+        }
+      />
+      <View
+        className={`px-5 py-4 border-b bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 ${
+          Platform.OS === 'android' ? 'pt-12' : 'pt-4'
+        }`}
+      >
         <TouchableOpacity
-          style={styles.closeButton}
+          className="p-1 mb-2 self-start"
           onPress={() => router.back()}
         >
-          <Ionicons name="close" size={24} color="#1F2937" />
+          <Ionicons
+            name="close"
+            size={24}
+            color={
+              colorScheme === 'dark' ? colors.slate[200] : colors.slate[800]
+            }
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Promote Your Listing</Text>
-        <Text style={styles.propertyName} numberOfLines={1}>
+        <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-1">
+          Promote Your Listing
+        </Text>
+        <Text className="text-sm text-gray-500 dark:text-gray-400" numberOfLines={1}>
           {propertyTitle || `Property #${propertyId}`}
         </Text>
       </View>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -542,263 +616,5 @@ const PromoteScreenEnhanced: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  closeButton: {
-    padding: 4,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  propertyName: {
-    fontSize: 14,
-    color: '#6B7280',
-    maxWidth: '90%',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  stepContainer: {
-    padding: 20,
-  },
-  stepTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  stepDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 24,
-  },
-  planContainer: {
-    marginBottom: 24,
-  },
-  planCard: {
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  planCardSelected: {
-    elevation: 4,
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    borderWidth: 2,
-    borderColor: '#4F46E5',
-  },
-  planGradient: {
-    padding: 20,
-    borderRadius: 14,
-  },
-  planGradientSelected: {},
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  planDuration: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  planTextSelected: {
-    color: '#FFFFFF',
-  },
-  badgeContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: '#E0E7FF',
-    borderRadius: 20,
-  },
-  badgeContainerSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4338CA',
-  },
-  badgeTextSelected: {
-    color: '#FFFFFF',
-  },
-  planPrice: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  planFeatures: {
-    marginTop: 8,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  featureIcon: {
-    marginRight: 8,
-  },
-  featureText: {
-    fontSize: 14,
-    color: '#4B5563',
-  },
-  nextButton: {
-    backgroundColor: '#4F46E5',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  nextButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  backButtonContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4F46E5',
-    marginLeft: 4,
-  },
-  inputSection: {
-    marginBottom: 24,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4B5563',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 50,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 12,
-    color: '#1F2937',
-  },
-  inputHelper: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  summaryContainer: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#4B5563',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 12,
-  },
-  summaryTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  summaryTotalValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#4F46E5',
-  },
-  payButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  payButtonDisabled: {
-    backgroundColor: '#A5B4FC',
-  },
-  payButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  securityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  securityText: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginLeft: 4,
-  },
-});
 
 export default PromoteScreenEnhanced;

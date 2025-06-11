@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  StyleSheet,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -146,10 +145,10 @@ export default function PaymentStatusScreen() {
   const statusDisplay = getStatusDisplay();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.content}>
-        <View style={styles.statusIconContainer}>
+      <View className="flex-1 justify-center items-center px-6">
+        <View className="h-20 w-20 justify-center items-center mb-6">
           {statusDisplay.showSpinner ? (
             <ActivityIndicator size={80} color={statusDisplay.color} />
           ) : (
@@ -161,77 +160,30 @@ export default function PaymentStatusScreen() {
           )}
         </View>
 
-        <Text style={styles.title}>{statusDisplay.title}</Text>
-        <Text style={styles.message}>{statusDisplay.message}</Text>
+        <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 text-center">
+          {statusDisplay.title}
+        </Text>
+        <Text className="text-base text-gray-600 dark:text-gray-400 text-center mt-3 leading-6">
+          {statusDisplay.message}
+        </Text>
 
         {isPolling && (
-          <Text style={styles.pollCount}>
+          <Text className="mt-6 text-xs text-gray-400 dark:text-gray-500">
             Status check: {pollCount} / {maxPolls}
           </Text>
         )}
       </View>
 
-      <View style={styles.footer}>
+      <View className="p-6 pb-12 w-full">
         <TouchableOpacity
-          style={styles.closeButton}
+          className="bg-gray-200 dark:bg-slate-700 active:bg-gray-300 dark:active:bg-slate-600 py-4 rounded-xl items-center"
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>Close</Text>
+          <Text className="text-base font-semibold text-gray-800 dark:text-gray-200">
+            Close
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  statusIconContainer: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 16,
-    color: '#4B5563',
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 24,
-  },
-  pollCount: {
-    marginTop: 24,
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  footer: {
-    padding: 24,
-    paddingBottom: 48,
-  },
-  closeButton: {
-    backgroundColor: '#E5E7EB',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-});
