@@ -1,9 +1,9 @@
 import React, {
+  useCallback,
+  useState,
+  useMemo,
   useEffect,
   useRef,
-  useState,
-  useCallback,
-  useMemo,
 } from "react";
 import {
   StyleSheet,
@@ -50,9 +50,7 @@ export default function HomeScreen() {
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const [bedrooms, setBedrooms] = useState(0);
   const [bathrooms, setBathrooms] = useState(0);
-  const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
-    "all",
-  );
+  const [selectedType, setSelectedType] = useState<PropertyCategory | "all">("all");
   const [garages, setGarages] = useState(0);
   const [parkings, setParkings] = useState(0);
   const [page, setPage] = useState(1);
@@ -60,6 +58,23 @@ export default function HomeScreen() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const [selectedFeatures, setSelectedFeatures] = useState<string>("Any");
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [selectedLegalStatus, setSelectedLegalStatus] = useState<string>("Any");
+  const [selectedCommercialSubType, setSelectedCommercialSubType] = useState<string>("Any");
+  const [minPrice, setMinPrice] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(0);
+  const [parkingSpaces, setParkingSpaces] = useState<number>(0);
+  const [minSquareMeters, setMinSquareMeters] = useState<number>(0);
+  const [maxSquareMeters, setMaxSquareMeters] = useState<number>(0);
+  const [minSizeSqm, setMinSizeSqm] = useState<number>(0);
+  const [maxSizeSqm, setMaxSizeSqm] = useState<number>(0);
+  const [roadAccess, setRoadAccess] = useState<boolean | undefined>(undefined);
+  const [waterSupply, setWaterSupply] = useState<string>("Any");
+  const [electricityAvailable, setElectricityAvailable] = useState<boolean | undefined>(undefined);
+  const [fenced, setFenced] = useState<boolean | undefined>(undefined);
+  const [intendedUse, setIntendedUse] = useState<string>("Any");
 
   const {
     properties,
@@ -82,34 +97,19 @@ export default function HomeScreen() {
 
   const fetchPaginatedProperties = useCallback(
     async (pageNumber: number, isRefresh = false) => {
-      // console.log(
-      //   `fetchPaginatedProperties called with pageNumber: ${pageNumber}, isRefresh: ${isRefresh}`,
-      // );
       if (!hasMore && pageNumber > 1 && !isRefresh) {
-        // console.log(
-        //   "fetchPaginatedProperties: Aborting - no more pages or not a refresh.",
-        // );
         return;
       }
 
       if (pageNumber === 1) {
-        // console.log(
-        //   "fetchPaginatedProperties: Fetching page 1 - setting Zustand loading true.",
-        // );
         setZustandLoading(true);
         setLocalError(null);
         setZustandError(null);
       } else {
-        // console.log(
-        //   "fetchPaginatedProperties: Fetching more - setting isFetchingMore true.",
-        // );
         setIsFetchingMore(true);
       }
 
       if (isRefresh) {
-        // console.log(
-        //   "fetchPaginatedProperties: Refreshing - fetching saved and featured properties.",
-        // );
         setRefreshing(true);
         await fetchSavedProperties();
         await fetchFeaturedProperties();
@@ -118,8 +118,7 @@ export default function HomeScreen() {
       try {
         const { user } = useAuthStore.getState();
         const sessionId = user?.id || await getAnonymousSessionId();
-      
-      // console.log(`Using sessionId: ${sessionId} (user: ${user ? 'authenticated' : 'anonymous'})`);
+        
         const params = new URLSearchParams();
         params.append(QueryParams.PAGE, pageNumber.toString());
         params.append(QueryParams.PAGE_SIZE, PAGE_SIZE.toString());
@@ -127,86 +126,83 @@ export default function HomeScreen() {
         params.append('sessionId', sessionId);
 
         if (searchQuery) params.append(QueryParams.LOCATION, searchQuery);
-        if (selectedType !== "all")
-          params.append(QueryParams.CATEGORY, selectedType);
-        if (bedrooms > 0)
-          params.append(QueryParams.BEDROOMS, bedrooms.toString());
-        if (bathrooms > 0)
-          params.append(QueryParams.BATHROOMS, bathrooms.toString());
+        if (selectedType !== "all") params.append(QueryParams.CATEGORY, selectedType);
+
+        if (bedrooms > 0) params.append(QueryParams.BEDROOMS, bedrooms.toString());
+        if (bathrooms > 0) params.append(QueryParams.BATHROOMS, bathrooms.toString());
+
         if (garages > 0 && (selectedType === "all" || selectedType === "house")) {
           params.append(QueryParams.GARAGES, garages.toString());
         }
+        
         if (parkings > 0) {
-          if (selectedType === "house")
+          if (selectedType === "house") {
             params.append(QueryParams.HOUSE_PARKINGS, parkings.toString());
-          else if (
-            selectedType === "apartment" ||
-            selectedType === "commercial"
-          )
+          } else if (selectedType === "apartment" || selectedType === "commercial") {
             params.append(QueryParams.PARKING_SPACES, parkings.toString());
-          else if (selectedType === "all")
+          } else if (selectedType === "all") {
             params.append(QueryParams.PARKING_SPACES, parkings.toString());
+          }
         }
+
+        if (minPrice > 0) params.append('minPrice', minPrice.toString());
+        if (maxPrice > 0) params.append('maxPrice', maxPrice.toString());
+
+        if (minSquareMeters > 0) params.append('min_square_meters', minSquareMeters.toString());
+        if (maxSquareMeters > 0) params.append('max_square_meters', maxSquareMeters.toString());
+
+        if (minSizeSqm > 0) params.append('min_size_sqm', minSizeSqm.toString());
+        if (maxSizeSqm > 0) params.append('max_size_sqm', maxSizeSqm.toString());
+
+        if (selectedLegalStatus !== "Any") params.append('legal_status', selectedLegalStatus);
+        if (intendedUse !== "Any") params.append('intended_use', intendedUse);
+        if (roadAccess !== undefined) params.append('road_access', roadAccess.toString());
+        if (waterSupply !== "Any") params.append('water_supply', waterSupply);
+        if (electricityAvailable !== undefined) params.append('electricity_available', electricityAvailable.toString());
+        if (fenced !== undefined) params.append('fenced', fenced.toString());
+
+        if (selectedCommercialSubType !== "Any") {
+          params.append('commercial_property_type', selectedCommercialSubType);
+        }
+
+        if (selectedAmenities.length > 0) {
+          selectedAmenities.forEach(amenity => {
+            params.append('amenities', amenity);
+          });
+        }
+
+        if (selectedFeatures !== "Any") {
+          params.append('features', selectedFeatures);
+        }
+
         const apiUrl = `${API_BASE_URL}/properties?${params.toString()}`;
-        // console.log(`fetchPaginatedProperties: Fetching URL: ${apiUrl}`);
 
         const response = await fetch(apiUrl);
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(
-            `fetchPaginatedProperties: API Error Status: ${response.status}, Text: ${errorText}`,
-          );
-          throw new Error(
-            `Failed to fetch properties (status: ${response.status})`,
-          );
+          throw new Error(`Failed to fetch properties (status: ${response.status})`);
         }
 
         const data: PropertyResponseDto = await response.json();
-        // console.log(
-        //   "fetchPaginatedProperties: API Response Data:",
-        //   JSON.stringify(data, null, 2),
-        // );
-
         const newProperties = data.properties || [];
-        // console.log(
-        //   `fetchPaginatedProperties: Received ${newProperties.length} new properties from API.`,
-        // );
-        // console.log(
-        //   `fetchPaginatedProperties: API reported total properties: ${data.total}.`,
-        // );
 
         setProperties(newProperties, pageNumber);
         const newHasMore = pageNumber * PAGE_SIZE < data.total;
-        // console.log(`fetchPaginatedProperties: Setting hasMore to: ${newHasMore}`);
         setHasMore(newHasMore);
-        // console.log(`fetchPaginatedProperties: Setting page to: ${pageNumber + 1}`);
         setPage(pageNumber + 1);
       } catch (error: any) {
-        console.error("fetchPaginatedProperties: Catch Block Error:", error);
-        setLocalError(
-          error.message || "Failed to load properties. Please try again.",
-        );
+        setLocalError(error.message || "Failed to load properties. Please try again.");
         setHasMore(false);
       } finally {
         if (pageNumber === 1) {
-          // console.log(
-          //   "fetchPaginatedProperties: Finally block for page 1 - setting Zustand loading false.",
-          // );
           setZustandLoading(false);
           setIsInitialFetchDone(true);
         } else {
-          // console.log(
-          //   "fetchPaginatedProperties: Finally block for subsequent page - setting isFetchingMore false.",
-          // );
           setIsFetchingMore(false);
         }
         if (isRefresh) {
-          // console.log(
-          //   "fetchPaginatedProperties: Finally block for refresh - setting refreshing false.",
-          // );
           setRefreshing(false);
         }
-        // console.log("fetchPaginatedProperties: Fetch operation complete.");
       }
     },
     [
@@ -218,6 +214,21 @@ export default function HomeScreen() {
       parkings,
       sortOption,
       hasMore,
+      selectedFeatures,
+      selectedAmenities,
+      selectedLegalStatus,
+      selectedCommercialSubType,
+      minPrice,
+      maxPrice,
+      minSquareMeters,
+      maxSquareMeters,
+      minSizeSqm,
+      maxSizeSqm,
+      roadAccess,
+      waterSupply,
+      electricityAvailable,
+      fenced,
+      intendedUse,
       setProperties,
       setZustandLoading,
       setZustandError,
@@ -235,7 +246,6 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchFeaturedProperties();
     const debounceTimer = setTimeout(() => {
-      // console.log("Filters changed, fetching page 1");
       setPage(1);
       setHasMore(true);
       fetchPaginatedProperties(1);
@@ -250,6 +260,21 @@ export default function HomeScreen() {
     garages,
     parkings,
     sortOption,
+    selectedFeatures,
+    selectedAmenities,
+    selectedLegalStatus,
+    selectedCommercialSubType,
+    minPrice,
+    maxPrice,
+    minSquareMeters,
+    maxSquareMeters,
+    minSizeSqm,
+    maxSizeSqm,
+    roadAccess,
+    waterSupply,
+    electricityAvailable,
+    fenced,
+    intendedUse,
     fetchFeaturedProperties,
   ]);
 
@@ -262,38 +287,60 @@ export default function HomeScreen() {
       fetchPaginatedProperties(page);
     }
   };
+
   const onRefresh = useCallback(async () => {
     setPage(1);
     setHasMore(true);
     await fetchPaginatedProperties(1, true);
   }, []);
+
   const handlePropertyPress = (propertyId: string) =>
     router.push(`../property/${propertyId}`);
+
   const handleApplyFilters = (filters: any) => {
     setBedrooms(
-      filters.selectedBedrooms === "Any"
-        ? 0
-        : parseInt(filters.selectedBedrooms),
+      filters.selectedBedrooms === "Any" ? 0 : parseInt(filters.selectedBedrooms) || 0,
     );
     setBathrooms(
-      filters.selectedBathrooms === "Any"
-        ? 0
-        : parseInt(filters.selectedBathrooms),
+      filters.selectedBathrooms === "Any" ? 0 : parseInt(filters.selectedBathrooms) || 0,
     );
     setGarages(
-      filters.selectedGarages === "Any" ? 0 : parseInt(filters.selectedGarages),
+      filters.selectedGarages === "Any" ? 0 : parseInt(filters.selectedGarages) || 0,
     );
     setParkings(
-      filters.selectedParkings === "Any"
-        ? 0
-        : parseInt(filters.selectedParkings),
+      filters.selectedParkings === "Any" ? 0 : parseInt(filters.selectedParkings) || 0,
     );
     setSelectedType(
-      filters.selectedType === "All properties"
-        ? "all"
-        : (filters.selectedType as PropertyCategory),
+      filters.selectedType === "All properties" ? "all" : (filters.selectedType as PropertyCategory),
     );
+
+    setSelectedFeatures(filters.selectedFeatures || "Any");
+    setSelectedAmenities(filters.selectedAmenities || []);
+    setSelectedLegalStatus(filters.selectedLegalStatus || "Any");
+    setSelectedCommercialSubType(filters.selectedCommercialSubType || "Any");
+
+    if (filters.priceRange) {
+      setMinPrice(filters.priceRange.min || 0);
+      setMaxPrice(filters.priceRange.max || 0);
+    }
+
+    if (filters.squareMetersRange) {
+      setMinSquareMeters(filters.squareMetersRange.min || 0);
+      setMaxSquareMeters(filters.squareMetersRange.max || 0);
+    }
+
+    if (filters.landSizeRange) {
+      setMinSizeSqm(filters.landSizeRange.min || 0);
+      setMaxSizeSqm(filters.landSizeRange.max || 0);
+    }
+
+    setRoadAccess(filters.roadAccess);
+    setWaterSupply(filters.waterSupply || "Any");
+    setElectricityAvailable(filters.electricityAvailable);
+    setFenced(filters.fenced);
+    setIntendedUse(filters.intendedUse || "Any");
   };
+
   const handleClearFilters = () => {
     setPriceRange({ min: 0, max: 0 });
     setBedrooms(0);
@@ -301,7 +348,24 @@ export default function HomeScreen() {
     setSelectedType("all");
     setGarages(0);
     setParkings(0);
+    
+    setSelectedFeatures("Any");
+    setSelectedAmenities([]);
+    setSelectedLegalStatus("Any");
+    setSelectedCommercialSubType("Any");
+    setMinPrice(0);
+    setMaxPrice(0);
+    setMinSquareMeters(0);
+    setMaxSquareMeters(0);
+    setMinSizeSqm(0);
+    setMaxSizeSqm(0);
+    setRoadAccess(undefined);
+    setWaterSupply("Any");
+    setElectricityAvailable(undefined);
+    setFenced(undefined);
+    setIntendedUse("Any");
   };
+
   const handleLikePress = (propertyId: string) => {
     if (!user) {
       router.push("/auth/signin");

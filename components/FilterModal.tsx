@@ -36,9 +36,16 @@ export interface AppliedFilters {
   selectedParkings: string;
   selectedFeatures: string;
   selectedAmenities: string[];
-  // Add other potential filters if they exist
-  selectedLegalStatus?: string; // Added for land/commercial
-  selectedCommercialSubType?: string; // Added for commercial
+  selectedLegalStatus: string;
+  selectedCommercialSubType: string;
+  priceRange?: { min: number; max: number };
+  squareMetersRange?: { min: number; max: number };
+  landSizeRange?: { min: number; max: number };
+  roadAccess?: boolean;
+  waterSupply?: string;
+  electricityAvailable?: boolean;
+  fenced?: boolean;
+  intendedUse?: string;
 }
 
 interface FilterModalProps {
