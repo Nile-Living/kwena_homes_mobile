@@ -165,6 +165,17 @@ fetchActiveSubscription: async () => {
     }
 
     const subscription = await response.json();
+
+    if (!subscription) {
+      set({
+        subscription: null,
+        isSubscribed: false,
+        features: null,
+        loading: false,
+      });
+      return;
+    }
+    
     set({
       subscription,
       isSubscribed: true,

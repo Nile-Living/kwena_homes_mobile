@@ -32,7 +32,8 @@ const PropertyContactBar: React.FC<PropertyContactBarProps> = ({
           <Ionicons
             name="call"
             size={20}
-            color={LIGHT_COLORS.white}
+            // CHANGED: Icon color now uses the theme's main text color to be visible
+            color={COLORS.text}
             style={styles.icon}
           />
           <Text style={[styles.contactButtonText, styles.callButtonText]}>
@@ -94,10 +95,11 @@ const createLocalStyles = (COLORS: ReturnType<typeof useAppColors>) =>
       borderRadius: 8,
       marginHorizontal: 4,
     },
+    // CHANGED: Styles for the "Call Agent" button to match your example
     callButton: {
-      backgroundColor: COLORS.primary,
-      borderColor: COLORS.primary,
-      borderWidth: 1.5,
+      backgroundColor: COLORS.lightGray, // Translates bg-gray-100 / dark:bg-slate-800
+      paddingVertical: 16, // Translates py-4
+      borderRadius: 12, // Translates rounded-xl
     },
     whatsappButton: {
       backgroundColor: "#25D366",
@@ -109,8 +111,10 @@ const createLocalStyles = (COLORS: ReturnType<typeof useAppColors>) =>
       fontWeight: "bold",
       marginLeft: 8,
     },
+    // CHANGED: Styles for the "Call Agent" text
     callButtonText: {
-      color: LIGHT_COLORS.white,
+      color: COLORS.text, // Translates text-gray-800 / dark:text-gray-200
+      fontWeight: "600", // Translates font-semibold
     },
     whatsappButtonText: {
       color: LIGHT_COLORS.white,

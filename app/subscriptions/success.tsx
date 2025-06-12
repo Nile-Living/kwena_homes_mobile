@@ -20,9 +20,9 @@ export default function SubscriptionSuccessScreen() {
           You can now save searches and receive property alerts.
         </Text>
 
-        <View className="mt-8 space-y-4 w-full">
+        <View className="mt-8 flex flex-col gap-4 w-full">
           <TouchableOpacity
-            className="bg-indigo-600 active:bg-indigo-700 py-4 rounded-xl"
+            className="bg-customgreen dark:bg-dark-tint p-4 rounded-xl"
             onPress={() => router.push('/subscriptions/subscriptionScreen')}
           >
             <Text className="text-white text-center font-semibold text-lg">

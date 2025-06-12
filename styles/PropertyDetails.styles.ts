@@ -87,7 +87,7 @@ export const DARK_COLORS: typeof LIGHT_COLORS = {
   white: "#FFFFFF",
   text: "#E0E0E0",
   textSecondary: "#A0A0A0",
-  lightGray: "#2C2C2C",
+  lightGray: "#1F2937",
   mediumGray: "#555555",
   darkGray: "#888888",
   green: LIGHT_COLORS.greenLightest, // #81E7A8
