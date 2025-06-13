@@ -68,7 +68,7 @@ const promotionPlans: PromotionPlan[] = [
       'Email newsletter feature',
     ],
   },
-];
+];e
 
 const PromoteScreenEnhanced: React.FC = () => {
   const router = useRouter();

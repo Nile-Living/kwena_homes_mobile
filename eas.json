@@ -16,7 +16,7 @@
     },
     "preview2": {
       "android": {
-        "gradleCommand": ":app:assembleRelease"
+        "gradleCommand": ":app:clean :app:assembleRelease"
       }
     },
     "preview3": {
@@ -24,6 +24,11 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "apk-dev": {
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
