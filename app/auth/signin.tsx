@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { useRouter, useLocalSearchParams, Stack } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useColorScheme } from "nativewind";
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ export default function SignInScreen() {
   const { signIn, signInWithGoogle, loading, error } = useAuthStore();
   const router = useRouter();
   const { redirectTo } = useLocalSearchParams();
+  const { colorScheme } = useColorScheme();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -36,7 +38,6 @@ export default function SignInScreen() {
 
   const handleGoogleSignIn = async () => {
     await signInWithGoogle();
-    // Navigation will be handled by auth state listener if successful
   };
 
   return (
@@ -45,16 +46,6 @@ export default function SignInScreen() {
       contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
       keyboardShouldPersistTaps="handled"
     >
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: "Sign In",
-          headerStyle: { backgroundColor: "#FFFFFF" }, // Light mode
-          headerTintColor: "#1F2937", // Light mode
-          // Dark mode header styles can be set globally or via theme listener
-        }}
-      />
-
       <View className="px-6 py-10">
         <View className="items-center mb-8">
           <Image
@@ -82,7 +73,7 @@ export default function SignInScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               className="flex-1 text-base text-slate-900 dark:text-slate-100"
-              placeholderTextColor="#9CA3AF" // slate-400
+              placeholderTextColor="#9CA3AF"
             />
           </View>
         </View>
@@ -98,7 +89,7 @@ export default function SignInScreen() {
               onChangeText={setPassword}
               secureTextEntry={!isPasswordVisible}
               className="flex-1 text-base text-slate-900 dark:text-slate-100 mr-2"
-              placeholderTextColor="#9CA3AF" // slate-400
+              placeholderTextColor="#9CA3AF"
             />
             <TouchableOpacity
               onPress={() => setIsPasswordVisible(!isPasswordVisible)}
@@ -106,7 +97,7 @@ export default function SignInScreen() {
               <Ionicons
                 name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
                 size={24}
-                className="text-slate-500 dark:text-slate-400"
+                color={colorScheme === "dark" ? "#94a3b8" : "#64748b"}
               />
             </TouchableOpacity>
           </View>

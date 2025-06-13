@@ -62,13 +62,13 @@ const SettingsPage = () => {
           icon: 'help-circle-outline',
           label: 'Help Center',
           type: 'navigation',
-          onPress: () => console.log('Navigate to Help Center'),
+          onPress: () => router.push('/settings/support/help-center'),
         },
         {
           icon: 'chatbubble-outline',
           label: 'Contact Us',
           type: 'navigation',
-          onPress: () => console.log('Navigate to Contact Us'),
+          onPress: () => router.push('/settings/support/contact-us'),
         },
         {
           icon: 'document-text-outline',

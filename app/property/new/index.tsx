@@ -12,7 +12,7 @@ import {
   StyleSheet,
   useColorScheme,
 } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter } from "expo-router"; // Removed Stack from import
 import { useAuthStore } from "@/store/authStore";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -100,9 +100,9 @@ export default function AddPropertyScreen() {
     use_phone_for_call: true,
     use_whatsapp_for_message: true,
     nearby_places: [
-      { name: '', distance: '', icon: 'map-pin' },
-      { name: '', distance: '', icon: 'map-pin' },
-      { name: '', distance: '', icon: 'map-pin' },
+      { name: "", distance: "", icon: "map-pin" },
+      { name: "", distance: "", icon: "map-pin" },
+      { name: "", distance: "", icon: "map-pin" },
     ],
   });
 
@@ -120,7 +120,7 @@ export default function AddPropertyScreen() {
       if (status !== "granted") {
         Alert.alert(
           "Permission Required",
-          "Please grant permission to access your photos"
+          "Please grant permission to access your photos",
         );
         return;
       }
@@ -140,7 +140,7 @@ export default function AddPropertyScreen() {
       console.error("Error picking image:", error);
       Alert.alert(
         "Image Selection Error",
-        "There was a problem selecting your image. Please try again."
+        "There was a problem selecting your image. Please try again.",
       );
     }
   };
@@ -160,7 +160,7 @@ export default function AddPropertyScreen() {
     }));
     mapRef.current?.animateToRegion(
       { ...coordinate, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-      500
+      500,
     );
   };
 
@@ -172,7 +172,7 @@ export default function AddPropertyScreen() {
     if (!user) {
       Alert.alert(
         "Authentication Error",
-        "You must be logged in to list a property"
+        "You must be logged in to list a property",
       );
       return;
     }
@@ -199,20 +199,22 @@ export default function AddPropertyScreen() {
       clientSideValidationErrors.push("WhatsApp Number (for messages)");
 
     if (formData.nearby_places.length < 3) {
-      clientSideValidationErrors.push('At least 3 nearby places');
+      clientSideValidationErrors.push("At least 3 nearby places");
     } else {
       const invalidNearbyPlaces = formData.nearby_places.some(
-        place => !place.name.trim() || !place.distance.trim()
+        (place) => !place.name.trim() || !place.distance.trim(),
       );
       if (invalidNearbyPlaces) {
-        clientSideValidationErrors.push('All nearby places must have name and distance');
+        clientSideValidationErrors.push(
+          "All nearby places must have name and distance",
+        );
       }
     }
 
     if (clientSideValidationErrors.length > 0) {
       Alert.alert(
         "Missing Information",
-        `Please fill in: ${clientSideValidationErrors.join(", ")}`
+        `Please fill in: ${clientSideValidationErrors.join(", ")}`,
       );
       return;
     }
@@ -232,23 +234,23 @@ export default function AddPropertyScreen() {
     if (formData.contact_phone_number?.trim())
       dataPayload.append(
         "contact_phone_number",
-        formData.contact_phone_number.trim()
+        formData.contact_phone_number.trim(),
       );
     if (formData.contact_whatsapp_number?.trim())
       dataPayload.append(
         "contact_whatsapp_number",
-        formData.contact_whatsapp_number.trim()
+        formData.contact_whatsapp_number.trim(),
       );
     dataPayload.append(
       "use_phone_for_call",
-      String(formData.use_phone_for_call)
+      String(formData.use_phone_for_call),
     );
     dataPayload.append(
       "use_whatsapp_for_message",
-      String(formData.use_whatsapp_for_message)
+      String(formData.use_whatsapp_for_message),
     );
 
-    dataPayload.append('nearby_places', JSON.stringify(formData.nearby_places));
+    dataPayload.append("nearby_places", JSON.stringify(formData.nearby_places));
 
     let detailsObject: any = {};
     switch (formData.category) {
@@ -354,7 +356,7 @@ export default function AddPropertyScreen() {
     } catch (error: any) {
       Alert.alert(
         "Submission Error",
-        `${error.message || "An unknown error occurred."}`
+        `${error.message || "An unknown error occurred."}`,
       );
     } finally {
       setLoading(false);
@@ -378,7 +380,7 @@ export default function AddPropertyScreen() {
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingBottom: 40 }}
     >
-      <Stack.Screen options={{ title: "Add Property" }} />
+      {/* The <Stack.Screen> component has been removed from here */}
       <View className="mb-6">
         <Text className="text-lg font-semibold mb-1 text-slate-800 dark:text-slate-100">
           Add New Property
@@ -821,7 +823,7 @@ export default function AddPropertyScreen() {
 
       <NearbyPlacesInput
         nearbyPlaces={formData.nearby_places}
-        onUpdate={(places) => updateFormField('nearby_places', places)}
+        onUpdate={(places) => updateFormField("nearby_places", places)}
         colorScheme={colorScheme ?? null}
       />
 

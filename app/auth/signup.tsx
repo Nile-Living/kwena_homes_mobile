@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAuthStore, UserRole } from "@/store/authStore";
-import { useRouter, Stack, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useColorScheme } from "nativewind";
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState("");
@@ -25,6 +26,7 @@ export default function SignUpScreen() {
   const { signUp, signInWithGoogle, loading, error } = useAuthStore();
   const router = useRouter();
   const { redirectTo } = useLocalSearchParams();
+  const { colorScheme } = useColorScheme();
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword || !phone) {
@@ -50,7 +52,6 @@ export default function SignUpScreen() {
         const targetPath = (redirectTo as string) || "/";
         router.replace(targetPath as any);
       }
-      // If profile is incomplete, user will be redirected by the auth state listener
     }
   };
 
@@ -64,16 +65,6 @@ export default function SignUpScreen() {
       contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
       keyboardShouldPersistTaps="handled"
     >
-      <Stack.Screen
-        options={{
-          title: "Sign Up",
-          headerTitle: "Create Account",
-          headerBackVisible: true,
-          headerStyle: { backgroundColor: "#FFFFFF" }, // Light mode
-          headerTintColor: "#1F2937", // Light mode
-        }}
-      />
-
       <View className="px-6 py-10">
         <View className="items-center mb-8">
           <Image
@@ -108,8 +99,10 @@ export default function SignUpScreen() {
                 size={24}
                 color={
                   userType === "user"
-                    ? "#54816D" /* customgreen */
-                    : "#4B5563" /* slate-600 */
+                    ? "#54816D"
+                    : colorScheme === "dark"
+                      ? "#94a3b8"
+                      : "#4B5563"
                 }
               />
               <Text
@@ -136,8 +129,10 @@ export default function SignUpScreen() {
                 size={24}
                 color={
                   userType === "agent"
-                    ? "#54816D" /* customgreen */
-                    : "#4B5563" /* slate-600 */
+                    ? "#54816D"
+                    : colorScheme === "dark"
+                      ? "#94a3b8"
+                      : "#4B5563"
                 }
               />
               <Text
@@ -189,7 +184,7 @@ export default function SignUpScreen() {
               <Ionicons
                 name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
                 size={24}
-                className="text-slate-500 dark:text-slate-400"
+                color={colorScheme === "dark" ? "#94a3b8" : "#64748b"}
               />
             </TouchableOpacity>
           </View>
@@ -218,7 +213,7 @@ export default function SignUpScreen() {
                   isConfirmPasswordVisible ? "eye-off-outline" : "eye-outline"
                 }
                 size={24}
-                className="text-slate-500 dark:text-slate-400"
+                color={colorScheme === "dark" ? "#94a3b8" : "#64748b"}
               />
             </TouchableOpacity>
           </View>

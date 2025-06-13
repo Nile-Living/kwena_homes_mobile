@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import React, { useState, useEffect } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useNotificationsStore } from "@/store/notificationStore";
@@ -21,8 +20,9 @@ import { Colors } from "@/constants/Colors";
 import HeaderAddButton from "@/components/HeaderAddButton";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import "../global.css";
-import * as Linking from 'expo-linking';
+import * as Linking from "expo-linking";
 import { getSupabase } from "@/supabaseClient";
+
 SplashScreen.preventAutoHideAsync();
 
 const ONBOARDING_STORAGE_KEY = "@app_onboarding_completed_v1";
@@ -38,6 +38,7 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  // --- All your useEffect hooks remain unchanged ---
   useEffect(() => {
     if (!session) {
       clearNotifications();
@@ -45,14 +46,11 @@ export default function RootLayout() {
   }, [session]);
 
   useEffect(() => {
-
-    
     getSupabase();
-
     const initializeApp = async () => {
       try {
         const onboardingStatus = await AsyncStorage.getItem(
-          ONBOARDING_STORAGE_KEY,
+          ONBOARDING_STORAGE_KEY
         );
         setShowOnboarding(onboardingStatus !== "true");
       } catch (e) {
@@ -60,38 +58,32 @@ export default function RootLayout() {
         setShowOnboarding(true);
       }
     };
-
     initializeApp();
-
-    // --- Linking Event Listener for Debugging OAuth Callback ---
     const handleDeepLink = (event: { url: string }) => {
-      console.log("[_layout.tsx] Deep link event received (addEventListener):", event.url);
-      // Supabase client should also be listening to this if detectSessionInUrl is true.
-      // No need to manually pass it to Supabase here.
+      console.log(
+        "[_layout.tsx] Deep link event received (addEventListener):",
+        event.url
+      );
     };
-
-    // Subscribe to incoming links
-    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
-
-    // Check initial URL (if app was opened via a deep link)
-    Linking.getInitialURL().then(url => {
-      if (url) {
-        console.log("[_layout.tsx] Initial URL received (getInitialURL):", url);
-        // Supabase client should also process this if detectSessionInUrl is true.
-      }
-    }).catch(err => console.warn("[_layout.tsx] Error getting initial URL:", err));
-    // --- End Linking Event Listener ---
-
-
-    // Initialize Supabase auth listener from your store
+    const linkingSubscription = Linking.addEventListener("url", handleDeepLink);
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          console.log(
+            "[_layout.tsx] Initial URL received (getInitialURL):",
+            url
+          );
+        }
+      })
+      .catch((err) =>
+        console.warn("[_layout.tsx] Error getting initial URL:", err)
+      );
     const unsubscribeAuth = useAuthStore.getState().initAuthListener();
-
-    // Cleanup function
     return () => {
       unsubscribeAuth();
-      linkingSubscription.remove(); // Don't forget to remove your custom listener
+      linkingSubscription.remove();
     };
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []);
 
   useEffect(() => {
     if ((loaded || fontError) && showOnboarding !== null) {
@@ -134,42 +126,81 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack>
+        {/* --- THIS IS THE MAIN CHANGE --- */}
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colorScheme === "dark" ? "#1e293b" : "#ffffff",
+            },
+            headerTintColor: colorScheme === "dark" ? "#e2e8f0" : "#1f2937",
+            headerShadowVisible: false,
+          }}
+        >
+          {/* The route group for auth is (auth), not auth */}
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="auth/signin"
-            options={{ presentation: "modal", title: "Sign In" }}
-          />
-          <Stack.Screen
-            name="auth/signup"
-            options={{ presentation: "modal", title: "Sign Up" }}
-          />
+
+          {/*
+            The screen for adding a property. It will automatically get the
+            themed header from screenOptions above. We just set the title.
+            Your file path is `property/new/index.tsx`, so the name is correct.
+          */}
           <Stack.Screen
             name="property/new/index"
             options={{ title: "Add New Property" }}
           />
+
+          <Stack.Screen
+            name="settings/support/help-center"
+            options={{ title: "Help Center" }}
+          />
+
+                    <Stack.Screen
+            name="settings/support/contact-us"
+            options={{ title: "Contact Us" }}
+          />
+
+                    <Stack.Screen
+            name="settings/support/PrivacyPolicyScreen"
+            options={{ title: "Privacy Policies" }}
+          />
+
+                    <Stack.Screen
+            name="settings/support/TermsConditionsScreen"
+            options={{ title: "Terms & Conditions" }}
+          />
+
+          {/* Other screens will also inherit the theme */}
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen
             name="properties/index"
             options={({ navigation }) => ({
+              title: "Properties", // It's good practice to add a title
               headerRight: () => (
                 <HeaderAddButton
-                  onPress={() => {
-                    console.log(
-                      "Add button pressed: Navigating via router from RootLayout",
-                    );
-                    router.push("/property/new");
-                  }}
-                  tintColor="#4F46E5"
+                  onPress={() => router.push("/property/new")}
+                  tintColor={
+                    colorScheme === "dark"
+                      ? Colors.dark.tint
+                      : Colors.light.tint
+                  }
                 />
               ),
             })}
           />
           <Stack.Screen
             name="payments/promote"
-            options={{ title: "Promote Listing", headerShown: true }}
+            options={{ title: "Promote Listing" }}
           />
           <Stack.Screen name="+not-found" />
+
+          {/*
+            These modal screens are removed from here because they are
+            already handled by your `app/auth/_layout.tsx` file.
+            Declaring them here is redundant.
+            <Stack.Screen name="auth/signin" ... />
+            <Stack.Screen name="auth/signup" ... />
+          */}
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>
