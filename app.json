@@ -11,12 +11,13 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow app to access your location to show nearby properties"
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to show nearby properties and provide location-based property search results."
       },
       "bundleIdentifier": "com.chimwemwe_m.kwena_properties_mobile"
     },
     "android": {
       "permissions": [
+        "android.permission.INTERNET",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
@@ -25,13 +26,13 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.chimwemwe_m.kwena_properties_mobile",
+      "versionCode": 1,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCsGaVhJ_9Gd8ORYV_Px2NiYWD4vSclRFk"
         }
       },
-      "googleServicesFile": "./kwena-properties-firebase-adminsdk-fbsvc-5bc6448a54.json",
-      "usesCleartextTraffic": true
+      "googleServicesFile": "./kwena-properties-firebase-adminsdk-fbsvc-5bc6448a54.json"
     },
     "web": {
       "bundler": "metro",
