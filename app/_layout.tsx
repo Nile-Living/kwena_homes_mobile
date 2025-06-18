@@ -155,17 +155,27 @@ export default function RootLayout() {
             options={{ title: "Help Center" }}
           />
 
-                    <Stack.Screen
+          <Stack.Screen
             name="settings/support/contact-us"
             options={{ title: "Contact Us" }}
           />
 
-                    <Stack.Screen
+          <Stack.Screen
             name="settings/support/PrivacyPolicyScreen"
             options={{ title: "Privacy Policies" }}
           />
 
-                    <Stack.Screen
+          <Stack.Screen
+            name="auth/signin"
+            options={{ title: "Sign In" }}
+          />
+
+          <Stack.Screen
+            name="auth/signup"
+            options={{ title: "Sign Up" }}
+          />
+
+          <Stack.Screen
             name="settings/support/TermsConditionsScreen"
             options={{ title: "Terms & Conditions" }}
           />

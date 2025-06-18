@@ -2,6 +2,7 @@ import './polyfills';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 
 console.log('[supabaseClient.ts] File loaded.');
 console.log('[supabaseClient.ts] Checking global.crypto.subtle (set by polyfills.ts):', !!global.crypto?.subtle);
@@ -9,15 +10,28 @@ if (global.crypto?.subtle) {
     console.log('[supabaseClient.ts] global.crypto.subtle keys:', Object.keys(global.crypto.subtle));
 }
 
-
 const supabaseUrl = 'https://jdscpwxbrlbvnfsivwmp.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impkc2Nwd3hicmxidm5mc2l2d21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAxMzE1MDUsImV4cCI6MjA1NTcwNzUwNX0.uW_s7KF4f93JtzEYDQ-6LU38TgTM3CgHwYQEkX9XJng';
 
-export const redirectUri = makeRedirectUri({
-  path: '/auth/callback',
-});
-console.log("[supabaseClient.ts] Generated Redirect URI:", redirectUri);
+// Environment-aware redirect URI generation
+const getRedirectUri = () => {
+  if (__DEV__) {
+    // Development - use Expo's development URL
+    const devUri = makeRedirectUri({
+      path: '/auth/callback',
+    });
+    console.log("[supabaseClient.ts] Development Redirect URI:", devUri);
+    return devUri;
+  } else {
+    // Production - use your custom scheme
+    const prodUri = 'kwena_properties_mobile://auth/callback';
+    console.log("[supabaseClient.ts] Production Redirect URI:", prodUri);
+    return prodUri;
+  }
+};
 
+export const redirectUri = getRedirectUri();
+console.log("[supabaseClient.ts] Final Redirect URI:", redirectUri);
 
 let supabaseInstance: SupabaseClient | null = null;
 
@@ -32,7 +46,7 @@ export const getSupabase = (): SupabaseClient => {
     }
     supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: AsyncStorage, // Using AsyncStorage like your original setup
+        storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,

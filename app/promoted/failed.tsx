@@ -26,7 +26,7 @@ export default function PromotionFailedScreen() {
             'There was an issue processing your payment. Please try again.'}
         </Text>
 
-        <View className="mt-8 space-y-4 w-full">
+        <View className="mt-8 flex flex-col gap-4 w-full">
           <TouchableOpacity
             className="bg-indigo-600 active:bg-indigo-700 py-4 rounded-xl"
             onPress={() => router.back()}

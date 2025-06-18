@@ -17,7 +17,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { router } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
-import { useColorScheme } from 'nativewind'; // Import useColorScheme
+import { useColorScheme } from 'nativewind';
 
 const NotificationsScreen = () => {
   const {
@@ -34,15 +34,38 @@ const NotificationsScreen = () => {
     isRegularUser,
   } = useNotificationsStore();
 
-  const { user } = useAuthStore();
+  const { user, session } = useAuthStore();
   const { isSubscribed } = useSubscriptionStore();
   const [refreshing, setRefreshing] = useState(false);
-  const { colorScheme } = useColorScheme(); // Get the current color scheme
+  const { colorScheme } = useColorScheme();
 
-  // Check if user can access notifications
-  const isAgent = isUserAgent();
-  const isUser = isRegularUser();
-  const canAccessNotifications = isAgent || (isUser && isSubscribed);
+  // Enhanced role checking with fallbacks
+  const isSignedIn = !!(user && session?.access_token);
+  const userRole = user?.user_metadata?.role || user?.app_metadata?.role;
+  
+  // Use store functions first, but fall back to direct role checking
+  const isAgent = isUserAgent() || userRole === 'agent';
+  const isUser = isRegularUser() || userRole === 'user';
+  
+  // If user is signed in but no role is detected, assume they're a regular user
+  const isRegularUserFallback = isSignedIn && !isAgent;
+  
+  const canAccessNotifications = isAgent || (isUser && isSubscribed) || (isRegularUserFallback && isSubscribed);
+
+  // Debug logging (remove in production)
+  useEffect(() => {
+    console.log('Notifications Debug:', {
+      isSignedIn,
+      userId: user?.id,
+      userRole,
+      isAgent,
+      isUser,
+      isRegularUserFallback,
+      isSubscribed,
+      canAccessNotifications,
+      hasAccessToken: !!session?.access_token,
+    });
+  }, [user, session, isAgent, isUser, isSubscribed, canAccessNotifications]);
 
   useEffect(() => {
     if (canAccessNotifications) {
@@ -236,8 +259,95 @@ const NotificationsScreen = () => {
     </View>
   );
 
+  const renderSignInRequired = () => (
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
+      <View className="flex-1 items-center justify-center px-6">
+        {/* Icon Container */}
+        <View className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 rounded-full items-center justify-center mb-6 shadow-lg">
+          <Ionicons
+            name="person-add-outline"
+            size={36}
+            className="text-blue-600 dark:text-blue-400"
+          />
+        </View>
+
+        {/* Main Title */}
+        <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-3 text-center">
+          Sign In to Get Notified
+        </Text>
+
+        {/* Description */}
+        <Text className="text-base text-gray-600 dark:text-gray-300 text-center mb-2 leading-relaxed">
+          Stay updated with the latest property listings that match your preferences.
+        </Text>
+        
+        <Text className="text-sm text-gray-500 dark:text-gray-400 text-center mb-8 leading-relaxed">
+          Create an account or sign in to receive instant notifications when new properties are added.
+        </Text>
+
+        {/* Features List */}
+        <View className="w-full max-w-sm mb-8">
+          <View className="flex-row items-center mb-3">
+            <View className="w-6 h-6 bg-green-100 dark:bg-green-950 rounded-full items-center justify-center mr-3">
+              <Ionicons name="checkmark" size={14} color="#10B981" />
+            </View>
+            <Text className="text-sm text-gray-600 dark:text-gray-300 flex-1">
+              Instant property match alerts
+            </Text>
+          </View>
+          
+          <View className="flex-row items-center mb-3">
+            <View className="w-6 h-6 bg-green-100 dark:bg-green-950 rounded-full items-center justify-center mr-3">
+              <Ionicons name="checkmark" size={14} color="#10B981" />
+            </View>
+            <Text className="text-sm text-gray-600 dark:text-gray-300 flex-1">
+              Price drop notifications
+            </Text>
+          </View>
+          
+          <View className="flex-row items-center">
+            <View className="w-6 h-6 bg-green-100 dark:bg-green-950 rounded-full items-center justify-center mr-3">
+              <Ionicons name="checkmark" size={14} color="#10B981" />
+            </View>
+            <Text className="text-sm text-gray-600 dark:text-gray-300 flex-1">
+              Saved search updates
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View className="w-full max-w-sm flex flex-col gap-3">
+          <TouchableOpacity
+            className="bg-[#ED9B6B] dark:bg-[#ED9B6B] px-8 py-4 rounded-xl shadow-lg active:scale-95 transition-transform"
+            onPress={() => router.push('/auth/signin' as any)}
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-semibold text-center text-base">
+              Sign In Now
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 px-8 py-4 rounded-xl active:scale-95 transition-transform"
+            onPress={() => router.push('/auth/signup' as any)}
+            activeOpacity={0.7}
+          >
+            <Text className="text-gray-700 dark:text-gray-300 font-medium text-center text-base">
+              Create Account
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+
+  // If user is not signed in at all, show sign in screen
+  if (!isSignedIn) {
+    return renderSignInRequired();
+  }
+
   // Show subscription required message for regular users without subscription
-  if (isUser && !isSubscribed) {
+  if ((isUser || isRegularUserFallback) && !isSubscribed) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
         <View className="flex-1 items-center justify-center px-6">
@@ -257,35 +367,12 @@ const NotificationsScreen = () => {
           </Text>
           <TouchableOpacity
             className="bg-blue-500 px-6 py-3 rounded-lg"
-            onPress={() => router.push('/subscription' as any)}
+            onPress={() => router.push('/subscriptions/subscriptionScreen' as any)}
           >
             <Text className="text-white font-semibold">
               View Subscription Plans
             </Text>
           </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Show access denied for users who are neither agents nor regular users
-  if (!canAccessNotifications) {
-    return (
-      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
-        <View className="flex-1 items-center justify-center px-6">
-          <View className="w-20 h-20 bg-gray-100 dark:bg-slate-800 rounded-full items-center justify-center mb-4">
-            <Ionicons
-              name="person-outline"
-              size={32}
-              className="text-gray-400 dark:text-gray-500"
-            />
-          </View>
-          <Text className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-2">
-            Access Restricted
-          </Text>
-          <Text className="text-sm text-gray-500 dark:text-gray-400 text-center">
-            Notifications are available for agents and subscribed users only.
-          </Text>
         </View>
       </SafeAreaView>
     );
@@ -335,7 +422,7 @@ const NotificationsScreen = () => {
       </View>
 
       {/* Role-specific info banner */}
-      {isUser && isSubscribed && (
+      {(isUser || isRegularUserFallback) && isSubscribed && (
         <View className="px-4 py-2 bg-green-50 dark:bg-green-950 border-b border-green-200 dark:border-green-800">
           <Text className="text-green-800 dark:text-green-300 text-sm">
             📬 You'll receive notifications when properties match your saved

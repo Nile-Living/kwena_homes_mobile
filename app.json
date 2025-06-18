@@ -17,7 +17,6 @@
     },
     "android": {
       "permissions": [
-        "android.permission.INTERNET",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
@@ -32,7 +31,19 @@
           "apiKey": "AIzaSyCsGaVhJ_9Gd8ORYV_Px2NiYWD4vSclRFk"
         }
       },
-      "googleServicesFile": "./kwena-properties-firebase-adminsdk-fbsvc-5bc6448a54.json"
+      "googleServicesFile": "./kwena-properties-firebase-adminsdk-fbsvc-5bc6448a54.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "kwena_properties_mobile"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

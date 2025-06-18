@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,13 @@ import {
   ActivityIndicator,
   StatusBar,
   KeyboardAvoidingView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { API_BASE_URL } from '@/constants/Config';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useColorScheme } from 'nativewind';
-import colors from 'tailwindcss/colors';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { API_BASE_URL } from "@/constants/Config";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { useColorScheme } from "nativewind";
+import colors from "tailwindcss/colors";
 
 interface PromotionPlan {
   id: string;
@@ -31,63 +31,66 @@ interface PromotionPlan {
 
 const promotionPlans: PromotionPlan[] = [
   {
-    id: '7days',
-    duration: '7 Days',
+    id: "7days",
+    duration: "7 Days",
     price: 1,
-    description: 'Standard Boost',
-    priceLabel: 'ZMW 50',
-    currency: 'ZMW',
-    features: ['10x more views', 'Featured listing', 'Priority in search'],
+    description: "Standard Boost",
+    priceLabel: "ZMW 50",
+    currency: "ZMW",
+    features: ["10x more views", "Featured listing", "Priority in search"],
   },
   {
-    id: '14days',
-    duration: '14 Days',
+    id: "14days",
+    duration: "14 Days",
     price: 2,
-    description: 'Extended Reach',
-    priceLabel: 'ZMW 90',
-    currency: 'ZMW',
+    description: "Extended Reach",
+    priceLabel: "ZMW 90",
+    currency: "ZMW",
     features: [
-      '20x more views',
-      'Featured listing',
-      'Priority in search',
-      'Social media promotion',
+      "20x more views",
+      "Featured listing",
+      "Priority in search",
+      "Social media promotion",
     ],
   },
   {
-    id: '1month',
-    duration: '1 Month',
+    id: "1month",
+    duration: "1 Month",
     price: 3,
-    description: 'Maximum Visibility',
-    priceLabel: 'ZMW 150',
-    currency: 'ZMW',
+    description: "Maximum Visibility",
+    priceLabel: "ZMW 150",
+    currency: "ZMW",
     features: [
-      '50x more views',
-      'Featured listing',
-      'Priority in search',
-      'Social media promotion',
-      'Email newsletter feature',
+      "50x more views",
+      "Featured listing",
+      "Priority in search",
+      "Social media promotion",
+      "Email newsletter feature",
     ],
   },
 ];
 
 const PromoteScreenEnhanced: React.FC = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ propertyId: string; propertyTitle?: string }>();
+  const params = useLocalSearchParams<{
+    propertyId: string;
+    propertyTitle?: string;
+  }>();
   const { colorScheme } = useColorScheme();
 
   const propertyId = params.propertyId;
   const propertyTitle = params.propertyTitle;
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(
-    promotionPlans[0].id,
+    promotionPlans[0].id
   );
-  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentPaymentReference, setCurrentPaymentReference] = useState<
     string | null
   >(null);
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
 
   const selectedPlan = useMemo(() => {
@@ -97,36 +100,36 @@ const PromoteScreenEnhanced: React.FC = () => {
   // --- Handlers for API calls (unchanged) ---
   const handleInitiatePayment = async () => {
     if (!selectedPlan) {
-      Alert.alert('Error', 'Please select a promotion plan.');
+      Alert.alert("Error", "Please select a promotion plan.");
       return;
     }
     if (!propertyId) {
-      Alert.alert('Error', 'Property ID is missing.');
+      Alert.alert("Error", "Property ID is missing.");
       return;
     }
     const mobileRegex = /^0[79][567][0-9]{7}$/;
     if (!mobileMoneyNumber || !mobileRegex.test(mobileMoneyNumber)) {
       Alert.alert(
-        'Error',
-        'Please enter a valid Zambian Mobile Money number (e.g., 09... / 07...).',
+        "Error",
+        "Please enter a valid Zambian Mobile Money number (e.g., 09... / 07...)."
       );
       return;
     }
 
     setIsLoading(true);
     setShowOtpInput(false);
-    setOtp('');
+    setOtp("");
     setCurrentPaymentReference(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/promotions/initiate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyId: propertyId,
           planId: selectedPlan.id,
           mobileMoneyNumber: mobileMoneyNumber,
-          paymentMethod: 'momo',
+          paymentMethod: "momo",
         }),
       });
 
@@ -135,24 +138,21 @@ const PromoteScreenEnhanced: React.FC = () => {
       if (response.ok) {
         setCurrentPaymentReference(data.paymentReference);
 
-        if (data.status === 'otp-required' || data.requiresOtp) {
+        if (data.status === "otp-required" || data.requiresOtp) {
           setShowOtpInput(true);
           Alert.alert(
-            'OTP Required',
-            'Please enter the OTP sent to your phone to complete the payment.',
+            "OTP Required",
+            "Please enter the OTP sent to your phone to complete the payment."
           );
-        } else if (data.status === 'successful') {
+        } else if (data.status === "successful") {
           router.replace({
-            pathname: '/promoted/success',
+            pathname: "/promoted/success",
             params: {
               propertyId: propertyId,
               propertyTitle: propertyTitle,
             },
           });
-        } else if (
-          data.status === 'pay-offline' ||
-          data.status === 'pending'
-        ) {
+        } else if (data.status === "pay-offline" || data.status === "pending") {
           router.replace({
             pathname: `/promoted/[propertyId]/status`,
             params: {
@@ -164,16 +164,16 @@ const PromoteScreenEnhanced: React.FC = () => {
           });
         } else {
           Alert.alert(
-            'Payment Status',
-            data.message || `Payment status: ${data.status}`,
+            "Payment Status",
+            data.message || `Payment status: ${data.status}`
           );
         }
       } else {
         if (
           data.message &&
-          (data.message.includes('pay-offline') ||
-            data.message.includes('pending') ||
-            data.message.includes('otp-required')) &&
+          (data.message.includes("pay-offline") ||
+            data.message.includes("pending") ||
+            data.message.includes("otp-required")) &&
           data.existingPaymentReference
         ) {
           router.replace({
@@ -182,40 +182,40 @@ const PromoteScreenEnhanced: React.FC = () => {
               paymentReference: data.existingPaymentReference,
               propertyId: propertyId,
               propertyTitle: propertyTitle,
-              initialStatus: 'pay-offline',
+              initialStatus: "pay-offline",
             },
           });
         } else if (
           data.message &&
-          data.message.includes('already has an active promotion')
+          data.message.includes("already has an active promotion")
         ) {
           Alert.alert(
-            'Already Promoted',
-            'This property already has an active promotion. You can view it in your listings.',
+            "Already Promoted",
+            "This property already has an active promotion. You can view it in your listings.",
             [
               {
-                text: 'View Listings',
+                text: "View Listings",
                 onPress: () => {
                   router.push(`/properties`);
                 },
               },
               {
-                text: 'OK',
-                style: 'cancel',
+                text: "OK",
+                style: "cancel",
               },
-            ],
+            ]
           );
         } else {
           Alert.alert(
-            'Promotion Failed',
-            data.message || 'Failed to initiate promotion.',
+            "Promotion Failed",
+            data.message || "Failed to initiate promotion."
           );
         }
       }
     } catch (error: any) {
       Alert.alert(
-        'Network Error',
-        'Could not connect to the server. Please check your internet connection and try again.',
+        "Network Error",
+        "Could not connect to the server. Please check your internet connection and try again."
       );
     } finally {
       setIsLoading(false);
@@ -224,19 +224,19 @@ const PromoteScreenEnhanced: React.FC = () => {
 
   const handleOtpSubmit = async () => {
     if (!otp || otp.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit OTP.');
+      Alert.alert("Error", "Please enter a valid 6-digit OTP.");
       return;
     }
     if (!currentPaymentReference) {
-      Alert.alert('Error', 'Payment reference is missing. Please try again.');
+      Alert.alert("Error", "Payment reference is missing. Please try again.");
       return;
     }
 
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/promotions/submit-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reference: currentPaymentReference,
           otp: otp,
@@ -246,9 +246,9 @@ const PromoteScreenEnhanced: React.FC = () => {
 
       if (response.ok) {
         setShowOtpInput(false);
-        if (data.status === 'successful') {
+        if (data.status === "successful") {
           router.replace({
-            pathname: '/promoted/success',
+            pathname: "/promoted/success",
             params: {
               propertyId: propertyId,
               propertyTitle: propertyTitle,
@@ -267,14 +267,14 @@ const PromoteScreenEnhanced: React.FC = () => {
         }
       } else {
         Alert.alert(
-          'OTP Failed',
-          data.message || 'Invalid OTP. Please try again.',
+          "OTP Failed",
+          data.message || "Invalid OTP. Please try again."
         );
       }
     } catch (error: any) {
       Alert.alert(
-        'Network Error',
-        'Could not connect to the server. Please check your internet connection and try again.',
+        "Network Error",
+        "Could not connect to the server. Please check your internet connection and try again."
       );
     } finally {
       setIsLoading(false);
@@ -286,7 +286,10 @@ const PromoteScreenEnhanced: React.FC = () => {
     if (currentStep === 1 && selectedPlanId) {
       setCurrentStep(2);
     } else if (!selectedPlanId) {
-      Alert.alert('Selection Required', 'Please select a promotion plan first.');
+      Alert.alert(
+        "Selection Required",
+        "Please select a promotion plan first."
+      );
     }
   };
 
@@ -294,7 +297,7 @@ const PromoteScreenEnhanced: React.FC = () => {
     if (currentStep === 2) {
       setCurrentStep(1);
       setShowOtpInput(false);
-      setOtp('');
+      setOtp("");
     }
   };
 
@@ -315,9 +318,7 @@ const PromoteScreenEnhanced: React.FC = () => {
             <TouchableOpacity
               key={plan.id}
               className={`mb-4 rounded-2xl overflow-hidden border-2 ${
-                isSelected
-                  ? 'border-indigo-500'
-                  : 'border-transparent'
+                isSelected ? "border-indigo-500" : "border-transparent"
               }`}
               onPress={() => setSelectedPlanId(plan.id)}
               activeOpacity={0.8}
@@ -326,9 +327,9 @@ const PromoteScreenEnhanced: React.FC = () => {
                 colors={
                   isSelected
                     ? [colors.indigo[600], colors.indigo[500]]
-                    : colorScheme === 'dark'
-                      ? [colors.slate[800], colors.slate[700]]
-                      : [colors.gray[50], colors.gray[100]]
+                    : colorScheme === "dark"
+                    ? [colors.slate[800], colors.slate[700]]
+                    : [colors.gray[50], colors.gray[100]]
                 }
                 className="p-5"
                 start={{ x: 0, y: 0 }}
@@ -338,8 +339,8 @@ const PromoteScreenEnhanced: React.FC = () => {
                   <Text
                     className={`text-xl font-bold ${
                       isSelected
-                        ? 'text-white'
-                        : 'text-gray-800 dark:text-gray-100'
+                        ? "text-white"
+                        : "text-gray-800 dark:text-gray-100"
                     }`}
                   >
                     {plan.duration}
@@ -347,15 +348,15 @@ const PromoteScreenEnhanced: React.FC = () => {
                   <View
                     className={`px-3 py-1 rounded-full ${
                       isSelected
-                        ? 'bg-white/20'
-                        : 'bg-indigo-100 dark:bg-indigo-500/30'
+                        ? "bg-white/20"
+                        : "bg-indigo-100 dark:bg-indigo-500/30"
                     }`}
                   >
                     <Text
                       className={`text-xs font-semibold ${
                         isSelected
-                          ? 'text-white'
-                          : 'text-indigo-800 dark:text-indigo-300'
+                          ? "text-white"
+                          : "text-indigo-800 dark:text-indigo-300"
                       }`}
                     >
                       {plan.description}
@@ -364,9 +365,7 @@ const PromoteScreenEnhanced: React.FC = () => {
                 </View>
                 <Text
                   className={`text-3xl font-extrabold mb-4 ${
-                    isSelected
-                      ? 'text-white'
-                      : 'text-gray-900 dark:text-white'
+                    isSelected ? "text-white" : "text-gray-900 dark:text-white"
                   }`}
                 >
                   {plan.priceLabel}
@@ -383,8 +382,8 @@ const PromoteScreenEnhanced: React.FC = () => {
                       <Text
                         className={`text-sm ${
                           isSelected
-                            ? 'text-white'
-                            : 'text-gray-600 dark:text-gray-300'
+                            ? "text-white"
+                            : "text-gray-600 dark:text-gray-300"
                         }`}
                       >
                         {feature}
@@ -411,9 +410,9 @@ const PromoteScreenEnhanced: React.FC = () => {
 
   const renderStepTwo = () => (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="p-5"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
       <TouchableOpacity
         className="flex-row items-center mb-5 self-start py-1"
@@ -422,7 +421,9 @@ const PromoteScreenEnhanced: React.FC = () => {
         <Ionicons
           name="arrow-back"
           size={20}
-          color={colorScheme === 'dark' ? colors.indigo[400] : colors.indigo[600]}
+          color={
+            colorScheme === "dark" ? colors.indigo[400] : colors.indigo[600]
+          }
         />
         <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400 ml-1">
           Back to Plans
@@ -441,11 +442,7 @@ const PromoteScreenEnhanced: React.FC = () => {
             Mobile Money Number
           </Text>
           <View className="flex-row items-center bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl px-4 h-12">
-            <Ionicons
-              name="call-outline"
-              size={20}
-              color={colors.slate[500]}
-            />
+            <Ionicons name="call-outline" size={20} color={colors.slate[500]} />
             <TextInput
               placeholder="09XXXXXXXX / 07XXXXXXXX"
               placeholderTextColor={colors.slate[400]}
@@ -514,9 +511,7 @@ const PromoteScreenEnhanced: React.FC = () => {
       {!showOtpInput ? (
         <TouchableOpacity
           className={`rounded-xl py-4 flex-row items-center justify-center mb-4 active:bg-indigo-700 ${
-            isLoading
-              ? 'bg-indigo-400 dark:bg-indigo-500/50'
-              : 'bg-indigo-600'
+            isLoading ? "bg-indigo-400 dark:bg-indigo-500/50" : "bg-indigo-600"
           }`}
           onPress={handleInitiatePayment}
           disabled={isLoading}
@@ -540,9 +535,7 @@ const PromoteScreenEnhanced: React.FC = () => {
       ) : (
         <TouchableOpacity
           className={`rounded-xl py-4 flex-row items-center justify-center mb-4 active:bg-indigo-700 ${
-            isLoading
-              ? 'bg-indigo-400 dark:bg-indigo-500/50'
-              : 'bg-indigo-600'
+            isLoading ? "bg-indigo-400 dark:bg-indigo-500/50" : "bg-indigo-600"
           }`}
           onPress={handleOtpSubmit}
           disabled={isLoading}
@@ -573,17 +566,17 @@ const PromoteScreenEnhanced: React.FC = () => {
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900">
       <Stack.Screen
-        options={{ title: 'Promote Listing', headerShown: false }}
+        options={{ title: "Promote Listing", headerShown: false }}
       />
       <StatusBar
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
         backgroundColor={
-          colorScheme === 'dark' ? colors.slate[800] : colors.white
+          colorScheme === "dark" ? colors.slate[800] : colors.white
         }
       />
       <View
         className={`px-5 py-4 border-b bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 ${
-          Platform.OS === 'android' ? 'pt-12' : 'pt-4'
+          Platform.OS === "android" ? "pt-12" : "pt-4"
         }`}
       >
         <TouchableOpacity
@@ -594,14 +587,17 @@ const PromoteScreenEnhanced: React.FC = () => {
             name="close"
             size={24}
             color={
-              colorScheme === 'dark' ? colors.slate[200] : colors.slate[800]
+              colorScheme === "dark" ? colors.slate[200] : colors.slate[800]
             }
           />
         </TouchableOpacity>
         <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-1">
           Promote Your Listing
         </Text>
-        <Text className="text-sm text-gray-500 dark:text-gray-400" numberOfLines={1}>
+        <Text
+          className="text-sm text-gray-500 dark:text-gray-400"
+          numberOfLines={1}
+        >
           {propertyTitle || `Property #${propertyId}`}
         </Text>
       </View>
