@@ -1,12 +1,12 @@
 // src/hooks/useNotifications.ts
-import { useEffect, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-import { useNotificationsStore } from '@/store/notificationStore';
-import { useAuthStore } from '@/store/authStore';
-import { router } from 'expo-router';
+import { useEffect, useRef } from "react";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
+import { useNotificationsStore } from "@/store/notificationStore";
+import { useAuthStore } from "@/store/authStore";
+import { router } from "expo-router";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -19,7 +19,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-
 export const useNotifications = () => {
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
@@ -27,40 +26,56 @@ export const useNotifications = () => {
   const { session, user } = useAuthStore();
 
   useEffect(() => {
-    if (session) {
-      registerForPushNotificationsAsync().then(token => {
-        if (token) {
-          const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-          console.log('Registering device token for agent:', token);
-          registerDeviceToken(token, platform);
-        }
-      });
+    if (session && user) {
+      const userRole = user.user_metadata?.role || user.app_metadata?.role;
+      if (userRole === "user" || userRole === "agent") {
+        registerForPushNotificationsAsync().then((token) => {
+          if (token) {
+            const platform = Platform.OS === "ios" ? "ios" : "android";
+            console.log(`Registering device token for ${userRole}:`, token);
+            registerDeviceToken(token, platform);
+          }
+        });
 
-      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-        console.log('Notification received:', notification);
-        useNotificationsStore.getState().fetchNotifications(true);
-      });
+        notificationListener.current =
+          Notifications.addNotificationReceivedListener((notification) => {
+            console.log("Notification received:", notification);
+            useNotificationsStore.getState().fetchNotifications(true);
+          });
 
-      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log('Notification response:', response);
-        
-        const data = response.notification.request.content.data;
-        
-        if (data.type === 'promotion_expiring' && data.property_id) {
-          router.push(`/property/${data.property_id}`);
-        }
-      });
+        responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+  console.log('Notification response:', response);
+  
+  const data = response.notification.request.content.data;
+  
+  // Handle different notification types
+  if (data.type === 'promotion_expiring' && data.property_id) {
+    router.push(`/property/${data.property_id}`);
+  } else if (data.type === 'property_match' && data.property_id) {
+    router.push(`/property/${data.property_id}`);
+  } else if (data.type === 'subscription_reminder') {
+    router.push('/subscriptions/subscriptionScreen');
+  }
+  // Add more navigation cases as needed
+});;
+      }
 
       return () => {
         if (notificationListener.current) {
-          Notifications.removeNotificationSubscription(notificationListener.current);
+          Notifications.removeNotificationSubscription(
+            notificationListener.current
+          );
         }
         if (responseListener.current) {
-          Notifications.removeNotificationSubscription(responseListener.current);
+          Notifications.removeNotificationSubscription(
+            responseListener.current
+          );
         }
       };
     } else {
-      console.log('User is not an agent or not logged in, skipping push notification registration');
+      console.log(
+        "User is not an agent or not logged in, skipping push notification registration"
+      );
     }
   }, [session, user?.user_metadata?.role]);
 
@@ -72,41 +87,44 @@ export const useNotifications = () => {
 async function registerForPushNotificationsAsync() {
   let token;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
+      lightColor: "#FF231F7C",
     });
   }
 
   if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
+
+    if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
-    
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+
+    if (finalStatus !== "granted") {
+      console.log("Failed to get push token for push notification!");
       return;
     }
-    
+
     try {
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
       if (!projectId) {
-        throw new Error('Project ID not found');
+        throw new Error("Project ID not found");
       }
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      console.log('Expo push token:', token);
+      console.log("Expo push token:", token);
     } catch (e) {
-      console.error('Error getting push token:', e);
+      console.error("Error getting push token:", e);
     }
   } else {
-    console.log('Must use physical device for Push Notifications');
+    console.log("Must use physical device for Push Notifications");
   }
 
   return token;

@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "nativewind";
+import { GoogleSigninButton } from "@react-native-google-signin/google-signin";
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
@@ -36,9 +37,16 @@ export default function SignInScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    await signInWithGoogle();
-  };
+ const handleGoogleSignIn = async () => {
+  const success = await signInWithGoogle();
+  
+  if (success) {
+    setTimeout(() => {
+      const targetPath = (redirectTo as string) || "/";
+      router.replace(targetPath as any);
+    }, 20);
+  }
+}
 
   return (
     <ScrollView

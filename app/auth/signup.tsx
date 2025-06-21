@@ -55,10 +55,15 @@ export default function SignUpScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    await signInWithGoogle();
-  };
-
+const handleGoogleSignIn = async () => {
+  const success = await signInWithGoogle();
+  
+  if (success) {
+    setTimeout(() => {
+      const targetPath = (redirectTo as string) || "/";
+      router.replace(targetPath as any);
+    }, 20);
+  }};
   return (
     <ScrollView
       className="flex-1 bg-white dark:bg-slate-800"

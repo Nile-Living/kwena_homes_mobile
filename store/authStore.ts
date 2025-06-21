@@ -9,8 +9,14 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useNotificationsStore } from "@/store/notificationStore";
 import { useSubscriptionStore } from "@/store/subscriptionStore";
+import {GoogleSignin, statusCodes} from '@react-native-google-signin/google-signin'
 
 export type UserRole = "user" | "agent";
+
+GoogleSignin.configure({
+  webClientId: '1047689725205-65s2en5s3kpp7j6ndisoev1p3l8jvftm.apps.googleusercontent.com',
+  offlineAccess: true,
+});
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,7 +33,7 @@ interface AuthState {
     role: UserRole,
   ) => Promise<boolean>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<boolean>;
   signInWithFacebook: () => Promise<void>;
   checkAuth: () => Promise<void>;
   initAuthListener: () => () => void;
@@ -334,70 +340,121 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithGoogle: async () => {
-    const supabase = getSupabase();
-    try {
-      set({ loading: true, error: null });
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
+  // signInWithGoogle: async () => {
+  //   const supabase = getSupabase();
+  //   try {
+  //     set({ loading: true, error: null });
+  //     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+  //       provider: "google",
+  //       options: {
+  //         redirectTo: redirectUri,
+  //         skipBrowserRedirect: true,
+  //       },
+  //     });
+
+  //     if (oauthError) throw oauthError;
+
+  //     if (data.url) {
+  //       console.log("[authStore.ts] Opening auth session with URL:", data.url);
+  //       console.log("[authStore.ts] Expecting redirect back to:", redirectUri);
+  //       const result = await WebBrowser.openAuthSessionAsync(
+  //         data.url,
+  //         redirectUri,
+  //       );
+  //       console.log("[authStore.ts] WebBrowser.openAuthSessionAsync result:", JSON.stringify(result, null, 2));
+
+  //       if (result.type === 'success' && result.url) {
+  //         console.log("[authStore.ts] Auth session success, URL returned:", result.url);
+
+  //         const { queryParams } = Linking.parse(result.url);
+  //         const code = queryParams?.code;
+
+  //         if (typeof code === 'string' && code) {
+  //           console.log("[authStore.ts] Authorization code extracted:", code);
+
+  //           const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+  //           if (exchangeError) {
+  //             console.error("[authStore.ts] Error exchanging code for session:", exchangeError);
+  //             set({ error: exchangeError.message, loading: false });
+  //             return;
+  //           }
+
+  //           if (sessionData && sessionData.session && sessionData.user) {
+  //             console.log("[authStore.ts] Session successfully obtained after exchange:", JSON.stringify(sessionData.session, null, 2));
+  //             // The session will be handled by the auth state change listener
+  //           } else {
+  //             console.error("[authStore.ts] No session data returned from exchangeCodeForSession.");
+  //             set({ error: "Failed to obtain session after exchanging code.", loading: false });
+  //           }
+  //         } else {
+  //           console.error("[authStore.ts] Authorization code not found in callback URL.", result.url);
+  //           set({ error: "Authorization code missing in callback.", loading: false });
+  //         }
+  //       } else if (result.type !== 'success') {
+  //         set({ loading: false, error: `Google Sign-In failed or cancelled. Result type: ${result.type}` });
+  //         return;
+  //       }
+  //     } else {
+  //       throw new Error("Could not get Google OAuth URL from Supabase.");
+  //     }
+
+  //   } catch (error: any) {
+  //     console.error("[authStore.ts] signInWithGoogle error:", error);
+  //     set({ error: error.message || "Google Sign-In failed.", loading: false });
+  //   }
+  // },
+
+signInWithGoogle: async () => {
+  const supabase = getSupabase();
+
+  set({ loading: true, error: null });
+
+  try {
+    await GoogleSignin.hasPlayServices();
+
+    const userInfo = await GoogleSignin.signIn();
+
+    if (userInfo.data?.idToken) {
+      // Use the native ID token with Supabase
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: userInfo.data.idToken,
       });
 
-      if (oauthError) throw oauthError;
-
-      if (data.url) {
-        console.log("[authStore.ts] Opening auth session with URL:", data.url);
-        console.log("[authStore.ts] Expecting redirect back to:", redirectUri);
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUri,
-        );
-        console.log("[authStore.ts] WebBrowser.openAuthSessionAsync result:", JSON.stringify(result, null, 2));
-
-        if (result.type === 'success' && result.url) {
-          console.log("[authStore.ts] Auth session success, URL returned:", result.url);
-
-          const { queryParams } = Linking.parse(result.url);
-          const code = queryParams?.code;
-
-          if (typeof code === 'string' && code) {
-            console.log("[authStore.ts] Authorization code extracted:", code);
-
-            const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-
-            if (exchangeError) {
-              console.error("[authStore.ts] Error exchanging code for session:", exchangeError);
-              set({ error: exchangeError.message, loading: false });
-              return;
-            }
-
-            if (sessionData && sessionData.session && sessionData.user) {
-              console.log("[authStore.ts] Session successfully obtained after exchange:", JSON.stringify(sessionData.session, null, 2));
-              // The session will be handled by the auth state change listener
-            } else {
-              console.error("[authStore.ts] No session data returned from exchangeCodeForSession.");
-              set({ error: "Failed to obtain session after exchanging code.", loading: false });
-            }
-          } else {
-            console.error("[authStore.ts] Authorization code not found in callback URL.", result.url);
-            set({ error: "Authorization code missing in callback.", loading: false });
-          }
-        } else if (result.type !== 'success') {
-          set({ loading: false, error: `Google Sign-In failed or cancelled. Result type: ${result.type}` });
-          return;
-        }
-      } else {
-        throw new Error("Could not get Google OAuth URL from Supabase.");
+      if (error) {
+        throw error;
       }
 
-    } catch (error: any) {
-      console.error("[authStore.ts] signInWithGoogle error:", error);
-      set({ error: error.message || "Google Sign-In failed.", loading: false });
+      // The session will be handled by your auth state change listener
+      console.log('Google Sign-in successful:', data);
+
+      set({ loading: false });
+      return true;
+
+    } else {
+      throw new Error('No ID token received from Google Sign-in');
     }
-  },
+
+  } catch (error: any) {
+    console.error('Google Sign-in error:', error);
+
+    let errorMessage = 'Google Sign-in failed.';
+
+    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+      errorMessage = 'Google Sign-in was cancelled.';
+    } else if (error.code === statusCodes.IN_PROGRESS) {
+      errorMessage = 'Google Sign-in is already in progress.';
+    } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      errorMessage = 'Google Play Services not available or outdated.';
+    }
+
+    set({ error: errorMessage, loading: false });
+    return false;
+  } finally {
+    set({ loading: false });
+  }
+},
 
   signInWithFacebook: async () => {
     const supabase = getSupabase();

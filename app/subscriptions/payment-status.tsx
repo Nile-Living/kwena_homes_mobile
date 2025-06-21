@@ -29,68 +29,80 @@ export default function SubscriptionPaymentStatusScreen() {
   const maxPolls = status === 'pay-offline' ? 20 : 10;
   const pollInterval = status === 'pay-offline' ? 10000 : 3000;
 
-  useEffect(() => {
-    if (status === 'successful' || status === 'failed') {
+useEffect(() => {
+  if (status === 'successful' || status === 'failed') {
+    setIsPolling(false);
+    return;
+  }
+
+  const pollPaymentStatus = async () => {
+    if (pollCount >= maxPolls) {
       setIsPolling(false);
+      Alert.alert(
+        'Status Check Timeout',
+        "We couldn't confirm the payment status automatically. Please check your subscription status later or contact support if the issue persists.",
+        [{ text: 'OK', onPress: () => router.back() }],
+      );
       return;
     }
 
-    const pollPaymentStatus = async () => {
-      if (pollCount >= maxPolls) {
-        setIsPolling(false);
-        Alert.alert(
-          'Status Check Timeout',
-          "We couldn't confirm the payment status automatically. Please check your subscription status later or contact support if the issue persists.",
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/payments/verify/${params.paymentReference}`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${
-                useAuthStore.getState().session?.access_token
-              }`,
-            },
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/payments/verify/${params.paymentReference}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${useAuthStore.getState().session?.access_token}`,
           },
-        );
-        const data = await response.json();
+        },
+      );
+      const data = await response.json();
 
-        setPollCount((prev) => prev + 1);
-        setStatus(data.status);
+      setPollCount((prev) => prev + 1);
+      setStatus(data.status);
 
-        if (data.status === 'successful') {
-          setIsPolling(false);
-          await fetchActiveSubscription(); // Refresh subscription data
-          setTimeout(() => {
+      if (data.status === 'successful') {
+        setIsPolling(false);
+        
+        setTimeout(async () => {
+          try {
+            await fetchActiveSubscription();
+            const subscription = useSubscriptionStore.getState().subscription;
+            if (subscription && subscription.payment_reference === params.paymentReference) {
+              router.replace('/subscriptions/success');
+            } else {
+              setTimeout(async () => {
+                await fetchActiveSubscription();
+                router.replace('/subscriptions/success');
+              }, 2000);
+            }
+          } catch (error) {
+            console.error('Error refreshing subscription after successful payment:', error);
             router.replace('/subscriptions/success');
-          }, 1500);
-        } else if (data.status === 'failed') {
-          setIsPolling(false);
-          setTimeout(() => {
-            router.replace({
-              pathname: './failed',
-              params: {
-                reason: data.message || 'Payment has failed.',
-              },
-            });
-          }, 1500);
-        }
-      } catch (error) {
-        console.error('Error polling subscription payment status:', error);
-        setPollCount((prev) => prev + 1);
+          }
+        }, 1500);
+      } else if (data.status === 'failed') {
+        setIsPolling(false);
+        setTimeout(() => {
+          router.replace({
+            pathname: './failed',
+            params: {
+              reason: data.message || 'Payment has failed.',
+            },
+          });
+        }, 1500);
       }
-    };
-
-    if (isPolling) {
-      const intervalId = setInterval(pollPaymentStatus, pollInterval);
-      return () => clearInterval(intervalId);
+    } catch (error) {
+      console.error('Error polling subscription payment status:', error);
+      setPollCount((prev) => prev + 1);
     }
-  }, [isPolling, pollCount, status]);
+  };
+
+  if (isPolling) {
+    const intervalId = setInterval(pollPaymentStatus, pollInterval);
+    return () => clearInterval(intervalId);
+  }
+}, [isPolling, pollCount, status]);
 
   const getStatusDisplay = () => {
     switch (status) {

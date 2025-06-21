@@ -180,7 +180,11 @@ export default function RootLayout() {
             options={{ title: "Terms & Conditions" }}
           />
 
-          {/* Other screens will also inherit the theme */}
+          <Stack.Screen
+            name="settings/saveSearchScreen/SavedSearchScreen"
+            options={{ title: "Create a New Property Alert" }}
+          />
+
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen
             name="properties/index"
