@@ -14,10 +14,10 @@ export * from './BorderRadius';
 
 // Re-export commonly used values for convenience
 export { Colors, LightTheme, DarkTheme } from './Colors';
-export { Typography, FontFamilies, FontWeights } from './Typography';
-export { Spacing, ComponentSpacing, LayoutSpacing } from './Spacing';
+export { Typography, FontFamilies, FontWeights, PropertyTypography } from './Typography';
+export { Spacing, ComponentSpacing, LayoutSpacing, PropertySpacing } from './Spacing';
 export { Shadows, ComponentShadows, ColoredShadows } from './Shadows';
-export { BorderRadius, ComponentRadius } from './BorderRadius';
+export { BorderRadius, ComponentRadius, PropertyRadius } from './BorderRadius';
 
 /**
  * Design system theme interface
@@ -38,7 +38,7 @@ export const createTheme = (isDark: boolean = false): DesignSystemTheme => ({
   colors: isDark ? DarkTheme : LightTheme,
   typography: Typography,
   spacing: Spacing,
-  shadows: isDark ? DarkModeShadows : Shadows,
+  shadows: Shadows,
   borderRadius: BorderRadius,
   isDark,
 });
@@ -73,7 +73,9 @@ export const DesignSystemUtils = {
     const baseSpacing = Spacing[spacingKey];
     if (!screenWidth) return baseSpacing;
     
-    return SpacingUtils.responsive(baseSpacing, screenWidth);
+    // Simple responsive scaling - could be enhanced later
+    const scaleFactor = screenWidth > 400 ? 1.1 : screenWidth < 350 ? 0.9 : 1;
+    return Math.round(baseSpacing * scaleFactor);
   },
 
   /**
@@ -83,7 +85,7 @@ export const DesignSystemUtils = {
     shadowKey: keyof typeof Shadows,
     theme: DesignSystemTheme
   ) => {
-    return ShadowUtils.getThemeShadow(shadowKey, theme.isDark);
+    return Shadows[shadowKey];
   },
 
   /**
@@ -183,7 +185,7 @@ export const PropertyStyles = {
     backgroundColor: theme.colors.surface,
     borderRadius: PropertyRadius.propertyCard.container,
     padding: PropertySpacing.propertyCard.contentPadding,
-    marginBottom: PropertySpacing.propertyCard.contentGap,
+    marginBottom: Spacing.md,
     ...DesignSystemUtils.getShadow('sm', theme),
   }),
 
