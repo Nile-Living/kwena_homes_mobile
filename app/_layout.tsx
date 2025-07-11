@@ -206,6 +206,18 @@ export default function RootLayout() {
             name="payments/promote"
             options={{ title: "Promote Listing" }}
           />
+          <Stack.Screen
+            name="subscriptions/index"
+            options={{ title: "Subscriptions" }}
+          />
+          <Stack.Screen
+            name="analytics/index"
+            options={{ title: "Analytics" }}
+          />
+          <Stack.Screen
+            name="saved-searches/index"
+            options={{ title: "Saved Searches" }}
+          />
           <Stack.Screen name="+not-found" />
 
           {/*

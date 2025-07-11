@@ -19,6 +19,8 @@ import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
 import PropertyCardSkeleton from "@/components/PropertyCardSkeleton";
 import FilterModal from "@/components/FilterModal";
+import { EnhancedSearchHeader } from "@/components/EnhancedSearchHeader";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import FeaturedProperties from "@/components/FeaturedProperties";
 import { Colors } from "@/constants/Colors";
 import { useAuthStore } from "@/store/authStore";
@@ -43,6 +45,7 @@ type SortOption =
 export default function HomeScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList<Property>>(null);
+  const { trackSearch } = useAnalytics();
 
   const [refreshing, setRefreshing] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>("created_at.desc");
@@ -246,6 +249,21 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchFeaturedProperties();
     const debounceTimer = setTimeout(() => {
+      // Track search performed
+      if (searchQuery || selectedType !== 'all' || bedrooms > 0 || bathrooms > 0) {
+        trackSearch({
+          searchQuery,
+          selectedType,
+          bedrooms,
+          bathrooms,
+          garages,
+          parkings,
+          sortOption,
+          minPrice,
+          maxPrice,
+        });
+      }
+      
       setPage(1);
       setHasMore(true);
       fetchPaginatedProperties(1);
@@ -466,17 +484,24 @@ export default function HomeScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1, marginTop: 10 }}>
       <View style={{ flex: 1 }}>
-        <View style={styles.headerContainer}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={useStore((s) => s.setSearchQuery)}
-            placeholder="Search properties..."
-          />
-          <FilterModal
-            onApply={handleApplyFilters}
-            onClear={handleClearFilters}
-          />
-        </View>
+        <EnhancedSearchHeader
+          searchQuery={searchQuery}
+          onSearchChange={useStore((s) => s.setSearchQuery)}
+          onApplyFilters={handleApplyFilters}
+          onClearFilters={handleClearFilters}
+          currentFilters={{
+            selectedType,
+            selectedBedrooms: bedrooms.toString(),
+            selectedBathrooms: bathrooms.toString(),
+            selectedGarages: garages.toString(),
+            selectedParkings: parkings.toString(),
+            selectedFeatures,
+            selectedAmenities,
+            selectedLegalStatus,
+            selectedCommercialSubType,
+            priceRange: { min: minPrice, max: maxPrice },
+          }}
+        />
 
         <View style={styles.pickerContainer}>
           <Picker

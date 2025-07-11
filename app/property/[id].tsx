@@ -26,6 +26,7 @@ import { Property, useStore } from "@/store/useStore";
 import { API_BASE_URL } from "@/constants/Config";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { useAuthStore } from "@/store/authStore";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import {
   useAppColors,
   createStyles as createPropertyDetailsStyles,
@@ -57,6 +58,7 @@ export default function PropertyDetails() {
   const router = useRouter();
   const { toggleSavedProperty, savedProperties, getPropertyById } = useStore();
   const { user } = useAuthStore();
+  const { trackPropertyView, trackPropertySave, trackPropertyContact, trackPropertyShare } = useAnalytics();
 
   const COLORS = useAppColors();
   const propertyDetailsStyles = React.useMemo(
@@ -135,6 +137,13 @@ export default function PropertyDetails() {
       const storeProperty = getPropertyById(id);
       if (storeProperty) {
         setPropertyData(storeProperty);
+        // Track property view
+        trackPropertyView(id, {
+          category: storeProperty.category,
+          property_type: storeProperty.property_type,
+          price: storeProperty.price,
+          source: 'store_cache',
+        });
         setLoading(false);
       } else {
         try {
@@ -148,6 +157,13 @@ export default function PropertyDetails() {
           }
           const data: Property = await response.json();
           setPropertyData(data);
+          // Track property view
+          trackPropertyView(id, {
+            category: data.category,
+            property_type: data.property_type,
+            price: data.price,
+            source: 'api_fetch',
+          });
         } catch (err: any) {
           setError(err.message || "Could not load property details.");
         } finally {
@@ -186,6 +202,14 @@ export default function PropertyDetails() {
       return;
     }
     if (propertyData) {
+      const isCurrentlySaved = savedProperties.includes(propertyData.id);
+      // Track property save/unsave
+      trackPropertySave(propertyData.id, {
+        action: isCurrentlySaved ? 'unsave' : 'save',
+        category: propertyData.category,
+        property_type: propertyData.property_type,
+        price: propertyData.price,
+      });
       toggleSavedProperty(propertyData.id);
     }
   };
@@ -202,6 +226,11 @@ export default function PropertyDetails() {
 
   const handleCallAgent = () => {
     if (phoneNumberForCall) {
+      // Track contact event
+      trackPropertyContact(id!, {
+        contactMethod: 'phone',
+        agentPhone: phoneNumberForCall,
+      });
       Linking.openURL(`tel:${phoneNumberForCall}`);
     } else {
       Alert.alert(
@@ -226,6 +255,11 @@ export default function PropertyDetails() {
 
   const handleWhatsAppAgent = () => {
     if (numberForWhatsApp) {
+      // Track contact event
+      trackPropertyContact(id!, {
+        contactMethod: 'whatsapp',
+        agentWhatsApp: numberForWhatsApp,
+      });
       const cleanedNumber = numberForWhatsApp.replace(/\D/g, "");
       const titleToUse = propertyData?.title || "this property";
       Linking.openURL(
@@ -280,6 +314,14 @@ export default function PropertyDetails() {
     if (!propertyData) {
       return;
     }
+    
+    // Track share event
+    trackPropertyShare(id!, {
+      shareMethod: 'native_share',
+      propertyTitle: propertyData.title,
+      price: propertyData.price,
+    });
+    
     const propertyUrl = `https://www.kwenaproperties.com/property/${propertyData.id}`;
     const message = `Check out this property: ${propertyData.title}\n\nLocation: ${propertyData.location}\nPrice: K${propertyData.price.toLocaleString()}\n\nView more details here: ${propertyUrl}`;
     try {

@@ -274,10 +274,10 @@ export default function ProfileScreen() {
       );
       router.push({
         pathname: '/auth/signin',
-        params: { redirectTo: '/subscription' },
+        params: { redirectTo: '/subscriptions' },
       });
     } else {
-      router.push('/subscriptions/subscriptionScreen');
+      router.push('/subscriptions');
     }
   };
 
@@ -289,7 +289,7 @@ export default function ProfileScreen() {
         params: { redirectTo: '/saved-searches' },
       });
     } else {
-      router.push('/settings/saveSearchScreen/SavedSearchScreen');
+      router.push('/saved-searches');
     }
   };
 
@@ -436,6 +436,65 @@ export default function ProfileScreen() {
                 color={iconColors.chevron}
               />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                const isAgent = profile?.role === 'agent';
+                if (isAgent) {
+                  router.push('/analytics');
+                } else {
+                  Alert.alert(
+                    'Premium Feature',
+                    'Analytics dashboard requires a premium subscription for users.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'View Plans', 
+                        onPress: () => router.push('/subscriptions/index')
+                      }
+                    ]
+                  );
+                }
+              }}
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
+            >
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="bar-chart-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+                  Property Analytics
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={20}
+                color={iconColors.chevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleNavigateToSubscription}
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
+            >
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="star-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+                  Agent Subscription
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={20}
+                color={iconColors.chevron}
+              />
+            </TouchableOpacity>
           </>
         )}
 
@@ -516,6 +575,39 @@ export default function ProfileScreen() {
                 />
                 <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
                   Saved Searches
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={20}
+                color={iconColors.chevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Premium Feature',
+                  'Activity analytics requires a premium subscription.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'View Plans', 
+                      onPress: () => router.push('/subscriptions/index')
+                    }
+                  ]
+                );
+              }}
+              className="flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3"
+            >
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="analytics-outline"
+                  size={22}
+                  color={iconColors.listItem}
+                />
+                <Text className="ml-4 text-base text-gray-700 dark:text-gray-200">
+                  My Activity Analytics
                 </Text>
               </View>
               <Ionicons

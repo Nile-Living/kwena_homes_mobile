@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { Property } from "@/store/useStore";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface PropertyCardProps {
   property: Property;
@@ -62,6 +63,33 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { trackPropertyView, trackPropertySave } = useAnalytics();
+
+  const handlePress = () => {
+    // Track property view
+    trackPropertyView(property.id, {
+      category: property.category,
+      property_type: property.property_type,
+      price: property.price,
+    });
+    
+    if (onPress) {
+      onPress();
+    }
+  };
+
+  const handleLike = () => {
+    // Track property save/unsave
+    trackPropertySave(property.id, {
+      action: isLiked ? 'unsave' : 'save',
+      category: property.category,
+      property_type: property.property_type,
+    });
+    
+    if (onLike) {
+      onLike();
+    }
+  };
 
   let feature1Icon: React.ComponentProps<typeof Ionicons>["name"] | null = null;
   let feature1Value: string | number | null = null;
@@ -155,7 +183,7 @@ export default function PropertyCard({
   return (
     <TouchableOpacity
       className={`rounded-lg mb-4 shadow-md overflow-hidden border-2 ${cardBorderColor} ${cardBgColor}`}
-      onPress={onPress}
+      onPress={handlePress}
       delayPressIn={150}
       activeOpacity={0.8}
     >
@@ -191,7 +219,7 @@ export default function PropertyCard({
                 ? "top-12 right-3"
                 : "top-3 right-3"
           } ${isDark ? "bg-slate-700/80" : "bg-white/80"}`}
-          onPress={onLike}
+          onPress={handleLike}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons

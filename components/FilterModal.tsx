@@ -25,7 +25,9 @@ import {
   bedBathGarageOptions,
   featureOptions,
   getAllAmenities,
-} from "@/constants/propertyTypes"; // Assuming this path is correct
+} from "@/constants/propertyTypes";
+import { PremiumFeatureGuard } from "./subscription/PremiumFeatureGuard";
+import { useSubscriptionStore } from "@/store/subscriptionStore";
 
 // --- Interfaces and Constants ---
 export interface AppliedFilters {
@@ -78,6 +80,7 @@ export default function FilterModal({
 }: FilterModalProps) {
   const colorScheme = useColorScheme();
   const [modalVisible, setModalVisible] = useState(false);
+  const { features } = useSubscriptionStore();
 
   const [selectedType, setSelectedType] = useState<PropertyCategory | "all">(
     initialFilters?.selectedType || "all",
@@ -407,37 +410,48 @@ export default function FilterModal({
                   </View>
                 )}
 
-                {(selectedType === "all" ||
+{(selectedType === "all" ||
                   currentCategoryDetails?.hasLandDetails) && (
-                  <View className="mb-5">
-                    <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
-                      Legal Status
-                    </Text>
-                    <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                      <Picker
-                        selectedValue={selectedLegalStatus}
-                        onValueChange={setSelectedLegalStatus}
-                        style={[
-                          styles.picker,
-                          {
-                            color: colorScheme === "dark" ? "white" : "black",
-                          },
-                        ]}
-                        itemStyle={styles.pickerItem}
-                        dropdownIconColor={
-                          colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
-                        }
-                      >
-                        {legalStatusOptions.map((status) => (
-                          <Picker.Item
-                            key={status}
-                            label={status}
-                            value={status}
-                          />
-                        ))}
-                      </Picker>
+                  <PremiumFeatureGuard
+                    feature="advanced_filters"
+                    fallback={
+                      <View className="mb-5 p-4 border border-amber-300 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                        <Text className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                          Legal Status filter requires Premium subscription
+                        </Text>
+                      </View>
+                    }
+                  >
+                    <View className="mb-5">
+                      <Text className="text-base font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Legal Status
+                      </Text>
+                      <View className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                        <Picker
+                          selectedValue={selectedLegalStatus}
+                          onValueChange={setSelectedLegalStatus}
+                          style={[
+                            styles.picker,
+                            {
+                              color: colorScheme === "dark" ? "white" : "black",
+                            },
+                          ]}
+                          itemStyle={styles.pickerItem}
+                          dropdownIconColor={
+                            colorScheme === "dark" ? "#9CA3AF" : "#6B7280"
+                          }
+                        >
+                          {legalStatusOptions.map((status) => (
+                            <Picker.Item
+                              key={status}
+                              label={status}
+                              value={status}
+                            />
+                          ))}
+                        </Picker>
+                      </View>
                     </View>
-                  </View>
+                  </PremiumFeatureGuard>
                 )}
 
                 {(selectedType === "all" ||
@@ -498,58 +512,74 @@ export default function FilterModal({
                   </View>
                 )}
 
-                <View className="mb-6">
-                  <Text className="text-base font-medium mb-3 text-gray-700 dark:text-gray-300">
-                    Amenities
-                  </Text>
-                  <View className="flex-row flex-wrap -m-1">
-                    {amenitiesForFilter.map((item) => (
-                      <TouchableOpacity
-                        key={item}
-                        className="flex-row items-center m-1 p-2 border rounded-full"
-                        style={{
-                          borderColor: selectedAmenities.includes(item)
-                            ? "#3B82F6"
-                            : colorScheme === "dark"
-                              ? "#4B5563"
-                              : "#D1D5DB",
-                          backgroundColor: selectedAmenities.includes(item)
-                            ? colorScheme === "dark"
-                              ? "rgba(59, 130, 246, 0.3)"
-                              : "#DBEAFE"
-                            : "transparent",
-                        }}
-                        onPress={() => toggleAmenity(item)}
-                      >
-                        <Ionicons
-                          name={
-                            selectedAmenities.includes(item)
-                              ? "checkmark-circle"
-                              : "ellipse-outline"
-                          }
-                          size={18}
-                          color={
-                            selectedAmenities.includes(item)
-                              ? "#2563EB"
-                              : colorScheme === "dark"
-                                ? "#9CA3AF"
-                                : "#6B7280"
-                          }
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text
-                          className={`text-sm ${
-                            selectedAmenities.includes(item)
-                              ? "text-blue-700 dark:text-blue-300 font-medium"
-                              : "text-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {item}
+                <PremiumFeatureGuard
+                  feature="advanced_filters"
+                  fallback={
+                    <View className="mb-6">
+                      <Text className="text-base font-medium mb-3 text-gray-700 dark:text-gray-300">
+                        Amenities
+                      </Text>
+                      <View className="p-4 border border-amber-300 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                        <Text className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                          Advanced amenity filtering requires Premium subscription
                         </Text>
-                      </TouchableOpacity>
-                    ))}
+                      </View>
+                    </View>
+                  }
+                >
+                  <View className="mb-6">
+                    <Text className="text-base font-medium mb-3 text-gray-700 dark:text-gray-300">
+                      Amenities
+                    </Text>
+                    <View className="flex-row flex-wrap -m-1">
+                      {amenitiesForFilter.map((item) => (
+                        <TouchableOpacity
+                          key={item}
+                          className="flex-row items-center m-1 p-2 border rounded-full"
+                          style={{
+                            borderColor: selectedAmenities.includes(item)
+                              ? "#3B82F6"
+                              : colorScheme === "dark"
+                                ? "#4B5563"
+                                : "#D1D5DB",
+                            backgroundColor: selectedAmenities.includes(item)
+                              ? colorScheme === "dark"
+                                ? "rgba(59, 130, 246, 0.3)"
+                                : "#DBEAFE"
+                              : "transparent",
+                          }}
+                          onPress={() => toggleAmenity(item)}
+                        >
+                          <Ionicons
+                            name={
+                              selectedAmenities.includes(item)
+                                ? "checkmark-circle"
+                                : "ellipse-outline"
+                            }
+                            size={18}
+                            color={
+                              selectedAmenities.includes(item)
+                                ? "#2563EB"
+                                : colorScheme === "dark"
+                                  ? "#9CA3AF"
+                                  : "#6B7280"
+                            }
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text
+                            className={`text-sm ${
+                              selectedAmenities.includes(item)
+                                ? "text-blue-700 dark:text-blue-300 font-medium"
+                                : "text-gray-700 dark:text-gray-300"
+                            }`}
+                          >
+                            {item}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                </View>
+                </PremiumFeatureGuard>
               </View>
             </ScrollView>
 
