@@ -224,22 +224,28 @@ export default function PropertyDetails() {
     }
   };
 
-  const handleWhatsAppAgent = () => {
-    if (numberForWhatsApp) {
-      const cleanedNumber = numberForWhatsApp.replace(/\D/g, "");
-      const titleToUse = propertyData?.title || "this property";
-      Linking.openURL(
-        `https://wa.me/${cleanedNumber}?text=Hello, I'm interested in ${encodeURIComponent(
-          titleToUse,
-        )} listed on Kwena Properties.`,
-      );
-    } else {
-      Alert.alert(
-        "Not Available",
-        "WhatsApp messaging is not configured for this property.",
-      );
+const handleWhatsAppAgent = () => {
+  if (numberForWhatsApp) {
+    let cleanedNumber = numberForWhatsApp.replace(/\D/g, "");
+
+    if (!cleanedNumber.startsWith("260")) {
+      cleanedNumber = `260${cleanedNumber}`;
     }
-  };
+
+    const titleToUse = propertyData?.title || "this property";
+    const url = `https://wa.me/${cleanedNumber}?text=${encodeURIComponent(
+      `Hello, I'm interested in ${titleToUse} listed on Kwena Properties.`,
+    )}`;
+
+    Linking.openURL(url);
+  } else {
+    Alert.alert(
+      "Not Available",
+      "WhatsApp messaging is not configured for this property.",
+    );
+  }
+};
+
 
   const handleCarouselScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;

@@ -60,6 +60,7 @@ export default function ViewAllPromotedScreen() {
   if (!actualPromotedProperties || actualPromotedProperties.length === 0) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-gray-50 dark:bg-slate-900">
+        <Stack.Screen options={{ title: 'Promoted Properties' }} />
         <Text className="text-gray-600 dark:text-slate-300">
           No promoted properties found.
         </Text>

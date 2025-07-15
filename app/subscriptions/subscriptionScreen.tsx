@@ -54,6 +54,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const paymentRequest = usePaymentRequestDeduplication();
   const subscriptionUpdate = useSubscriptionOptimisticUpdate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+
   const router = useRouter();
   const { colorScheme } = useColorScheme();
 
@@ -263,7 +265,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </View>
           </View>
           <Text className="text-3xl font-extrabold text-white mb-4">
-            K129.00
+            K39.00
           </Text>
           <View className="mt-2">
             <View className="flex-row items-center mb-2">
@@ -335,7 +337,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         ) : (
           <>
             <Text className="text-base font-semibold text-white mr-2">
-              Pay K129.00
+              Pay K39.00
             </Text>
             <Ionicons name="shield-checkmark" size={20} color={colors.white} />
           </>
@@ -774,7 +776,7 @@ export default function SubscriptionScreen() {
 
                 <View className="bg-white/10 backdrop-blur-sm p-4 rounded-xl mb-6">
                   <Text className="text-white font-bold text-4xl text-center mb-2">
-                    K129.00
+                    K39.00
                   </Text>
                   <Text className="text-blue-100 text-center font-medium">
                     per month
@@ -838,7 +840,7 @@ export default function SubscriptionScreen() {
                 className="bg-blue-600 active:bg-blue-700 p-4 rounded-xl flex-row items-center justify-center"
               >
                 <Text className="text-white font-bold text-lg mr-2">
-                  Subscribe Now - K129/month
+                  Subscribe Now - K39/month
                 </Text>
                 <Ionicons name="arrow-forward" size={20} color={colors.white} />
               </TouchableOpacity>
@@ -859,3 +861,4 @@ export default function SubscriptionScreen() {
     </SafeAreaView>
   );
 }
+

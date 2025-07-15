@@ -78,7 +78,7 @@ export default function ContactUsScreen() {
             subtitle="For general inquiries & support"
             onPress={() =>
               handlePress(
-                "mailto:support@ngawaventures.com",
+                "mailto:ngawaventures@gmail.com",
                 "Could not open email app.",
               )
             }
@@ -88,7 +88,7 @@ export default function ContactUsScreen() {
             title="Call Us"
             subtitle="For urgent matters (Mon-Fri, 9-5)"
             onPress={() =>
-              handlePress("tel:+260977123456", "Could not open phone app.")
+              handlePress("tel:+260763502355", "Could not open phone app.")
             }
           />
           <ContactOption
@@ -97,7 +97,7 @@ export default function ContactUsScreen() {
             subtitle="For quick questions & assistance"
             onPress={() =>
               handlePress(
-                "https://wa.me/260966123456",
+                "https://wa.me/260763502355",
                 "Could not open WhatsApp.",
               )
             }
