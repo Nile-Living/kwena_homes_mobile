@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import { useRouter, Stack } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "tailwindcss/colors";
+import { usePaymentRequestDeduplication } from "@/hooks/useRequestDeduplication";
+import { useSubscriptionOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 
 interface PaymentModalProps {
   visible: boolean;
@@ -38,7 +40,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<
     | "idle"
@@ -48,6 +49,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     | "completed"
     | "failed"
   >("idle");
+
+  // Use race condition prevention hooks
+  const paymentRequest = usePaymentRequestDeduplication();
+  const subscriptionUpdate = useSubscriptionOptimisticUpdate();
   const [currentStep, setCurrentStep] = useState(1);
   const router = useRouter();
   const { colorScheme } = useColorScheme();
@@ -58,7 +63,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   }, [visible]);
 
-  const handleInitiateLencoPayment = async () => {
+  const handleInitiateLencoPayment = useCallback(async () => {
     if (!phone.trim()) {
       Alert.alert("Error", "Please enter your phone number");
       return;
@@ -69,70 +74,86 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
-    setLoading(true);
+    // Prevent duplicate payment requests
+    if (paymentRequest.isLoading) {
+      Alert.alert("Please wait", "Payment is already being processed...");
+      return;
+    }
+
     setPaymentStatus("initiated");
 
     try {
-      const token = useAuthStore.getState().session?.access_token;
-      const response = await fetch(`${API_BASE_URL}/payments/initiate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const result = await paymentRequest.executeRequest(
+        async () => {
+          const token = useAuthStore.getState().session?.access_token;
+          const response = await fetch(`${API_BASE_URL}/payments/initiate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              amount: 1,
+              phone: phone,
+              method: "momo",
+              operator: "mtn",
+              description: "Monthly Subscription",
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || "Payment initiation failed");
+          }
+
+          return await response.json();
         },
-        body: JSON.stringify({
-          amount: 1,
-          phone: phone,
-          method: "momo",
-          operator: "mtn",
-          description: "Monthly Subscription",
-        }),
-      });
+        {
+          params: { phone, amount: 1, method: "momo", operator: "mtn" },
+        }
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Payment initiation failed");
-      }
+      setPaymentReference(result.reference);
 
-      const data = await response.json();
-      setPaymentReference(data.reference);
-
-      if (data.status === "otp-required" || data.requiresOtp) {
+      if (result.status === "otp-required" || result.requiresOtp) {
         setPaymentStatus("otp-required");
         setCurrentStep(2);
-      } else if (data.status === "successful") {
+      } else if (result.status === "successful") {
         setPaymentStatus("completed");
         Alert.alert(
           "Success",
           "Payment successful! Your subscription is now active."
         );
-        onPaymentSuccess(data.reference);
+        onPaymentSuccess(result.reference);
         resetModal();
         onClose();
-      } else if (data.status === "pay-offline" || data.status === "pending") {
+      } else if (result.status === "pay-offline" || result.status === "pending") {
         resetModal();
         onClose();
         router.replace({
           pathname: "/subscriptions/payment-status",
           params: {
-            paymentReference: data.reference,
-            initialStatus: data.status,
+            paymentReference: result.reference,
+            initialStatus: result.status,
           },
         });
       } else {
         setPaymentStatus("failed");
         Alert.alert(
           "Payment Status",
-          data.message || `Payment status: ${data.status}`
+          result.message || `Payment status: ${result.status}`
         );
       }
     } catch (error: any) {
+      // Skip error handling for deduplicated requests
+      if (error.message === 'Request skipped due to deduplication') {
+        return;
+      }
+      
       setPaymentStatus("failed");
       Alert.alert("Error", error.message || "Payment initiation failed");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [phone, paymentRequest, onPaymentSuccess, onClose, router]);
 
   const handleLencoOtpSubmit = async () => {
     if (!otp.trim() || otp.length !== 6) {
@@ -292,7 +313,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               onChangeText={setPhone}
               className="flex-1 text-base ml-3 text-gray-900 dark:text-white"
               maxLength={10}
-              editable={!loading}
+              editable={!paymentRequest.isLoading}
             />
           </View>
           <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -303,13 +324,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       <TouchableOpacity
         className={`rounded-xl py-4 flex-row items-center justify-center mb-4 active:bg-blue-700 ${
-          loading ? "bg-blue-400 dark:bg-blue-500/50" : "bg-blue-600"
+          paymentRequest.isLoading ? "bg-blue-400 dark:bg-blue-500/50" : "bg-blue-600"
         }`}
         onPress={handleInitiateLencoPayment}
-        disabled={loading}
+        disabled={paymentRequest.isLoading}
         activeOpacity={0.8}
       >
-        {loading ? (
+        {paymentRequest.isLoading ? (
           <ActivityIndicator color={colors.white} size="small" />
         ) : (
           <>

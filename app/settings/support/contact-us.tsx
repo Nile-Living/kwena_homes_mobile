@@ -23,7 +23,7 @@ const ContactOption = ({
 }) => (
   <TouchableOpacity
     onPress={onPress}
-    className="bg-white dark:bg-slate-800 p-5 rounded-lg flex-row items-center space-x-4 shadow-sm"
+    className="bg-white dark:bg-slate-800 p-5 rounded-lg flex flex-row items-center gap-4 shadow-sm"
     activeOpacity={0.7}
   >
     <View className="bg-customgreen/10 dark:bg-customgreen/20 p-3 rounded-full">
@@ -108,11 +108,11 @@ export default function ContactUsScreen() {
           <Text className="text-base text-gray-600 dark:text-slate-400 mb-4">
             Find us on Social Media
           </Text>
-          <View className="flex-row space-x-6">
+          <View className="flex flex-row gap-6">
             <TouchableOpacity
               onPress={() =>
                 handlePress(
-                  "https://facebook.com",
+                  "https://www.facebook.com/61575835906272",
                   "Could not open Facebook.",
                 )
               }
@@ -122,11 +122,11 @@ export default function ContactUsScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() =>
-                handlePress("https://twitter.com", "Could not open Twitter.")
+                handlePress("https://www.tiktok.com/@kwena_properties", "Could not open TikTok.")
               }
               className="bg-white dark:bg-slate-800 p-4 rounded-full shadow-sm"
             >
-              <Ionicons name="logo-twitter" size={28} color="#1DA1F2" />
+              <Ionicons name="logo-tiktok" size={28} color="#000000" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() =>
